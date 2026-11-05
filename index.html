@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Sappy Stationary POS</title>
+    <meta name="description" content="Touch-optimized POS system for Sappy Stationary with inventory tracking, credit sales debt ledger, daily profit and loss reports, A4 PDF invoices, and Supabase Free Tier sync." />
+    <meta property="og:title" content="Sappy Stationary POS" />
+    <meta property="og:description" content="Touch-optimized POS system for Sappy Stationary with inventory tracking, credit sales debt ledger, daily profit and loss reports, A4 PDF invoices, and Supabase Free Tier sync." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      @page {
+        size: A4 portrait;
+        margin: 12mm 15mm;
+      }
+      @media print {
+        body {
+          background: #ffffff !important;
+          color: #000000 !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .print-only {
+          display: block !important;
+        }
+        .printable-invoice-container {
+          box-shadow: none !important;
+          border: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-charcoal-950 text-charcoal-100 antialiased selection:bg-forest-700 selection:text-white font-sans min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
