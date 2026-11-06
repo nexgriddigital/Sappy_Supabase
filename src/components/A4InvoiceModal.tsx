@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Printer, Download, X, CheckCircle, Clock } from 'lucide-react';
 import { Sale, StoreConfig } from '../types/pos.ts';
+import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
 interface A4InvoiceModalProps {
   sale: Sale | null;
@@ -80,7 +81,7 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <img
-                  src="/icon.jpg"
+                  src={sappySquareIcon}
                   alt="Sappy"
                   className="w-12 h-12 rounded-xl object-cover border border-amber-600/50 shadow-sm"
                 />

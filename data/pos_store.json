@@ -1,0 +1,51 @@
+{
+  "products": [],
+  "customers": [],
+  "sales": [],
+  "expenses": [],
+  "creditPayments": [],
+  "config": {
+    "storeName": "Sappy Stationary",
+    "tagline": "Quality Paper, Pens, Art & Office Essentials",
+    "address": "Shop 14, Central Market Plaza, Commercial Avenue",
+    "phone": "+251 91 123 4567",
+    "email": "accounts@sappystationary.com",
+    "taxId": "TIN-00982412",
+    "currencySymbol": "Br ",
+    "currencyCode": "ETB",
+    "defaultTaxRate": 15,
+    "receiptFooter": "Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com",
+    "bankDetails": "Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567"
+  },
+  "users": [
+    {
+      "id": "usr-owner-1",
+      "email": "owner@sappystationery.et",
+      "fullName": "Abebe Hailu",
+      "role": "owner",
+      "storeName": "Sappy Stationery",
+      "phone": "+251 91 123 4567",
+      "createdAt": "2026-01-01T08:00:00Z"
+    },
+    {
+      "id": "usr-cashier-1",
+      "email": "cashier@sappystationery.et",
+      "fullName": "Bethelhem Tadesse",
+      "role": "cashier",
+      "storeName": "Sappy Stationery",
+      "phone": "+251 92 345 6789",
+      "createdAt": "2026-01-15T09:00:00Z"
+    },
+    {
+      "id": "usr-manager-1",
+      "email": "manager@sappystationery.et",
+      "fullName": "Dawit Kebede",
+      "role": "manager",
+      "storeName": "Sappy Stationery",
+      "phone": "+251 93 456 7890",
+      "createdAt": "2026-02-01T10:00:00Z"
+    }
+  ],
+  "lastSyncedAt": "2026-11-06T10:17:05.919Z",
+  "version": 63
+}

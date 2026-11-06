@@ -1,5 +1,6 @@
 import React from 'react';
-import { SappyLogo } from './SappyLogo.tsx';
+import sappyBrandWordmark from '../assets/images/sappy_brand_logo_1793958913812.jpg';
+import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
 interface LoadingScreenProps {
   message?: string;
@@ -20,7 +21,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
         <div className="relative mb-6">
           <div className="w-20 h-20 rounded-2xl bg-charcoal-900 border border-amber-500/40 p-1 flex items-center justify-center shadow-2xl shadow-amber-950/40 relative">
             <img
-              src="/icon.jpg"
+              src={sappySquareIcon}
               alt="Sappy"
               className="w-full h-full object-cover rounded-xl"
             />
@@ -32,7 +33,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
         {/* Wordmark */}
         <div className="mb-4">
           <img
-            src="/logo.jpg"
+            src={sappyBrandWordmark}
             alt="SAPPY"
             className="h-9 w-auto max-w-[180px] object-contain mx-auto"
           />
@@ -61,7 +62,7 @@ export const PaymentProcessingLoader: React.FC<{ message?: string }> = ({
         <div className="absolute inset-0 rounded-full border-4 border-forest-500 border-t-transparent animate-spin" />
         <div className="absolute inset-2 rounded-full bg-charcoal-900 flex items-center justify-center">
           <img
-            src="/icon.jpg"
+            src={sappySquareIcon}
             alt="Sappy"
             className="w-8 h-8 rounded-lg object-cover"
           />

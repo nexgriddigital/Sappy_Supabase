@@ -125,10 +125,10 @@ class CrossDeviceSyncService {
         throw new Error(result.error || 'Unknown sync response');
       }
     } catch (err: any) {
-      console.warn('Cross-device sync note:', err?.message || err);
+      // Graceful fallback for static hosting (e.g. GitHub Pages) where Express backend is not hosted
       this.updateState({
-        status: 'error',
-        message: 'Sync warning: running local fallback',
+        status: 'offline',
+        message: 'Local offline storage active',
       });
       return false;
     } finally {

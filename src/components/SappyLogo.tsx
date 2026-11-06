@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import sappyBrandWordmark from '../assets/images/sappy_brand_logo_1793958913812.jpg';
+import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
 interface SappyLogoProps {
   variant?: 'wordmark' | 'icon' | 'badge';
@@ -28,7 +30,7 @@ export const SappyLogo: React.FC<SappyLogoProps> = ({
       <div className={`relative inline-flex items-center justify-center rounded-xl overflow-hidden shadow-md border border-amber-600/40 bg-charcoal-950 shrink-0 ${heightClasses[size]} ${className}`}>
         {!imgError ? (
           <img
-            src="/icon.jpg"
+            src={sappySquareIcon}
             alt="Sappy Icon"
             onError={() => setImgError(true)}
             className="w-full h-full object-cover"
@@ -47,7 +49,7 @@ export const SappyLogo: React.FC<SappyLogoProps> = ({
       <div className={`relative overflow-hidden rounded-lg flex items-center justify-center shrink-0 ${heightClasses[size]}`}>
         {!imgError ? (
           <img
-            src="/logo.jpg"
+            src={sappyBrandWordmark}
             alt="SAPPY"
             onError={() => setImgError(true)}
             className="h-full w-auto max-w-[140px] sm:max-w-[170px] object-contain rounded-md"
@@ -79,7 +81,7 @@ export const SappyBrandIcon: React.FC<{ className?: string; size?: number }> = (
 }) => {
   return (
     <img
-      src="/icon.jpg"
+      src={sappySquareIcon}
       alt="Sappy"
       className={`rounded-md object-cover inline-block border border-amber-600/30 ${className}`}
       onError={(e) => {

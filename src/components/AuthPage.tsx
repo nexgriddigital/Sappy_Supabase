@@ -22,6 +22,8 @@ import {
 import { AppUser, UserRole } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
 import { getSupabase } from '../lib/supabase.ts';
+import sappyBrandWordmark from '../assets/images/sappy_brand_logo_1793958913812.jpg';
+import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
 interface AuthPageProps {
   onAuthSuccess: (user: AppUser) => void;
@@ -246,9 +248,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           
           <div className="flex flex-col items-center justify-center mb-3">
             <div className="w-16 h-16 rounded-2xl overflow-hidden border border-amber-500/40 shadow-xl shadow-amber-950/60 mb-2.5">
-              <img src="/icon.jpg" alt="Sappy" className="w-full h-full object-cover" />
+              <img src={sappySquareIcon} alt="Sappy" className="w-full h-full object-cover" />
             </div>
-            <img src="/logo.jpg" alt="SAPPY" className="h-8 w-auto max-w-[160px] object-contain" />
+            <img src={sappyBrandWordmark} alt="SAPPY" className="h-8 w-auto max-w-[160px] object-contain" />
           </div>
 
           <p className="text-xs text-charcoal-400 mt-1">
