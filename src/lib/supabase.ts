@@ -1,12 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Default Supabase project credentials provided for Sappy Stationary
-const DEFAULT_SUPABASE_URL = 'https://fegfrjhxxpojmalytbku.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2';
-
-// Read from Vite environment variables or default project credentials
-const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const envAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
+// Read from Vite environment variables or localStorage
+const envUrl = ((import.meta as any).env?.VITE_SUPABASE_URL || '').trim();
+const envAnonKey = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '').trim();
 
 // Stored client singleton
 let activeClient: SupabaseClient | null = null;
@@ -14,19 +10,17 @@ let activeUrl = envUrl;
 let activeAnonKey = envAnonKey;
 
 // Try to initialize from localStorage credentials if not in env
-if (!activeUrl || !activeAnonKey) {
-  try {
-    const saved = localStorage.getItem('sappy_supabase_credentials_v1');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.url && parsed.anonKey) {
-        activeUrl = parsed.url;
-        activeAnonKey = parsed.anonKey;
-      }
+try {
+  const saved = typeof window !== 'undefined' ? localStorage.getItem('sappy_supabase_credentials_v1') : null;
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed.url && parsed.anonKey) {
+      activeUrl = parsed.url.trim();
+      activeAnonKey = parsed.anonKey.trim();
     }
-  } catch {
-    // Ignore storage errors
   }
+} catch {
+  // Ignore storage errors
 }
 
 // Create singleton if credentials exist
@@ -39,7 +33,7 @@ if (activeUrl && activeAnonKey) {
       },
     });
   } catch (err) {
-    console.error('Failed to initialize Supabase client:', err);
+    console.warn('Could not initialize Supabase client:', err);
   }
 }
 
@@ -53,7 +47,7 @@ export function getSupabase(): SupabaseClient | null {
 export const supabase = activeClient;
 
 /**
- * Checks whether Supabase credentials have been configured and loaded.
+ * Checks whether Supabase credentials have been configured.
  */
 export function isSupabaseConfigured(): boolean {
   return Boolean(activeUrl && activeAnonKey && activeClient);
@@ -118,5 +112,46 @@ export function resetSupabaseConfig(): void {
     localStorage.removeItem('sappy_supabase_credentials_v1');
   } catch {
     // Ignore storage errors
+  }
+}
+
+/**
+ * Tests connection to Supabase and checks if tables exist.
+ */
+export async function testSupabaseConnection(
+  testClient?: SupabaseClient | null
+): Promise<{ success: boolean; message: string; tableFound: boolean }> {
+  const client = testClient || activeClient;
+  if (!client) {
+    return { success: false, message: 'No Supabase client configured.', tableFound: false };
+  }
+
+  try {
+    const { error } = await client.from('products').select('id').limit(1);
+    if (error) {
+      if (error.code === '42P01' || error.message.includes('does not exist')) {
+        return {
+          success: true,
+          tableFound: false,
+          message: 'Connected to Supabase! Tables need to be created (use the SQL script).',
+        };
+      }
+      return {
+        success: false,
+        tableFound: false,
+        message: `Connection error: ${error.message} (${error.code || ''})`,
+      };
+    }
+    return {
+      success: true,
+      tableFound: true,
+      message: 'Successfully connected to Supabase and verified tables!',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      tableFound: false,
+      message: `Network error: ${err.message || 'Could not reach Supabase endpoint.'}`,
+    };
   }
 }

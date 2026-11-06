@@ -13,6 +13,7 @@ import {
   LogOut,
   LogIn,
   User,
+  Database,
 } from 'lucide-react';
 import { AppUser } from '../types/pos.ts';
 import { SappyLogo } from './SappyLogo.tsx';
@@ -42,6 +43,7 @@ interface NavbarProps {
   syncStatus?: 'synced' | 'syncing' | 'offline' | 'error';
   isSyncing?: boolean;
   onManualSync?: () => void;
+  onOpenCloudSync?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -56,6 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   syncStatus = 'synced',
   isSyncing = false,
   onManualSync,
+  onOpenCloudSync,
 }) => {
   const navItems: { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -66,6 +69,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'expenses', label: 'Expenses', icon: Wallet },
     { id: 'reports', label: 'General Reports', icon: BarChart3 },
     { id: 'qrstudio', label: 'QR & Barcode', icon: QrCode },
+    { id: 'sync', label: 'Cloud Sync', icon: Database },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -125,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <PulseSyncIndicator
               status={syncStatus}
               isSyncing={isSyncing}
-              onClick={onManualSync}
+              onClick={onOpenCloudSync || onManualSync}
             />
           </div>
 

@@ -87,19 +87,26 @@ export const PulseSyncIndicator: React.FC<{
       case 'syncing':
         return 'text-amber-400 bg-amber-950/80 border-amber-800/80';
       case 'synced':
-        return 'text-emerald-400 bg-emerald-950/80 border-emerald-800/80';
+        return 'text-emerald-400 bg-emerald-950/80 border-emerald-800/80 hover:bg-emerald-900/80';
       case 'offline':
-        return 'text-charcoal-400 bg-charcoal-900 border-charcoal-800';
+        return 'text-amber-300 bg-amber-950/70 border-amber-800/80 hover:bg-amber-900/80 hover:border-amber-600';
       case 'error':
-        return 'text-rose-400 bg-rose-950/80 border-rose-800/80';
+        return 'text-rose-400 bg-rose-950/80 border-rose-800/80 hover:bg-rose-900/80';
     }
   };
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-all cursor-pointer active:scale-95 ${getStatusColor()}`}
-      title={`Cross-Device Cloud Sync: ${status.toUpperCase()}. Click to sync now.`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-all cursor-pointer active:scale-95 shadow-2xs ${getStatusColor()}`}
+      title={
+        status === 'synced'
+          ? 'Cloud Synced. Click to manage cloud connection.'
+          : status === 'syncing'
+          ? 'Synchronizing with cloud...'
+          : 'Running in Local Mode. Click to connect Supabase or Cloud Server.'
+      }
     >
       <span className="relative flex h-2 w-2">
         {status === 'synced' && (
@@ -112,7 +119,7 @@ export const PulseSyncIndicator: React.FC<{
               : status === 'synced'
               ? 'bg-emerald-400'
               : status === 'offline'
-              ? 'bg-charcoal-500'
+              ? 'bg-amber-400'
               : 'bg-rose-400'
           }`}
         />
@@ -123,7 +130,7 @@ export const PulseSyncIndicator: React.FC<{
           : status === 'synced'
           ? 'Cloud Synced'
           : status === 'offline'
-          ? 'Offline'
+          ? 'Local (Connect)'
           : 'Sync Error'}
       </span>
     </button>

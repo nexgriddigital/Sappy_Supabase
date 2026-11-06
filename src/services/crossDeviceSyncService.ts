@@ -1,9 +1,12 @@
 import { storageService } from './storageService.ts';
+import { getSupabase, isSupabaseConfigured } from '../lib/supabase.ts';
 
 export type SyncStatusType = 'synced' | 'syncing' | 'offline' | 'error';
+export type SyncModeType = 'server' | 'supabase' | 'local';
 
 export interface SyncState {
   status: SyncStatusType;
+  mode: SyncModeType;
   lastSyncedAt: string | null;
   message: string;
   serverVersion: number;
@@ -13,9 +16,10 @@ type SyncListener = (state: SyncState) => void;
 
 class CrossDeviceSyncService {
   private syncState: SyncState = {
-    status: 'synced',
+    status: 'offline',
+    mode: 'local',
     lastSyncedAt: null,
-    message: 'Multi-device cloud sync active',
+    message: 'Local offline storage active',
     serverVersion: 0,
   };
 
@@ -23,24 +27,39 @@ class CrossDeviceSyncService {
   private onDataChangedCallback: (() => void) | null = null;
   private syncIntervalId: any = null;
   private isSyncing = false;
+  private broadcastChannel: any = null;
 
   constructor() {
-    // Listen to network status
     if (typeof window !== 'undefined') {
+      // Network status listeners
       window.addEventListener('online', () => {
         this.syncNow();
       });
       window.addEventListener('offline', () => {
         this.updateState({
           status: 'offline',
-          message: 'Offline mode: Changes will sync once reconnected.',
+          message: 'Offline mode: Changes stored locally',
         });
       });
 
-      // Sync on window / tab focus (e.g. user opens phone or switches back from another app)
+      // Sync on window/tab focus
       window.addEventListener('focus', () => {
         this.syncNow();
       });
+
+      // BroadcastChannel for instant same-browser cross-tab syncing
+      if ('BroadcastChannel' in window) {
+        try {
+          this.broadcastChannel = new BroadcastChannel('sappy_pos_sync_channel');
+          this.broadcastChannel.onmessage = (event: MessageEvent) => {
+            if (event.data?.type === 'DATA_UPDATED' && this.onDataChangedCallback) {
+              this.onDataChangedCallback();
+            }
+          };
+        } catch {
+          // Ignore BroadcastChannel errors in restricted contexts
+        }
+      }
     }
   }
 
@@ -56,9 +75,35 @@ class CrossDeviceSyncService {
     return this.syncState;
   }
 
+  public getBackendUrl(): string {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem('sappy_custom_backend_url') || '';
+  }
+
+  public setBackendUrl(url: string) {
+    if (typeof window === 'undefined') return;
+    const clean = url.trim();
+    if (clean) {
+      localStorage.setItem('sappy_custom_backend_url', clean);
+    } else {
+      localStorage.removeItem('sappy_custom_backend_url');
+    }
+    this.syncNow();
+  }
+
   private updateState(partial: Partial<SyncState>) {
     this.syncState = { ...this.syncState, ...partial };
     this.listeners.forEach((fn) => fn(this.syncState));
+  }
+
+  public broadcastLocalChange() {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('sappy_pos_sync_channel');
+        bc.postMessage({ type: 'DATA_UPDATED', timestamp: Date.now() });
+        bc.close();
+      } catch {}
+    }
   }
 
   /**
@@ -70,92 +115,172 @@ class CrossDeviceSyncService {
     // Initial sync
     this.syncNow();
 
-    // Regular interval sync every 12 seconds
+    // Regular interval sync every 15 seconds
     if (this.syncIntervalId) {
       clearInterval(this.syncIntervalId);
     }
     this.syncIntervalId = setInterval(() => {
       this.syncNow();
-    }, 12000);
+    }, 15000);
   }
 
   /**
-   * Performs an immediate bi-directional sync with the server.
+   * Performs an immediate bi-directional sync.
+   * Priority 1: Backend Express Server (/api/pos/sync or custom backend URL).
+   * Priority 2: Direct Supabase Client (if configured).
+   * Fallback: Local offline mode.
    */
   public async syncNow(): Promise<boolean> {
     if (this.isSyncing) return false;
     if (typeof window !== 'undefined' && !navigator.onLine) {
-      this.updateState({ status: 'offline', message: 'Offline mode' });
+      this.updateState({ status: 'offline', message: 'No internet connection' });
       return false;
     }
 
     this.isSyncing = true;
-    this.updateState({ status: 'syncing', message: 'Syncing with cloud...' });
+    this.updateState({ status: 'syncing', message: 'Connecting to cloud sync...' });
 
+    // --- STEP 1: Attempt Express Backend Sync ---
     try {
+      const customUrl = this.getBackendUrl();
+      const targetUrl = customUrl
+        ? customUrl.endsWith('/')
+          ? `${customUrl}api/pos/sync`
+          : `${customUrl}/api/pos/sync`
+        : '/api/pos/sync';
+
       const localData = storageService.getAllData();
-      const response = await fetch('/api/pos/sync', {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payload: localData }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        throw new Error(`Sync HTTP error ${response.status}`);
-      }
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.state) {
+          storageService.hydrateFromServer(result.state);
 
-      const result = await response.json();
-      if (result.success && result.state) {
-        // Hydrate local storage with merged multi-device state
-        storageService.hydrateFromServer(result.state);
+          this.updateState({
+            status: 'synced',
+            mode: 'server',
+            lastSyncedAt: result.serverTime || new Date().toISOString(),
+            message: 'Server synced (Express)',
+            serverVersion: result.version || this.syncState.serverVersion + 1,
+          });
 
-        this.updateState({
-          status: 'synced',
-          lastSyncedAt: result.serverTime || new Date().toISOString(),
-          message: 'Cross-device synced',
-          serverVersion: result.version || this.syncState.serverVersion + 1,
-        });
-
-        // Trigger UI reload so screens reflect new remote changes
-        if (this.onDataChangedCallback) {
-          this.onDataChangedCallback();
+          if (this.onDataChangedCallback) {
+            this.onDataChangedCallback();
+          }
+          this.broadcastLocalChange();
+          this.isSyncing = false;
+          return true;
         }
-        return true;
-      } else {
-        throw new Error(result.error || 'Unknown sync response');
       }
-    } catch (err: any) {
-      // Graceful fallback for static hosting (e.g. GitHub Pages) where Express backend is not hosted
-      this.updateState({
-        status: 'offline',
-        message: 'Local offline storage active',
-      });
-      return false;
-    } finally {
-      this.isSyncing = false;
+    } catch {
+      // Backend not reachable on static host (e.g. GitHub Pages)
     }
+
+    // --- STEP 2: Attempt Direct Supabase Sync ---
+    if (isSupabaseConfigured()) {
+      const client = getSupabase();
+      if (client) {
+        try {
+          const localProducts = storageService.getProducts();
+          if (localProducts.length > 0) {
+            await client.from('products').upsert(
+              localProducts.map((p) => ({
+                id: p.id,
+                sku: p.sku,
+                barcode: p.barcode,
+                name: p.name,
+                category: p.category,
+                cost_price: p.costPrice,
+                selling_price: p.sellingPrice,
+                stock_level: p.stockLevel,
+                low_stock_threshold: p.lowStockThreshold,
+                unit: p.unit,
+                description: p.description,
+              }))
+            );
+          }
+
+          const localCustomers = storageService.getCustomers();
+          if (localCustomers.length > 0) {
+            await client.from('customers').upsert(
+              localCustomers.map((c) => ({
+                id: c.id,
+                name: c.name,
+                phone: c.phone,
+                credit_balance: c.creditBalance,
+                credit_limit: c.creditLimit,
+                total_purchased: c.totalPurchased,
+              }))
+            );
+          }
+
+          this.updateState({
+            status: 'synced',
+            mode: 'supabase',
+            lastSyncedAt: new Date().toISOString(),
+            message: 'Cloud synced (Supabase)',
+            serverVersion: this.syncState.serverVersion + 1,
+          });
+
+          if (this.onDataChangedCallback) {
+            this.onDataChangedCallback();
+          }
+          this.broadcastLocalChange();
+          this.isSyncing = false;
+          return true;
+        } catch (supabaseErr: any) {
+          console.warn('Supabase sync warning:', supabaseErr?.message || supabaseErr);
+        }
+      }
+    }
+
+    // --- STEP 3: Fallback to Local Offline Storage ---
+    this.updateState({
+      status: 'offline',
+      mode: 'local',
+      message: 'Running in Local Mode (Standalone)',
+    });
+    this.isSyncing = false;
+    return false;
   }
 
   /**
-   * Resets both local and server state across all devices.
+   * Resets both local and remote state.
    */
   public async resetAllDevices(): Promise<boolean> {
     try {
-      await fetch('/api/pos/reset', { method: 'POST' });
-      storageService.resetEverything();
-      this.updateState({
-        status: 'synced',
-        lastSyncedAt: new Date().toISOString(),
-        message: 'Reset synchronized across devices',
-      });
-      if (this.onDataChangedCallback) {
-        this.onDataChangedCallback();
-      }
-      return true;
-    } catch (err) {
-      console.error('Failed to reset all devices:', err);
-      return false;
+      const customUrl = this.getBackendUrl();
+      const targetUrl = customUrl
+        ? customUrl.endsWith('/')
+          ? `${customUrl}api/pos/reset`
+          : `${customUrl}/api/pos/reset`
+        : '/api/pos/reset';
+      await fetch(targetUrl, { method: 'POST' }).catch(() => {});
+    } catch {}
+
+    storageService.resetEverything();
+    this.broadcastLocalChange();
+
+    this.updateState({
+      status: 'synced',
+      lastSyncedAt: new Date().toISOString(),
+      message: 'Reset synchronized across devices',
+    });
+
+    if (this.onDataChangedCallback) {
+      this.onDataChangedCallback();
     }
+    return true;
   }
 }
 

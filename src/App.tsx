@@ -12,6 +12,7 @@ import { SettingsTab } from './components/SettingsTab.tsx';
 import { SupabaseSyncTab } from './components/SupabaseSyncTab.tsx';
 import { A4InvoiceModal } from './components/A4InvoiceModal.tsx';
 import { AuthPage } from './components/AuthPage.tsx';
+import { CloudSyncModal } from './components/CloudSyncModal.tsx';
 import { storageService } from './services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
 import { LoadingScreen } from './components/LoadingAnimation.tsx';
@@ -30,6 +31,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => storageService.getCurrentUser());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState<boolean>(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -201,6 +203,7 @@ export default function App() {
         syncStatus={syncState.status}
         isSyncing={syncState.status === 'syncing'}
         onManualSync={() => crossDeviceSyncService.syncNow()}
+        onOpenCloudSync={() => setIsCloudSyncModalOpen(true)}
       />
 
       {/* Main Tab Content */}
@@ -322,6 +325,17 @@ export default function App() {
           onClose={() => setIsAuthModalOpen(false)}
           initialMode="login"
           isModal={true}
+        />
+      )}
+
+      {/* Cloud Sync Connection & Settings Modal */}
+      {isCloudSyncModalOpen && (
+        <CloudSyncModal
+          isOpen={isCloudSyncModalOpen}
+          onClose={() => setIsCloudSyncModalOpen(false)}
+          syncState={syncState}
+          onNavigateToSyncTab={() => setActiveTab('sync')}
+          onRefreshData={reloadData}
         />
       )}
 
