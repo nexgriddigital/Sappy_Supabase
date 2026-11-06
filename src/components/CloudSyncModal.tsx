@@ -11,8 +11,13 @@ import {
   ArrowRight,
   ShieldCheck,
   Zap,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  FileCode,
 } from 'lucide-react';
 import {
+  getSupabase,
   getSupabaseCredentials,
   configureSupabase,
   resetSupabaseConfig,
@@ -20,6 +25,92 @@ import {
   isSupabaseConfigured,
 } from '../lib/supabase.ts';
 import { crossDeviceSyncService, SyncState } from '../services/crossDeviceSyncService.ts';
+
+const SUPABASE_SCHEMA_SQL = `-- ============================================================================
+-- SAPPY STATIONARY POS - SUPABASE FREE TIER TABLES SCHEMA
+-- ============================================================================
+-- Paste into: Supabase Dashboard -> SQL Editor -> New Query -> Run
+
+CREATE TABLE IF NOT EXISTS public.products (
+    id TEXT PRIMARY KEY,
+    sku TEXT UNIQUE NOT NULL,
+    barcode TEXT,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    cost_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    selling_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    stock_level INT NOT NULL DEFAULT 0,
+    low_stock_threshold INT NOT NULL DEFAULT 5,
+    unit TEXT NOT NULL DEFAULT 'pcs',
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE IF NOT EXISTS public.customers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    company_name TEXT,
+    phone TEXT NOT NULL,
+    email TEXT,
+    address TEXT,
+    tax_number TEXT,
+    credit_balance NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    credit_limit NUMERIC(12, 2) NOT NULL DEFAULT 500.00,
+    total_purchased NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE IF NOT EXISTS public.sales (
+    id TEXT PRIMARY KEY,
+    invoice_number TEXT UNIQUE NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    customer_id TEXT,
+    customer_name TEXT NOT NULL,
+    customer_phone TEXT,
+    customer_email TEXT,
+    customer_address TEXT,
+    subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
+    tax_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    total_cost NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    gross_profit NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    payment_method TEXT NOT NULL DEFAULT 'cash',
+    amount_tendered NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    change_given NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    is_credit_paid BOOLEAN NOT NULL DEFAULT true,
+    credit_due_date DATE,
+    paid_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    notes TEXT,
+    items JSONB
+);
+
+CREATE TABLE IF NOT EXISTS public.credit_payments (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT,
+    customer_name TEXT,
+    sale_id TEXT,
+    amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    payment_method TEXT NOT NULL DEFAULT 'cash',
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    receipt_number TEXT UNIQUE NOT NULL,
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS public.expenses (
+    id TEXT PRIMARY KEY,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    category TEXT NOT NULL,
+    title TEXT NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    payment_method TEXT NOT NULL DEFAULT 'cash',
+    payee TEXT,
+    receipt_number TEXT,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);`;
 
 interface CloudSyncModalProps {
   isOpen: boolean;
@@ -43,9 +134,35 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
   const [activeSubTab, setActiveSubTab] = useState<'supabase' | 'backend'>('supabase');
   const [isTesting, setIsTesting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [missingTables, setMissingTables] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [showSqlPreview, setShowSqlPreview] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning';
+    text: string;
+  } | null>(null);
 
   if (!isOpen) return null;
+
+  const getProjectRef = (url: string) => {
+    try {
+      const parsed = new URL(url.trim());
+      return parsed.hostname.split('.')[0] || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const projectRef = getProjectRef(supabaseUrl);
+  const sqlEditorDirectUrl = projectRef
+    ? `https://supabase.com/dashboard/project/${projectRef}/sql/new`
+    : 'https://supabase.com/dashboard/project/_/sql/new';
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_SCHEMA_SQL);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+  };
 
   const handleSaveSupabase = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,20 +172,30 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     }
 
     setIsTesting(true);
-    setStatusMessage({ type: 'info', text: 'Validating Supabase connection...' });
+    setStatusMessage({ type: 'info', text: 'Connecting to your Supabase project...' });
 
     try {
       const { client } = configureSupabase(supabaseUrl, supabaseKey);
       const testResult = await testSupabaseConnection(client);
 
       if (testResult.success) {
-        setStatusMessage({
-          type: 'success',
-          text: testResult.message,
-        });
-        await crossDeviceSyncService.syncNow();
-        onRefreshData();
+        if (!testResult.tableFound) {
+          setMissingTables(true);
+          setStatusMessage({
+            type: 'warning',
+            text: 'Connected successfully to Supabase! Just one step left: run the SQL script below to create your tables.',
+          });
+        } else {
+          setMissingTables(false);
+          setStatusMessage({
+            type: 'success',
+            text: 'Connected & verified with Supabase! All tables found.',
+          });
+          await crossDeviceSyncService.syncNow();
+          onRefreshData();
+        }
       } else {
+        setMissingTables(false);
         setStatusMessage({
           type: 'error',
           text: testResult.message,
@@ -79,6 +206,35 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
         type: 'error',
         text: err.message || 'Failed to connect to Supabase.',
       });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleVerifyAfterSql = async () => {
+    setIsTesting(true);
+    setStatusMessage({ type: 'info', text: 'Verifying tables in Supabase...' });
+
+    try {
+      const client = getSupabase();
+      const testResult = await testSupabaseConnection(client);
+
+      if (testResult.success && testResult.tableFound) {
+        setMissingTables(false);
+        setStatusMessage({
+          type: 'success',
+          text: 'Tables successfully detected! Uploading local stationery data to Supabase...',
+        });
+        await crossDeviceSyncService.syncNow();
+        onRefreshData();
+      } else {
+        setStatusMessage({
+          type: 'warning',
+          text: 'Table public.products not found yet. Make sure you pasted the SQL and clicked "Run" in your Supabase SQL Editor.',
+        });
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.message || 'Could not verify tables.' });
     } finally {
       setIsTesting(false);
     }
@@ -123,6 +279,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     resetSupabaseConfig();
     setSupabaseUrl('');
     setSupabaseKey('');
+    setMissingTables(false);
     crossDeviceSyncService.setBackendUrl('');
     setBackendUrlState('');
     setStatusMessage({ type: 'info', text: 'Reset to local offline storage mode.' });
@@ -131,17 +288,17 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-      <div className="bg-charcoal-900 rounded-2xl shadow-2xl max-w-lg w-full border border-charcoal-800 overflow-hidden flex flex-col my-auto text-charcoal-100">
+      <div className="bg-charcoal-900 rounded-2xl shadow-2xl max-w-lg w-full border border-charcoal-800 overflow-hidden flex flex-col my-auto text-charcoal-100 max-h-[90vh]">
         
         {/* Header */}
-        <div className="bg-charcoal-950 px-6 py-4 flex items-center justify-between border-b border-charcoal-800">
+        <div className="bg-charcoal-950 px-6 py-4 flex items-center justify-between border-b border-charcoal-800 shrink-0">
           <div className="flex items-center gap-2.5">
             <span className="w-9 h-9 rounded-xl bg-forest-950 border border-forest-700/60 flex items-center justify-center text-forest-400">
               <Cloud className="w-5 h-5" />
             </span>
             <div>
               <h3 className="text-base font-bold text-white">Cross-Device Cloud Sync</h3>
-              <p className="text-xs text-charcoal-400">Connect cloud database for multi-device live sync</p>
+              <p className="text-xs text-charcoal-400">Connect Supabase to sync phones, tablets & laptops</p>
             </div>
           </div>
           <button
@@ -153,7 +310,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
         </div>
 
         {/* Current Connection Status Banner */}
-        <div className="px-6 pt-5 pb-3">
+        <div className="px-6 pt-4 pb-2 shrink-0">
           <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
             syncState.status === 'synced'
               ? 'bg-emerald-950/50 border-emerald-800 text-emerald-300'
@@ -172,7 +329,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
                     ? 'Connected directly to Supabase PostgreSQL'
                     : syncState.mode === 'server'
                     ? 'Connected to Node/Express sync backend'
-                    : 'GitHub Pages is static: data is currently saved in this browser.'}
+                    : 'GitHub Pages is static: data is saved locally until Supabase is connected.'}
                 </p>
               </div>
             </div>
@@ -190,7 +347,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
         </div>
 
         {/* Tab Selection */}
-        <div className="px-6 grid grid-cols-2 gap-2 border-b border-charcoal-800 pb-3">
+        <div className="px-6 grid grid-cols-2 gap-2 border-b border-charcoal-800 pb-3 shrink-0">
           <button
             type="button"
             onClick={() => setActiveSubTab('supabase')}
@@ -201,7 +358,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
             }`}
           >
             <Database className="w-3.5 h-3.5" />
-            <span>Supabase Free Tier (Recommended)</span>
+            <span>Supabase Free Tier</span>
           </button>
           <button
             type="button"
@@ -217,9 +374,91 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Body */}
-        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        {/* Modal Scrollable Body */}
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
           
+          {/* Missing Tables / PGRST205 Actionable Helper Card */}
+          {missingTables && (
+            <div className="p-4 rounded-xl bg-amber-950/60 border border-amber-600/70 text-amber-100 space-y-3 shadow-lg">
+              <div className="flex items-start gap-2.5">
+                <Database className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-xs text-amber-200 uppercase tracking-wider">
+                    Step 2: Create Supabase Tables (30 Seconds)
+                  </h4>
+                  <p className="text-xs text-charcoal-300 mt-1">
+                    Your Supabase credentials are valid! To store products and sales, run the SQL script below in your Supabase SQL Editor.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step checklist */}
+              <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 text-[11px] text-charcoal-300 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-forest-900 text-forest-300 flex items-center justify-center text-[10px] font-bold">1</span>
+                  <span>Click <strong>Copy SQL Script</strong> below</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-forest-900 text-forest-300 flex items-center justify-center text-[10px] font-bold">2</span>
+                  <span>Click <strong>Open Supabase SQL Editor</strong> and paste the script</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-forest-900 text-forest-300 flex items-center justify-center text-[10px] font-bold">3</span>
+                  <span>Click <strong>Run</strong> in Supabase, then click <strong>Verify & Sync Now</strong> below</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleCopySql}
+                  className="py-2 px-3.5 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedSql ? 'Copied to Clipboard!' : 'Copy SQL Script'}</span>
+                </button>
+
+                <a
+                  href={sqlEditorDirectUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2 px-3.5 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-100 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer border border-charcoal-700 transition-colors"
+                >
+                  <span>Open Supabase SQL Editor</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleVerifyAfterSql}
+                  disabled={isTesting}
+                  className="py-2 px-3.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+                  <span>Verify & Sync Now</span>
+                </button>
+              </div>
+
+              {/* Optional SQL Preview toggle */}
+              <button
+                type="button"
+                onClick={() => setShowSqlPreview(!showSqlPreview)}
+                className="text-[11px] text-amber-400 hover:underline flex items-center gap-1 pt-1 cursor-pointer"
+              >
+                <FileCode className="w-3 h-3" />
+                <span>{showSqlPreview ? 'Hide SQL Code' : 'View SQL Code Preview'}</span>
+                {showSqlPreview ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+
+              {showSqlPreview && (
+                <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 text-[10px] font-mono text-charcoal-300 max-h-36 overflow-y-auto whitespace-pre">
+                  {SUPABASE_SCHEMA_SQL}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeSubTab === 'supabase' && (
             <form onSubmit={handleSaveSupabase} className="space-y-3.5">
               <div>
@@ -240,7 +479,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
                 <input
                   type="url"
                   required
-                  placeholder="https://xyzcompany.supabase.co"
+                  placeholder="https://yourprojectref.supabase.co"
                   value={supabaseUrl}
                   onChange={(e) => setSupabaseUrl(e.target.value)}
                   className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 font-mono focus:border-forest-500 focus:outline-hidden"
@@ -249,7 +488,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
               <div>
                 <label className="block text-xs font-medium text-charcoal-300 mb-1">
-                  Supabase Public/Anon API Key
+                  Supabase Public / Anon API Key
                 </label>
                 <input
                   type="password"
@@ -290,7 +529,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
                   Custom Node/Express Server URL
                 </label>
                 <p className="text-[11px] text-charcoal-400 mb-2">
-                  If you deployed this repo to Render, Fly.io, or Railway, enter the full public URL:
+                  If you deployed the Express server to Render, Fly.io, or Railway, enter the full public URL:
                 </p>
                 <input
                   type="url"
@@ -313,18 +552,22 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           )}
 
           {/* Feedback status message */}
-          {statusMessage && (
+          {statusMessage && !missingTables && (
             <div className={`p-3 rounded-xl text-xs flex items-start gap-2 border ${
               statusMessage.type === 'success'
                 ? 'bg-emerald-950/60 border-emerald-800 text-emerald-300'
                 : statusMessage.type === 'error'
                 ? 'bg-rose-950/60 border-rose-800 text-rose-300'
+                : statusMessage.type === 'warning'
+                ? 'bg-amber-950/60 border-amber-800 text-amber-300'
                 : 'bg-charcoal-950 border-charcoal-800 text-charcoal-300'
             }`}>
               {statusMessage.type === 'success' ? (
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
               ) : statusMessage.type === 'error' ? (
                 <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+              ) : statusMessage.type === 'warning' ? (
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
               ) : (
                 <RefreshCw className="w-4 h-4 shrink-0 animate-spin text-amber-400 mt-0.5" />
               )}
@@ -353,7 +596,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-charcoal-950 border-t border-charcoal-800 flex items-center justify-end">
+        <div className="px-6 py-3 bg-charcoal-950 border-t border-charcoal-800 flex items-center justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}

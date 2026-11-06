@@ -167,9 +167,14 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
 
       if (error && error.code !== 'PGRST116') {
         // If table doesn't exist yet, it still connects to Supabase auth!
-        if (error.message.includes('relation "public.products" does not exist') || error.code === '42P01') {
+        if (
+          error.code === 'PGRST205' ||
+          error.code === '42P01' ||
+          error.message?.includes('schema cache') ||
+          error.message?.includes('does not exist')
+        ) {
           setTestStatus('success');
-          setTestMessage('Successfully connected to Supabase project! (Tables not yet created - run the SQL script below).');
+          setTestMessage('Successfully connected to Supabase project! (Tables not yet created - run the SQL script below in SQL Editor).');
           return;
         }
         throw error;

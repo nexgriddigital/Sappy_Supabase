@@ -129,11 +129,17 @@ export async function testSupabaseConnection(
   try {
     const { error } = await client.from('products').select('id').limit(1);
     if (error) {
-      if (error.code === '42P01' || error.message.includes('does not exist')) {
+      const isMissingTable =
+        error.code === 'PGRST205' ||
+        error.code === '42P01' ||
+        error.message?.includes('schema cache') ||
+        error.message?.includes('does not exist');
+
+      if (isMissingTable) {
         return {
           success: true,
           tableFound: false,
-          message: 'Connected to Supabase! Tables need to be created (use the SQL script).',
+          message: 'Connected to Supabase project! Database tables need to be created in your Supabase SQL Editor.',
         };
       }
       return {
