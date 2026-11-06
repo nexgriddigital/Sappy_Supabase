@@ -12,6 +12,11 @@ import {
   X,
   CreditCard,
   Smartphone,
+  ArrowDownRight,
+  ArrowUpRight,
+  Building2,
+  Calendar,
+  BadgeCheck,
 } from 'lucide-react';
 import { CreditPayment, Customer, Sale, StoreConfig } from '../types/pos.ts';
 
@@ -21,7 +26,10 @@ interface CreditDebtTabProps {
   creditPayments: CreditPayment[];
   config: StoreConfig;
   onSaveCustomer: (customer: Customer) => void;
-  onRecordPayment: (payment: Omit<CreditPayment, 'id' | 'timestamp' | 'receiptNumber'>) => void;
+  onRecordPayment: (
+    payment: Omit<CreditPayment, 'id' | 'timestamp' | 'receiptNumber'> & { timestamp?: string }
+  ) => void;
+  onAdjustCredit?: (customerId: string, amountDelta: number, reason: string) => void;
 }
 
 export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
@@ -31,6 +39,7 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
   config,
   onSaveCustomer,
   onRecordPayment,
+  onAdjustCredit,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'debtors' | 'settled'>('debtors');
@@ -39,7 +48,19 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
   const [isNewCustModalOpen, setIsNewCustModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
+  const [isManualCreditModalOpen, setIsManualCreditModalOpen] = useState(false);
   const [activeCustomer, setActiveCustomer] = useState<Customer | null>(null);
+
+  // Manual Credit Entry Form State
+  const [manualEntryMode, setManualEntryMode] = useState<'external_payment' | 'manual_debt'>('external_payment');
+  const [manualCustomerId, setManualCustomerId] = useState('');
+  const [manualAmount, setManualAmount] = useState('');
+  const [manualChannel, setManualChannel] = useState('Telebirr');
+  const [manualReference, setManualReference] = useState('');
+  const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 16));
+  const [manualCollector, setManualCollector] = useState('');
+  const [manualNotes, setManualNotes] = useState('');
+  const [manualFeedback, setManualFeedback] = useState<string | null>(null);
 
   // New Customer Form State
   const [custName, setCustName] = useState('');
@@ -150,6 +171,73 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
     setIsPaymentModalOpen(false);
   };
 
+  // Open Manual Credit Entry Modal
+  const handleOpenManualCredit = (
+    customer?: Customer,
+    mode: 'external_payment' | 'manual_debt' = 'external_payment'
+  ) => {
+    const targetCust = customer || customers.find((c) => c.creditBalance > 0) || customers[0];
+    setManualCustomerId(targetCust ? targetCust.id : '');
+    setManualEntryMode(mode);
+    if (mode === 'external_payment' && targetCust && targetCust.creditBalance > 0) {
+      setManualAmount(targetCust.creditBalance.toFixed(2));
+    } else {
+      setManualAmount('');
+    }
+    setManualChannel('Telebirr');
+    setManualReference('');
+    setManualDate(new Date().toISOString().slice(0, 16));
+    setManualCollector('');
+    setManualNotes('');
+    setManualFeedback(null);
+    setIsManualCreditModalOpen(true);
+  };
+
+  // Handle Submit Manual External Credit / Debt Adjustment
+  const handleSubmitManualCredit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const customer = customers.find((c) => c.id === manualCustomerId);
+    if (!customer) {
+      setManualFeedback('Please select a customer.');
+      return;
+    }
+    const numericAmount = parseFloat(manualAmount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      setManualFeedback('Please enter a valid positive amount.');
+      return;
+    }
+
+    if (manualEntryMode === 'external_payment') {
+      const channelDesc = manualChannel;
+      const refDesc = manualReference.trim() ? ` (Ref: ${manualReference.trim()})` : '';
+      const notes = manualNotes.trim() || `Externally paid debt via ${channelDesc}${refDesc}`;
+
+      onRecordPayment({
+        customerId: customer.id,
+        customerName: customer.name,
+        amount: numericAmount,
+        paymentMethod: 'digital',
+        isExternal: true,
+        externalChannel: manualChannel,
+        externalReference: manualReference.trim() || undefined,
+        collectedBy: manualCollector.trim() || undefined,
+        notes,
+        timestamp: manualDate ? new Date(manualDate).toISOString() : new Date().toISOString(),
+      });
+    } else {
+      // Manual offline credit debt addition / debit adjustment
+      if (onAdjustCredit) {
+        const refDesc = manualReference.trim() ? ` [Ref: ${manualReference.trim()}]` : '';
+        const reason = manualNotes.trim()
+          ? `${manualNotes.trim()}${refDesc}`
+          : `Manual offline credit debt recorded${refDesc}`;
+        onAdjustCredit(customer.id, numericAmount, reason);
+      }
+    }
+
+    setIsManualCreditModalOpen(false);
+  };
+
   // Statement Ledger Events for active customer
   const customerHistory = useMemo(() => {
     if (!activeCustomer) return [];
@@ -164,6 +252,10 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
         desc: `Credit purchase: ${s.items.length} stationery items`,
         amount: s.totalAmount,
         paymentMethod: s.paymentMethod,
+        isExternal: false,
+        externalChannel: undefined,
+        externalReference: undefined,
+        collectedBy: undefined,
       }));
 
     const custPayments = creditPayments
@@ -173,9 +265,13 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
         id: p.id,
         date: p.timestamp,
         ref: p.receiptNumber,
-        desc: `Debt settlement via ${p.paymentMethod.toUpperCase()}`,
+        desc: p.notes || `Debt settlement via ${p.paymentMethod.toUpperCase()}`,
         amount: p.amount,
         paymentMethod: p.paymentMethod,
+        isExternal: p.isExternal,
+        externalChannel: p.externalChannel,
+        externalReference: p.externalReference,
+        collectedBy: p.collectedBy,
       }));
 
     return [...custSales, ...custPayments].sort(
@@ -186,24 +282,34 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
   return (
     <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
       
-      {/* Header & Add Customer Button */}
+      {/* Header & Action Buttons */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-charcoal-900">
+          <h1 className="text-xl font-bold tracking-tight text-white">
             Customer Credit & Debt Ledger
           </h1>
-          <p className="text-xs text-charcoal-500 mt-0.5">
-            Manage customer credit accounts, track overdue balances, and record partial or full debt settlement payments.
+          <p className="text-xs text-charcoal-400 mt-0.5">
+            Manage customer credit accounts, track overdue balances, and record external payments (Telebirr, CBE Bank, Checks).
           </p>
         </div>
 
-        <button
-          onClick={() => setIsNewCustModalOpen(true)}
-          className="px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-2xs self-start md:self-auto active:scale-95 border border-forest-600/50"
-        >
-          <Plus className="w-4 h-4 text-forest-200" />
-          <span>Add Credit Customer</span>
-        </button>
+        <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
+          <button
+            onClick={() => handleOpenManualCredit()}
+            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-2xs active:scale-95 border border-emerald-500/50"
+          >
+            <Smartphone className="w-4 h-4 text-emerald-200" />
+            <span>Manual Credit Entry</span>
+          </button>
+
+          <button
+            onClick={() => setIsNewCustModalOpen(true)}
+            className="px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-2xs active:scale-95 border border-forest-600/50"
+          >
+            <Plus className="w-4 h-4 text-forest-200" />
+            <span>Add Credit Customer</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards Row */}
@@ -361,15 +467,35 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
                         {hasDebt && (
+                          <>
+                            <button
+                              onClick={() => handleOpenManualCredit(cust, 'external_payment')}
+                              className="px-2.5 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 hover:text-white border border-emerald-800/80 text-[11px] font-semibold rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer active:scale-95 shadow-2xs"
+                              title="Record external mobile/bank payment (Telebirr, CBE, check)"
+                            >
+                              <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>External Pay</span>
+                            </button>
+                            <button
+                              onClick={() => handleOpenPayment(cust)}
+                              className="px-2.5 py-1.5 bg-forest-800 hover:bg-forest-700 text-white text-[11px] font-semibold rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs border border-forest-700/50 active:scale-95"
+                              title="Record an in-store counter payment"
+                            >
+                              <DollarSign className="w-3.5 h-3.5 text-forest-300" />
+                              <span>Collect Debt</span>
+                            </button>
+                          </>
+                        )}
+                        {!hasDebt && (
                           <button
-                            onClick={() => handleOpenPayment(cust)}
-                            className="px-2.5 py-1.5 bg-forest-800 hover:bg-forest-700 text-white text-[11px] font-semibold rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs border border-forest-700/50 active:scale-95"
-                            title="Record a payment towards outstanding balance"
+                            onClick={() => handleOpenManualCredit(cust, 'manual_debt')}
+                            className="px-2.5 py-1.5 bg-charcoal-800/80 hover:bg-charcoal-700 text-charcoal-300 hover:text-white border border-charcoal-700/80 text-[11px] font-semibold rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Add offline credit purchase"
                           >
-                            <DollarSign className="w-3.5 h-3.5 text-forest-300" />
-                            <span>Collect Debt</span>
+                            <Plus className="w-3 h-3 text-charcoal-400" />
+                            <span>Add Debt</span>
                           </button>
                         )}
                         <button
@@ -589,20 +715,38 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
                     className="p-3 rounded-xl border border-charcoal-800 bg-charcoal-950/70 flex items-center justify-between text-xs hover:bg-charcoal-800/40"
                   >
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono border ${
                             isSale
                               ? 'bg-amber-950/80 text-amber-300 border-amber-800/80'
+                              : item.isExternal
+                              ? 'bg-emerald-950/90 text-emerald-300 border-emerald-800/80'
                               : 'bg-forest-950/80 text-forest-300 border-forest-800/80'
                           }`}
                         >
-                          {isSale ? 'Credit Sale' : 'Payment Received'}
+                          {isSale
+                            ? 'Credit Sale'
+                            : item.isExternal
+                            ? 'External Payment'
+                            : 'Payment Received'}
                         </span>
                         <span className="font-mono font-semibold text-white">{item.ref}</span>
+                        {item.isExternal && item.externalChannel && (
+                          <span className="text-[10px] bg-charcoal-800 text-emerald-300 px-2 py-0.5 rounded border border-charcoal-700 font-mono inline-flex items-center gap-1">
+                            <Smartphone className="w-2.5 h-2.5 text-emerald-400" />
+                            <span>{item.externalChannel}</span>
+                            {item.externalReference && <span>· #{item.externalReference}</span>}
+                          </span>
+                        )}
                       </div>
                       <p className="text-charcoal-300">{item.desc}</p>
-                      <p className="text-[10px] text-charcoal-400 font-mono">{formattedDate}</p>
+                      <div className="flex items-center gap-3 text-[10px] text-charcoal-400 font-mono">
+                        <span>{formattedDate}</span>
+                        {item.collectedBy && (
+                          <span>Recorded by: {item.collectedBy}</span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="text-right font-mono font-extrabold text-sm">
@@ -766,6 +910,333 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
                 className="px-5 py-2.5 bg-forest-700 hover:bg-forest-600 text-white font-bold rounded-xl cursor-pointer shadow-sm active:scale-95 border border-forest-600/50"
               >
                 Save Account
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* MANUAL CREDIT ENTRY MODAL (EXTERNAL PAYMENTS & OFFLINE CREDIT) */}
+      {isManualCreditModalOpen && (
+        <div className="fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSubmitManualCredit}
+            className="bg-charcoal-900 rounded-2xl shadow-2xl max-w-xl w-full border border-charcoal-800 overflow-hidden flex flex-col my-auto text-charcoal-100 max-h-[92vh]"
+          >
+            {/* Modal Header */}
+            <div className="bg-charcoal-950 text-white px-6 py-4 flex items-center justify-between border-b border-charcoal-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-700/60 flex items-center justify-center text-emerald-400">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Manual External Credit Entry</h3>
+                  <p className="text-xs text-charcoal-400">
+                    Record credit settlements paid via Telebirr, CBE Bank, or checks per customer
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsManualCreditModalOpen(false)}
+                className="text-charcoal-400 hover:text-white p-1 rounded-lg cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 overflow-y-auto text-xs">
+              
+              {/* Mode Toggle: External Settlement vs Manual Offline Debt */}
+              <div className="grid grid-cols-2 gap-2 bg-charcoal-950 p-1.5 rounded-xl border border-charcoal-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualEntryMode('external_payment');
+                    const c = customers.find((cust) => cust.id === manualCustomerId);
+                    if (c && c.creditBalance > 0) {
+                      setManualAmount(c.creditBalance.toFixed(2));
+                    }
+                  }}
+                  className={`py-2 px-3 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors ${
+                    manualEntryMode === 'external_payment'
+                      ? 'bg-emerald-800 text-white shadow-xs border border-emerald-600/60'
+                      : 'text-charcoal-400 hover:text-charcoal-200'
+                  }`}
+                >
+                  <ArrowDownRight className="w-4 h-4 text-emerald-300" />
+                  <span>External Paid Settlement</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManualEntryMode('manual_debt');
+                    setManualAmount('');
+                  }}
+                  className={`py-2 px-3 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors ${
+                    manualEntryMode === 'manual_debt'
+                      ? 'bg-amber-800 text-white shadow-xs border border-amber-600/60'
+                      : 'text-charcoal-400 hover:text-charcoal-200'
+                  }`}
+                >
+                  <ArrowUpRight className="w-4 h-4 text-amber-300" />
+                  <span>Add Offline Credit Debt</span>
+                </button>
+              </div>
+
+              {/* Customer Selector */}
+              <div>
+                <label className="block text-charcoal-300 font-semibold mb-1.5">
+                  Select Customer Account *
+                </label>
+                <select
+                  value={manualCustomerId}
+                  onChange={(e) => {
+                    setManualCustomerId(e.target.value);
+                    const c = customers.find((cust) => cust.id === e.target.value);
+                    if (c && manualEntryMode === 'external_payment' && c.creditBalance > 0) {
+                      setManualAmount(c.creditBalance.toFixed(2));
+                    }
+                  }}
+                  required
+                  className="w-full px-3 py-2.5 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white font-medium focus:border-forest-500 focus:ring-1 focus:ring-forest-500 cursor-pointer"
+                >
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id} className="bg-charcoal-900 text-white">
+                      {c.name} {c.companyName ? `(${c.companyName})` : ''} — Debt: {config.currencySymbol}{c.creditBalance.toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Active Customer Balance Insight Card */}
+              {(() => {
+                const selCust = customers.find((c) => c.id === manualCustomerId);
+                if (!selCust) return null;
+                return (
+                  <div className="p-3 bg-charcoal-950/80 rounded-xl border border-charcoal-800 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] text-charcoal-400">Current Outstanding Debt</p>
+                      <p className="text-base font-extrabold font-mono text-amber-400">
+                        {config.currencySymbol}{selCust.creditBalance.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] text-charcoal-400">Credit Limit</p>
+                      <p className="text-xs font-mono font-bold text-charcoal-200">
+                        {config.currencySymbol}{selCust.creditLimit.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Amount & Quick Settlement Button */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-charcoal-300 font-semibold">
+                    {manualEntryMode === 'external_payment' ? 'Payment Amount Received *' : 'Credit Amount to Add *'}
+                  </label>
+                  {manualEntryMode === 'external_payment' && (() => {
+                    const selCust = customers.find((c) => c.id === manualCustomerId);
+                    if (!selCust || selCust.creditBalance <= 0) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setManualAmount(selCust.creditBalance.toFixed(2))}
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer underline underline-offset-2"
+                      >
+                        Set to Full Balance ({config.currencySymbol}{selCust.creditBalance.toFixed(2)})
+                      </button>
+                    );
+                  })()}
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-xs font-mono font-bold text-charcoal-400">
+                    {config.currencySymbol.trim()}
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    placeholder="0.00"
+                    value={manualAmount}
+                    onChange={(e) => setManualAmount(e.target.value)}
+                    className="w-full pl-12 pr-4 py-2.5 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white font-mono font-bold text-sm focus:border-forest-500 focus:ring-1 focus:ring-forest-500"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Channel Selector (for external payments) */}
+              {manualEntryMode === 'external_payment' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-charcoal-300 font-semibold mb-1">
+                      External Payment Channel *
+                    </label>
+                    <select
+                      value={manualChannel}
+                      onChange={(e) => setManualChannel(e.target.value)}
+                      className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white focus:border-forest-500 cursor-pointer"
+                    >
+                      <option value="Telebirr">Telebirr (Ethio Telecom)</option>
+                      <option value="Commercial Bank of Ethiopia (CBE)">Commercial Bank of Ethiopia (CBE)</option>
+                      <option value="Awash Bank">Awash Bank</option>
+                      <option value="Dashen Bank / Amole">Dashen Bank / Amole</option>
+                      <option value="Bank Check / Draft">Bank Check / Pay Order</option>
+                      <option value="Direct Cash Handover">Direct Cash Handover (Field/Office)</option>
+                      <option value="Other Bank Transfer">Other Bank Transfer</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-charcoal-300 font-semibold mb-1">
+                      Transaction / Slip / Check Ref #
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. TXN-894721 or CBE-004812"
+                      value={manualReference}
+                      onChange={(e) => setManualReference(e.target.value)}
+                      className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white placeholder-charcoal-500 font-mono focus:border-forest-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Reference ID when in manual debt mode */}
+              {manualEntryMode === 'manual_debt' && (
+                <div>
+                  <label className="block text-charcoal-300 font-semibold mb-1">
+                    Invoice / Delivery Slip Reference #
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. MANUAL-INV-2041 or PO-771"
+                    value={manualReference}
+                    onChange={(e) => setManualReference(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white placeholder-charcoal-500 font-mono focus:border-forest-500"
+                  />
+                </div>
+              )}
+
+              {/* Date & Verified By Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-charcoal-300 font-semibold mb-1">
+                    Transaction Date & Time *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={manualDate}
+                    onChange={(e) => setManualDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white font-mono focus:border-forest-500 cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-charcoal-300 font-semibold mb-1">
+                    Verified / Collected By
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Cashier Abebe or Manager"
+                    value={manualCollector}
+                    onChange={(e) => setManualCollector(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white placeholder-charcoal-500 focus:border-forest-500"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-charcoal-300 font-semibold mb-1">
+                  Internal Notes / Narration
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Confirmed via Telebirr merchant portal notification"
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.target.value)}
+                  className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white placeholder-charcoal-500 focus:border-forest-500"
+                />
+              </div>
+
+              {/* Live Balance Impact Preview */}
+              {(() => {
+                const selCust = customers.find((c) => c.id === manualCustomerId);
+                if (!selCust) return null;
+                const amt = parseFloat(manualAmount) || 0;
+                const currentBal = selCust.creditBalance;
+                const newBal =
+                  manualEntryMode === 'external_payment'
+                    ? Math.max(0, currentBal - amt)
+                    : currentBal + amt;
+
+                return (
+                  <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 space-y-1.5 font-mono text-xs">
+                    <div className="flex justify-between text-charcoal-400">
+                      <span>Current Debt:</span>
+                      <span>{config.currencySymbol}{currentBal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-charcoal-300">
+                      <span>
+                        {manualEntryMode === 'external_payment' ? 'Settlement Payment:' : 'Added Offline Debt:'}
+                      </span>
+                      <span className={manualEntryMode === 'external_payment' ? 'text-emerald-400' : 'text-amber-400'}>
+                        {manualEntryMode === 'external_payment' ? '-' : '+'}{config.currencySymbol}{amt.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="pt-1.5 border-t border-charcoal-800 flex justify-between font-bold text-white">
+                      <span>Projected New Balance:</span>
+                      <span className={newBal === 0 ? 'text-emerald-400' : 'text-amber-400'}>
+                        {config.currencySymbol}{newBal.toFixed(2)}
+                      </span>
+                    </div>
+                    {manualEntryMode === 'external_payment' && newBal === 0 && amt > 0 && (
+                      <p className="text-[11px] text-emerald-400 font-sans font-semibold pt-0.5 flex items-center gap-1">
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        <span>This payment will completely clear this customer's debt.</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Error feedback */}
+              {manualFeedback && (
+                <div className="p-2.5 bg-rose-950/80 border border-rose-800 rounded-xl text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{manualFeedback}</span>
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-charcoal-950 border-t border-charcoal-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setIsManualCreditModalOpen(false)}
+                className="px-4 py-2 font-semibold text-charcoal-400 hover:text-white cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`px-5 py-2.5 font-bold rounded-xl cursor-pointer shadow-sm active:scale-95 transition-colors border ${
+                  manualEntryMode === 'external_payment'
+                    ? 'bg-emerald-700 hover:bg-emerald-600 text-white border-emerald-600/50'
+                    : 'bg-amber-700 hover:bg-amber-600 text-white border-amber-600/50'
+                }`}
+              >
+                {manualEntryMode === 'external_payment'
+                  ? 'Record External Payment'
+                  : 'Apply Manual Debt'}
               </button>
             </div>
           </form>

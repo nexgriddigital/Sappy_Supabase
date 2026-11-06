@@ -89,16 +89,29 @@ export interface Customer {
   notes?: string;
 }
 
+export type CreditPaymentMethod =
+  | 'cash'
+  | 'card'
+  | 'digital'
+  | 'telebirr'
+  | 'bank_transfer'
+  | 'check'
+  | 'other_external';
+
 export interface CreditPayment {
   id: string;
   customerId: string;
   customerName: string;
   saleId?: string;
   amount: number;
-  paymentMethod: 'cash' | 'card' | 'digital';
+  paymentMethod: CreditPaymentMethod | string;
   timestamp: string;
   receiptNumber: string;
   notes?: string;
+  isExternal?: boolean;
+  externalReference?: string; // Transaction ID, CBE slip, Telebirr code, or check number
+  externalChannel?: string;   // e.g. "Telebirr", "Commercial Bank of Ethiopia (CBE)", "Awash Bank", "Bank Check"
+  collectedBy?: string;       // Officer or cashier who recorded the payment
 }
 
 export type ExpenseCategory =
@@ -155,4 +168,17 @@ export interface DailyProfitLossReport {
   transactionCount: number;
   creditSalesTotal: number;
   creditCollectedTotal: number;
+}
+
+export type UserRole = 'owner' | 'manager' | 'cashier';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  storeName?: string;
+  phone?: string;
+  createdAt: string;
+  lastLoginAt?: string;
 }

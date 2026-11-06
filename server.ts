@@ -42,6 +42,211 @@ function getPool(customUrl?: string): pg.Pool | null {
   return dbPool;
 }
 
+// ============================================================================
+// Multi-Device Central Sync Store (Persistent JSON Storage)
+// ============================================================================
+const DATA_DIR = path.resolve(__dirname, 'data');
+const STORE_FILE = path.resolve(DATA_DIR, 'pos_store.json');
+
+interface PosState {
+  products: any[];
+  customers: any[];
+  sales: any[];
+  expenses: any[];
+  creditPayments: any[];
+  config: any;
+  users: any[];
+  lastSyncedAt: string;
+  version: number;
+}
+
+function loadServerState(): PosState {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(STORE_FILE)) {
+      const content = fs.readFileSync(STORE_FILE, 'utf-8');
+      return JSON.parse(content) as PosState;
+    }
+  } catch (err) {
+    console.error('Error loading server state:', err);
+  }
+
+  const defaultState: PosState = {
+    products: [],
+    customers: [],
+    sales: [],
+    expenses: [],
+    creditPayments: [],
+    config: null,
+    users: [],
+    lastSyncedAt: new Date().toISOString(),
+    version: 1,
+  };
+  saveServerState(defaultState);
+  return defaultState;
+}
+
+function saveServerState(state: PosState): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(STORE_FILE, JSON.stringify(state, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving server state:', err);
+  }
+}
+
+let serverState: PosState = loadServerState();
+
+// Multi-Device Sync: Fetch Canonical Server State
+app.get('/api/pos/state', (_req: Request, res: Response) => {
+  return res.json({
+    success: true,
+    state: serverState,
+    serverTime: new Date().toISOString(),
+    records: {
+      products: serverState.products.length,
+      customers: serverState.customers.length,
+      sales: serverState.sales.length,
+      expenses: serverState.expenses.length,
+      creditPayments: serverState.creditPayments.length,
+    },
+  });
+});
+
+// Multi-Device Sync: Bi-Directional Merge & Push
+app.post('/api/pos/sync', (req: Request, res: Response) => {
+  const { payload } = req.body;
+  if (!payload) {
+    return res.status(400).json({ success: false, error: 'Payload is required' });
+  }
+
+  try {
+    // 1. Merge Products (keep latest updates)
+    if (serverState.products.length === 0 && payload.products && payload.products.length > 0) {
+      serverState.products = payload.products;
+    } else if (payload.products && Array.isArray(payload.products)) {
+      const prodMap = new Map(serverState.products.map((p) => [p.id, p]));
+      for (const p of payload.products) {
+        prodMap.set(p.id, p);
+      }
+      serverState.products = Array.from(prodMap.values());
+    }
+
+    // 2. Merge Customers
+    if (serverState.customers.length === 0 && payload.customers && payload.customers.length > 0) {
+      serverState.customers = payload.customers;
+    } else if (payload.customers && Array.isArray(payload.customers)) {
+      const custMap = new Map(serverState.customers.map((c) => [c.id, c]));
+      for (const c of payload.customers) {
+        custMap.set(c.id, c);
+      }
+      serverState.customers = Array.from(custMap.values());
+    }
+
+    // 3. Merge Sales (union by id, sorted by timestamp descending)
+    if (payload.sales && Array.isArray(payload.sales)) {
+      const salesMap = new Map(serverState.sales.map((s) => [s.id, s]));
+      for (const s of payload.sales) {
+        salesMap.set(s.id, s);
+      }
+      serverState.sales = Array.from(salesMap.values()).sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+    }
+
+    // 4. Merge Expenses
+    if (payload.expenses && Array.isArray(payload.expenses)) {
+      const expMap = new Map(serverState.expenses.map((e) => [e.id, e]));
+      for (const e of payload.expenses) {
+        expMap.set(e.id, e);
+      }
+      serverState.expenses = Array.from(expMap.values()).sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+    }
+
+    // 5. Merge Credit Payments
+    if (payload.creditPayments && Array.isArray(payload.creditPayments)) {
+      const payMap = new Map(serverState.creditPayments.map((p) => [p.id, p]));
+      for (const p of payload.creditPayments) {
+        payMap.set(p.id, p);
+      }
+      serverState.creditPayments = Array.from(payMap.values()).sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+    }
+
+    // 6. Merge Config
+    if (payload.config) {
+      serverState.config = payload.config;
+    }
+
+    // 7. Merge Users
+    if (payload.users && Array.isArray(payload.users)) {
+      const userMap = new Map(serverState.users.map((u) => [u.id || u.email, u]));
+      for (const u of payload.users) {
+        userMap.set(u.id || u.email, u);
+      }
+      serverState.users = Array.from(userMap.values());
+    }
+
+    serverState.lastSyncedAt = new Date().toISOString();
+    serverState.version += 1;
+    saveServerState(serverState);
+
+    return res.json({
+      success: true,
+      message: 'Cross-device sync merged successfully',
+      state: serverState,
+      serverTime: serverState.lastSyncedAt,
+      version: serverState.version,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Sync failed' });
+  }
+});
+
+// Multi-Device Sync: Reset Server Store
+app.post('/api/pos/reset', (_req: Request, res: Response) => {
+  serverState = {
+    products: [],
+    customers: [],
+    sales: [],
+    expenses: [],
+    creditPayments: [],
+    config: null,
+    users: [],
+    lastSyncedAt: new Date().toISOString(),
+    version: serverState.version + 1,
+  };
+  saveServerState(serverState);
+  return res.json({ success: true, message: 'Server state cleared' });
+});
+
+// Multi-Device Sync: Status & Diagnostics
+app.get('/api/pos/status', (_req: Request, res: Response) => {
+  const pool = getPool();
+  return res.json({
+    success: true,
+    cloudSyncMode: pool ? 'supabase_postgres' : 'server_central_store',
+    postgresConnected: Boolean(pool),
+    lastSyncedAt: serverState.lastSyncedAt,
+    version: serverState.version,
+    records: {
+      products: serverState.products.length,
+      customers: serverState.customers.length,
+      sales: serverState.sales.length,
+      expenses: serverState.expenses.length,
+      creditPayments: serverState.creditPayments.length,
+      users: serverState.users.length,
+    },
+  });
+});
+
 // 1. Health & Database Status
 app.get('/api/health', async (_req: Request, res: Response) => {
   const pool = getPool();

@@ -11,7 +11,10 @@ import { QRBarcodeStudioTab } from './components/QRBarcodeStudioTab.tsx';
 import { SettingsTab } from './components/SettingsTab.tsx';
 import { SupabaseSyncTab } from './components/SupabaseSyncTab.tsx';
 import { A4InvoiceModal } from './components/A4InvoiceModal.tsx';
+import { AuthPage } from './components/AuthPage.tsx';
 import { storageService } from './services/storageService.ts';
+import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
+import { LoadingScreen } from './components/LoadingAnimation.tsx';
 import { isSupabaseConfigured } from './lib/supabase.ts';
 import {
   Customer,
@@ -20,16 +23,23 @@ import {
   Product,
   Sale,
   StoreConfig,
+  AppUser,
 } from './types/pos.ts';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => storageService.getCurrentUser());
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [creditPayments, setCreditPayments] = useState<CreditPayment[]>([]);
   const [config, setConfig] = useState<StoreConfig>(storageService.getStoreConfig());
+
+  // Cross-device sync state
+  const [syncState, setSyncState] = useState<SyncState>(() => crossDeviceSyncService.getState());
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
 
   // Invoice Modal State
   const [activeInvoice, setActiveInvoice] = useState<Sale | null>(null);
@@ -48,8 +58,27 @@ export default function App() {
     setDbConnected(isSupabaseConfigured());
   }, []);
 
+  // Initialize data and cross-device sync service
   useEffect(() => {
     reloadData();
+
+    // Subscribe to cross-device sync state changes
+    const unsubscribe = crossDeviceSyncService.subscribe((state) => {
+      setSyncState(state);
+    });
+
+    // Start background syncing with server
+    crossDeviceSyncService.init(reloadData);
+
+    // Initial smooth startup loader
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 500);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, [reloadData]);
 
   // Complete Sale
@@ -58,6 +87,7 @@ export default function App() {
   ): Sale => {
     const newSale = storageService.recordSale(saleData);
     reloadData();
+    crossDeviceSyncService.syncNow();
     return newSale;
   };
 
@@ -65,57 +95,112 @@ export default function App() {
   const handleSaveCustomer = (customer: Customer) => {
     storageService.saveCustomer(customer);
     reloadData();
+    crossDeviceSyncService.syncNow();
   };
 
   const handleRecordPayment = (
-    payment: Omit<CreditPayment, 'id' | 'timestamp' | 'receiptNumber'>
+    payment: Omit<CreditPayment, 'id' | 'timestamp' | 'receiptNumber'> & { timestamp?: string }
   ) => {
     storageService.recordCreditPayment(payment);
     reloadData();
+    crossDeviceSyncService.syncNow();
+  };
+
+  const handleAdjustCredit = (customerId: string, amountDelta: number, reason: string) => {
+    storageService.adjustCustomerCredit(customerId, amountDelta, reason);
+    reloadData();
+    crossDeviceSyncService.syncNow();
   };
 
   // Product Management
   const handleSaveProduct = (product: Product) => {
     storageService.saveProduct(product);
     reloadData();
+    crossDeviceSyncService.syncNow();
   };
 
   const handleDeleteProduct = (productId: string) => {
     storageService.deleteProduct(productId);
     reloadData();
+    crossDeviceSyncService.syncNow();
   };
 
   const handleAdjustStock = (productId: string, delta: number) => {
     storageService.adjustStock(productId, delta);
     reloadData();
+    crossDeviceSyncService.syncNow();
   };
 
   // Expense Management
   const handleSaveExpense = (expense: Omit<Expense, 'id' | 'createdAt'>) => {
     storageService.saveExpense(expense);
     reloadData();
+    crossDeviceSyncService.syncNow();
   };
 
   const handleDeleteExpense = (expenseId: string) => {
     storageService.deleteExpense(expenseId);
     reloadData();
+    crossDeviceSyncService.syncNow();
   };
 
   // Config Management
   const handleSaveConfig = (updatedConfig: StoreConfig) => {
     storageService.saveStoreConfig(updatedConfig);
     reloadData();
+    crossDeviceSyncService.syncNow();
   };
+
+  // User Authentication
+  const handleAuthSuccess = (user: AppUser) => {
+    setCurrentUser(user);
+    setIsAuthModalOpen(false);
+    crossDeviceSyncService.syncNow();
+  };
+
+  const handleSignOut = () => {
+    storageService.setCurrentUser(null);
+    setCurrentUser(null);
+  };
+
+  const handleOpenAuth = () => {
+    setIsAuthModalOpen(true);
+  };
+
+  // Initial startup loading screen with golden SAPPY branding
+  if (isInitialLoading) {
+    return (
+      <LoadingScreen
+        message="Connecting SAPPY Cloud Sync..."
+        submessage="Synchronizing stationery catalog, inventory, and sales ledgers across devices"
+      />
+    );
+  }
+
+  // If no staff user is logged in, show the full-screen Login and Signup page
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-charcoal-950 text-charcoal-100 flex flex-col font-sans selection:bg-forest-700 selection:text-white">
+        <AuthPage onAuthSuccess={handleAuthSuccess} initialMode="login" isModal={false} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-charcoal-950 text-charcoal-100 flex flex-col font-sans selection:bg-forest-700 selection:text-white">
       
-      {/* Top Bar Navigation */}
+      {/* Top Bar Navigation with Live Sync Pulse */}
       <Navbar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         cartItemCount={0}
         dbConnected={dbConnected}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
+        onOpenAuth={handleOpenAuth}
+        syncStatus={syncState.status}
+        isSyncing={syncState.status === 'syncing'}
+        onManualSync={() => crossDeviceSyncService.syncNow()}
       />
 
       {/* Main Tab Content */}
@@ -159,6 +244,7 @@ export default function App() {
             config={config}
             onSaveCustomer={handleSaveCustomer}
             onRecordPayment={handleRecordPayment}
+            onAdjustCredit={handleAdjustCredit}
           />
         )}
 
@@ -187,6 +273,8 @@ export default function App() {
             sales={sales}
             expenses={expenses}
             creditPayments={creditPayments}
+            products={products}
+            customers={customers}
             config={config}
           />
         )}
@@ -224,6 +312,16 @@ export default function App() {
           sale={activeInvoice}
           config={config}
           onClose={() => setActiveInvoice(null)}
+        />
+      )}
+
+      {/* Switch User / Auth Modal */}
+      {isAuthModalOpen && (
+        <AuthPage
+          onAuthSuccess={handleAuthSuccess}
+          onClose={() => setIsAuthModalOpen(false)}
+          initialMode="login"
+          isModal={true}
         />
       )}
 

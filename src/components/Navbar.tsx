@@ -10,7 +10,13 @@ import {
   QrCode,
   Settings,
   ShoppingCart,
+  LogOut,
+  LogIn,
+  User,
 } from 'lucide-react';
+import { AppUser } from '../types/pos.ts';
+import { SappyLogo } from './SappyLogo.tsx';
+import { PulseSyncIndicator } from './LoadingAnimation.tsx';
 
 export type TabType =
   | 'dashboard'
@@ -30,6 +36,12 @@ interface NavbarProps {
   cartItemCount: number;
   onOpenCart?: () => void;
   dbConnected?: boolean;
+  currentUser: AppUser | null;
+  onSignOut: () => void;
+  onOpenAuth: () => void;
+  syncStatus?: 'synced' | 'syncing' | 'offline' | 'error';
+  isSyncing?: boolean;
+  onManualSync?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -38,6 +50,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   cartItemCount,
   onOpenCart,
   dbConnected,
+  currentUser,
+  onSignOut,
+  onOpenAuth,
+  syncStatus = 'synced',
+  isSyncing = false,
+  onManualSync,
 }) => {
   const navItems: { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -46,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'credit', label: 'Credit & Debt', icon: Users },
     { id: 'inventory', label: 'Inventory', icon: Boxes },
     { id: 'expenses', label: 'Expenses', icon: Wallet },
-    { id: 'reports', label: 'P&L Reports', icon: BarChart3 },
+    { id: 'reports', label: 'General Reports', icon: BarChart3 },
     { id: 'qrstudio', label: 'QR & Barcode', icon: QrCode },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -55,20 +73,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="no-print bg-charcoal-900 border-b border-charcoal-800 sticky top-0 z-40 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         
-        {/* Zone 1: Brand Wordmark */}
+        {/* Zone 1: Brand Wordmark (Gold Luxury SAPPY Logo) */}
         <button
           onClick={() => onTabChange('dashboard')}
-          className="flex items-center gap-2.5 text-left cursor-pointer group shrink-0"
+          className="flex items-center gap-2 text-left cursor-pointer group shrink-0 active:scale-95 transition-transform"
+          aria-label="SAPPY Dashboard"
         >
-          <span className="w-8 h-8 rounded-lg bg-forest-700 text-white flex items-center justify-center font-black text-sm tracking-wider shadow-sm group-hover:bg-forest-600 transition-colors">
-            S
-          </span>
-          <div className="hidden sm:block">
-            <span className="text-base font-extrabold tracking-tight text-white whitespace-nowrap group-hover:text-forest-400 transition-colors block leading-tight">
-              Sappy Stationary
-            </span>
-            <span className="text-[10px] text-forest-400 font-mono block leading-tight">POS System</span>
-          </div>
+          <SappyLogo variant="wordmark" size="md" showSubtitle={true} />
         </button>
 
         {/* Zone 2: Icon Navigation Bar (Labels hidden by default, revealed on hover) */}
@@ -106,12 +117,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
 
-        {/* Zone 3: Primary Action */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Zone 3: User Profile, Sync Status & Primary Action */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          
+          {/* Live Cross-Device Cloud Sync Indicator */}
+          <div className="hidden sm:block">
+            <PulseSyncIndicator
+              status={syncStatus}
+              isSyncing={isSyncing}
+              onClick={onManualSync}
+            />
+          </div>
+
           {/* Quick Register Cart Button */}
           <button
             onClick={() => onTabChange('register')}
-            className="p-2 sm:px-3.5 sm:py-2 rounded-xl bg-forest-700 text-white hover:bg-forest-600 transition-colors cursor-pointer flex items-center gap-2 active:scale-95 border border-forest-500/80 shadow-md shadow-forest-950/40"
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-forest-700 text-white hover:bg-forest-600 transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95 border border-forest-500/80 shadow-md shadow-forest-950/40"
             aria-label="Open POS Register"
           >
             <ShoppingCart className="w-4 h-4 text-forest-200" />
@@ -122,6 +143,41 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             )}
           </button>
+
+          {/* User Auth Profile Badge / Sign Out */}
+          {currentUser ? (
+            <div className="flex items-center gap-1.5 bg-charcoal-950 p-1 pl-2 rounded-xl border border-charcoal-800">
+              <div className="w-6 h-6 rounded-lg bg-forest-800 text-forest-200 flex items-center justify-center font-bold text-[11px] font-mono border border-forest-600/50">
+                {currentUser.fullName.charAt(0).toUpperCase()}
+              </div>
+
+              <div className="hidden lg:block text-left pr-1.5">
+                <p className="text-[11px] font-bold text-white leading-tight truncate max-w-[110px]">
+                  {currentUser.fullName}
+                </p>
+                <p className="text-[9px] font-mono text-forest-400 uppercase leading-none">
+                  {currentUser.role}
+                </p>
+              </div>
+
+              <button
+                onClick={onSignOut}
+                className="p-1.5 text-charcoal-400 hover:text-rose-400 hover:bg-charcoal-800 rounded-lg transition-colors cursor-pointer"
+                title={`Signed in as ${currentUser.fullName} (${currentUser.role}). Click to switch user or sign out.`}
+                aria-label="Sign out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              className="px-3 py-2 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-200 hover:text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border border-charcoal-700 active:scale-95"
+            >
+              <LogIn className="w-3.5 h-3.5 text-forest-400" />
+              <span>Sign In</span>
+            </button>
+          )}
         </div>
       </div>
 

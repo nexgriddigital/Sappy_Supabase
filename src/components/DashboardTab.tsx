@@ -400,7 +400,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               >
                 <div className="flex items-center gap-2.5">
                   <TrendingUp className="w-4 h-4 text-forest-400" />
-                  <span>Daily P&L Statements</span>
+                  <span>General Reports & Statements</span>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-charcoal-500" />
               </button>

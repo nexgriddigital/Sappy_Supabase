@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { StoreConfig, Sale, Expense, Product, Customer } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
+import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase.ts';
 
 interface SettingsTabProps {
@@ -138,15 +139,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   // Perform Reset Everything (No backup export, full clean wipe)
-  const handleExecuteResetAll = () => {
+  const handleExecuteResetAll = async () => {
     if (resetAllConfirmText.trim().toUpperCase() !== 'RESET ALL') return;
 
-    storageService.resetEverything();
+    await crossDeviceSyncService.resetAllDevices();
     onDataReset();
     setShowResetAllModal(false);
     setResetAllConfirmText('');
     setResetAllSuccessMsg(
-      'System completely wiped clean (0 products, 0 sales, 0 debts, 0 expenses).'
+      'System completely wiped clean (0 products, 0 sales, 0 debts, 0 expenses) across all connected devices.'
     );
     setTimeout(() => setResetAllSuccessMsg(null), 8000);
   };

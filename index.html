@@ -4,15 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Sappy Stationary POS</title>
+    <link rel="icon" type="image/jpeg" href="/icon.jpg" />
+    <link rel="apple-touch-icon" href="/icon.jpg" />
     <meta name="description" content="Touch-optimized POS system for Sappy Stationary with inventory tracking, credit sales debt ledger, daily profit and loss reports, A4 PDF invoices, and Supabase Free Tier sync." />
     <meta property="og:title" content="Sappy Stationary POS" />
     <meta property="og:description" content="Touch-optimized POS system for Sappy Stationary with inventory tracking, credit sales debt ledger, daily profit and loss reports, A4 PDF invoices, and Supabase Free Tier sync." />
+    <meta property="og:image" content="/logo.jpg" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/logo.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <style>
+      @keyframes indeterminate {
+        0% { transform: translateX(-100%); }
+        50% { transform: translateX(50%); }
+        100% { transform: translateX(200%); }
+      }
+      .animate-indeterminate {
+        animation: indeterminate 1.5s infinite linear;
+      }
       @page {
         size: A4 portrait;
         margin: 12mm 15mm;

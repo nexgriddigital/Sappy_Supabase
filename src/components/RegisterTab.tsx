@@ -23,6 +23,7 @@ import {
   Sale,
   StoreConfig,
 } from '../types/pos.ts';
+import { PaymentProcessingLoader } from './LoadingAnimation.tsx';
 
 interface RegisterTabProps {
   products: Product[];
@@ -56,7 +57,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discountPercent, setDiscountPercent] = useState<number>(0);
-  const [applyTax, setApplyTax] = useState<boolean>(true);
+  const [applyTax, setApplyTax] = useState<boolean>(false); // All sales are Tax Exempt by default unless specially ticked
 
   // Checkout Tender Modal State
   const [isTenderOpen, setIsTenderOpen] = useState(false);
@@ -76,6 +77,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
   const [newCustLimit, setNewCustLimit] = useState('500');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   // Filter Products
   const filteredProducts = useMemo(() => {
@@ -204,57 +206,63 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
 
   // Complete Sale
   const handleFinalizeSale = () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isProcessingPayment) return;
 
-    const numericCash = parseFloat(cashTendered) || grandTotal;
-    const changeGiven = selectedMethod === 'cash' ? Math.max(0, numericCash - grandTotal) : 0;
-    const depositAmount = selectedMethod === 'credit' ? parseFloat(creditDeposit) || 0 : grandTotal;
+    setIsProcessingPayment(true);
 
-    const saleItems = cart.map((item) => ({
-      productId: item.product.id,
-      sku: item.product.sku,
-      name: item.product.name,
-      category: item.product.category,
-      quantity: item.quantity,
-      unit: item.product.unit,
-      unitCost: item.product.costPrice,
-      unitPrice: item.product.sellingPrice,
-      discountPercent: item.discountPercent,
-      lineTotal: item.lineTotal,
-      lineCostTotal: item.lineCostTotal,
-    }));
+    setTimeout(() => {
+      const numericCash = parseFloat(cashTendered) || grandTotal;
+      const changeGiven = selectedMethod === 'cash' ? Math.max(0, numericCash - grandTotal) : 0;
+      const depositAmount = selectedMethod === 'credit' ? parseFloat(creditDeposit) || 0 : grandTotal;
 
-    const newSale = onCompleteSale({
-      customerId: selectedCustomer?.id,
-      customerName: selectedCustomer ? selectedCustomer.name : 'Walk-in Retail Customer',
-      customerPhone: selectedCustomer?.phone,
-      customerEmail: selectedCustomer?.email,
-      customerAddress: selectedCustomer?.address,
-      items: saleItems,
-      subtotal: rawSubtotal,
-      taxRate: taxRate,
-      taxAmount: taxAmount,
-      discountAmount: orderDiscountAmount,
-      totalAmount: grandTotal,
-      totalCost: totalCost,
-      grossProfit: grossProfit,
-      paymentMethod: selectedMethod,
-      amountTendered: selectedMethod === 'cash' ? numericCash : grandTotal,
-      changeGiven: changeGiven,
-      isCreditPaid: selectedMethod !== 'credit',
-      creditDueDate: selectedMethod === 'credit' ? creditDueDate : undefined,
-      paidAmount: depositAmount,
-      notes: orderNotes.trim() || undefined,
-    });
+      const saleItems = cart.map((item) => ({
+        productId: item.product.id,
+        sku: item.product.sku,
+        name: item.product.name,
+        category: item.product.category,
+        quantity: item.quantity,
+        unit: item.product.unit,
+        unitCost: item.product.costPrice,
+        unitPrice: item.product.sellingPrice,
+        discountPercent: item.discountPercent,
+        lineTotal: item.lineTotal,
+        lineCostTotal: item.lineCostTotal,
+      }));
 
-    // Reset Register
-    setCart([]);
-    setIsTenderOpen(false);
-    setOrderNotes('');
-    setDiscountPercent(0);
+      const newSale = onCompleteSale({
+        customerId: selectedCustomer?.id,
+        customerName: selectedCustomer ? selectedCustomer.name : 'Walk-in Retail Customer',
+        customerPhone: selectedCustomer?.phone,
+        customerEmail: selectedCustomer?.email,
+        customerAddress: selectedCustomer?.address,
+        items: saleItems,
+        subtotal: rawSubtotal,
+        taxRate: taxRate,
+        taxAmount: taxAmount,
+        discountAmount: orderDiscountAmount,
+        totalAmount: grandTotal,
+        totalCost: totalCost,
+        grossProfit: grossProfit,
+        paymentMethod: selectedMethod,
+        amountTendered: selectedMethod === 'cash' ? numericCash : grandTotal,
+        changeGiven: changeGiven,
+        isCreditPaid: selectedMethod !== 'credit',
+        creditDueDate: selectedMethod === 'credit' ? creditDueDate : undefined,
+        paidAmount: depositAmount,
+        notes: orderNotes.trim() || undefined,
+      });
 
-    // Immediately open A4 Invoice
-    onOpenInvoice(newSale);
+      // Reset Register (all new sales default to Tax Exempt)
+      setCart([]);
+      setIsProcessingPayment(false);
+      setIsTenderOpen(false);
+      setOrderNotes('');
+      setDiscountPercent(0);
+      setApplyTax(false);
+
+      // Immediately open A4 Invoice
+      onOpenInvoice(newSale);
+    }, 600);
   };
 
   const parsedCash = parseFloat(cashTendered) || 0;
@@ -408,7 +416,11 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
 
           {cart.length > 0 && (
             <button
-              onClick={() => setCart([])}
+              onClick={() => {
+                setCart([]);
+                setDiscountPercent(0);
+                setApplyTax(false);
+              }}
               className="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
             >
               Clear Cart
@@ -493,19 +505,21 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
               />
             </div>
 
-            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium text-charcoal-300">
+            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium select-none">
               <input
                 type="checkbox"
                 checked={applyTax}
                 onChange={(e) => setApplyTax(e.target.checked)}
-                className="rounded border-charcoal-700 bg-charcoal-900 text-forest-600 focus:ring-forest-500 w-3.5 h-3.5"
+                className="rounded border-charcoal-700 bg-charcoal-900 text-forest-600 focus:ring-forest-500 w-3.5 h-3.5 cursor-pointer"
               />
-              <span>VAT ({config.defaultTaxRate}%)</span>
+              <span className={applyTax ? 'text-forest-400 font-bold' : 'text-charcoal-400'}>
+                {applyTax ? `VAT Applied (${config.defaultTaxRate}%)` : `Apply VAT (${config.defaultTaxRate}%)`}
+              </span>
             </label>
           </div>
 
           {/* Subtotal & Total Rows */}
-          <div className="space-y-1 text-xs text-charcoal-400 font-mono">
+          <div className="space-y-1.5 text-xs text-charcoal-400 font-mono">
             <div className="flex justify-between">
               <span className="font-sans text-charcoal-400">Subtotal:</span>
               <span className="text-charcoal-200">{config.currencySymbol}{rawSubtotal.toFixed(2)}</span>
@@ -516,12 +530,18 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                 <span>-{config.currencySymbol}{orderDiscountAmount.toFixed(2)}</span>
               </div>
             )}
-            {applyTax && (
-              <div className="flex justify-between">
-                <span className="font-sans text-charcoal-400">Tax / VAT ({taxRate}%):</span>
-                <span className="text-charcoal-200">{config.currencySymbol}{taxAmount.toFixed(2)}</span>
-              </div>
-            )}
+            <div className="flex justify-between items-center">
+              <span className="font-sans text-charcoal-400">Tax / VAT:</span>
+              {applyTax ? (
+                <span className="text-amber-400 font-semibold font-mono">
+                  +{config.currencySymbol}{taxAmount.toFixed(2)} ({taxRate}%)
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-charcoal-900 text-forest-400 border border-charcoal-800">
+                  Tax Exempt (0.00)
+                </span>
+              )}
+            </div>
             <div className="flex justify-between pt-2 border-t border-charcoal-800 text-base font-extrabold text-white">
               <span className="font-sans">Total:</span>
               <span className="text-forest-400">
@@ -557,16 +577,24 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                 <h3 className="text-base font-bold">Complete Payment</h3>
                 <p className="text-xs text-charcoal-400">Total Due: <span className="font-mono text-forest-400 font-bold">{config.currencySymbol}{grandTotal.toFixed(2)}</span></p>
               </div>
-              <button
-                onClick={() => setIsTenderOpen(false)}
-                className="text-charcoal-400 hover:text-white p-1 rounded-lg cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {!isProcessingPayment && (
+                <button
+                  onClick={() => setIsTenderOpen(false)}
+                  className="text-charcoal-400 hover:text-white p-1 rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
-            {/* Payment Method Tabs */}
-            <div className="grid grid-cols-4 border-b border-charcoal-800 bg-charcoal-950 text-xs font-semibold">
+            {isProcessingPayment ? (
+              <div className="p-8">
+                <PaymentProcessingLoader message="Recording sale, updating stock, and generating A4 invoice..." />
+              </div>
+            ) : (
+              <>
+                {/* Payment Method Tabs */}
+                <div className="grid grid-cols-4 border-b border-charcoal-800 bg-charcoal-950 text-xs font-semibold">
               {[
                 { id: 'cash' as PaymentMethod, label: 'Cash', icon: DollarSign },
                 { id: 'card' as PaymentMethod, label: 'Card', icon: CreditCard },
@@ -752,6 +780,31 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                 </div>
               )}
 
+              {/* Tax Status Checkbox / Indicator inside Modal */}
+              <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-charcoal-200">
+                    Tax Status: {applyTax ? `Standard VAT (${config.defaultTaxRate}%)` : 'Tax Exempt (0.00)'}
+                  </p>
+                  <p className="text-[11px] text-charcoal-400">
+                    {applyTax
+                      ? `+${config.currencySymbol}${taxAmount.toFixed(2)} added to total`
+                      : 'All sales are tax-exempt unless checked'}
+                  </p>
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold select-none">
+                  <input
+                    type="checkbox"
+                    checked={applyTax}
+                    onChange={(e) => setApplyTax(e.target.checked)}
+                    className="rounded border-charcoal-700 bg-charcoal-900 text-forest-500 focus:ring-forest-500 w-4 h-4 cursor-pointer"
+                  />
+                  <span className={applyTax ? 'text-forest-400 font-bold' : 'text-charcoal-400'}>
+                    Apply Tax
+                  </span>
+                </label>
+              </div>
+
               {/* Order Notes */}
               <div>
                 <label className="block text-xs font-medium text-charcoal-400 mb-1">
@@ -792,6 +845,8 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                 <span>Complete & Generate Invoice</span>
               </button>
             </div>
+            </>
+            )}
 
           </div>
         </div>

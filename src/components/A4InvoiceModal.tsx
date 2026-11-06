@@ -79,9 +79,11 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
           <div className="flex flex-col sm:flex-row justify-between items-start pb-8 border-b-2 border-charcoal-900 gap-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-forest-800 text-white flex items-center justify-center font-extrabold text-xl print:border print:border-forest-900">
-                  S
-                </div>
+                <img
+                  src="/icon.jpg"
+                  alt="Sappy"
+                  className="w-12 h-12 rounded-xl object-cover border border-amber-600/50 shadow-sm"
+                />
                 <div>
                   <h1 className="text-2xl font-extrabold tracking-tight text-charcoal-900 uppercase">
                     {config.storeName}
@@ -231,8 +233,12 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
               )}
 
               <div className="flex justify-between py-1 border-b border-slate-100">
-                <span className="text-slate-500 font-sans">Tax / VAT ({sale.taxRate}%):</span>
-                <span>{config.currencySymbol}{sale.taxAmount.toFixed(2)}</span>
+                <span className="text-slate-500 font-sans">
+                  {sale.taxAmount > 0 ? `Tax / VAT (${sale.taxRate}%):` : 'Tax / VAT Status:'}
+                </span>
+                <span className={sale.taxAmount === 0 ? 'text-slate-600' : ''}>
+                  {sale.taxAmount > 0 ? `${config.currencySymbol}${sale.taxAmount.toFixed(2)}` : '0.00 (Exempt)'}
+                </span>
               </div>
 
               <div className="flex justify-between py-2 border-b-2 border-charcoal-900 text-sm font-bold text-charcoal-900">

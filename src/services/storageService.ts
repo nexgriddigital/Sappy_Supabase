@@ -6,6 +6,7 @@ import {
   Sale,
   StoreConfig,
   DailyProfitLossReport,
+  AppUser,
 } from '../types/pos.ts';
 import {
   INITIAL_CUSTOMERS,
@@ -23,7 +24,39 @@ const STORAGE_KEYS = {
   PAYMENTS: 'sappy_pos_credit_payments_v1',
   EXPENSES: 'sappy_pos_expenses_v1',
   CONFIG: 'sappy_pos_config_v1',
+  USERS: 'sappy_pos_users_v1',
+  CURRENT_USER: 'sappy_pos_current_user_v1',
 };
+
+const INITIAL_USERS: AppUser[] = [
+  {
+    id: 'usr-owner-1',
+    email: 'owner@sappystationery.et',
+    fullName: 'Abebe Hailu',
+    role: 'owner',
+    storeName: 'Sappy Stationery',
+    phone: '+251 91 123 4567',
+    createdAt: '2026-01-01T08:00:00Z',
+  },
+  {
+    id: 'usr-cashier-1',
+    email: 'cashier@sappystationery.et',
+    fullName: 'Bethelhem Tadesse',
+    role: 'cashier',
+    storeName: 'Sappy Stationery',
+    phone: '+251 92 345 6789',
+    createdAt: '2026-01-15T09:00:00Z',
+  },
+  {
+    id: 'usr-manager-1',
+    email: 'manager@sappystationery.et',
+    fullName: 'Dawit Kebede',
+    role: 'manager',
+    storeName: 'Sappy Stationery',
+    phone: '+251 93 456 7890',
+    createdAt: '2026-02-01T10:00:00Z',
+  },
+];
 
 class StorageService {
   private get<T>(key: string, fallback: T): T {
@@ -150,16 +183,19 @@ class StorageService {
     return updated;
   }
 
-  recordCreditPayment(payment: Omit<CreditPayment, 'id' | 'timestamp' | 'receiptNumber'>): {
+  recordCreditPayment(
+    payment: Omit<CreditPayment, 'id' | 'timestamp' | 'receiptNumber'> & { timestamp?: string }
+  ): {
     payment: CreditPayment;
     customers: Customer[];
   } {
     const count = this.getCreditPayments().length + 1;
-    const receiptNumber = `RCPT-PAY-${String(count).padStart(4, '0')}`;
+    const prefix = payment.isExternal ? 'RCPT-EXT' : 'RCPT-PAY';
+    const receiptNumber = `${prefix}-${String(count).padStart(4, '0')}`;
     const newPayment: CreditPayment = {
       ...payment,
       id: `pay-${Date.now()}`,
-      timestamp: new Date().toISOString(),
+      timestamp: payment.timestamp || new Date().toISOString(),
       receiptNumber,
     };
 
@@ -178,6 +214,28 @@ class StorageService {
     }
 
     return { payment: newPayment, customers };
+  }
+
+  // Manually add or adjust customer credit balance
+  adjustCustomerCredit(
+    customerId: string,
+    amountDelta: number,
+    reason: string
+  ): Customer[] {
+    const customers = this.getCustomers();
+    const custIndex = customers.findIndex((c) => c.id === customerId);
+    if (custIndex >= 0) {
+      const updatedBalance = Math.max(0, customers[custIndex].creditBalance + amountDelta);
+      customers[custIndex] = {
+        ...customers[custIndex],
+        creditBalance: updatedBalance,
+        notes: reason
+          ? `${customers[custIndex].notes ? customers[custIndex].notes + ' • ' : ''}[Manual Credit Adjustment: ${amountDelta > 0 ? '+' : ''}${amountDelta} Br - ${reason}]`
+          : customers[custIndex].notes,
+      };
+      this.set(STORAGE_KEYS.CUSTOMERS, customers);
+    }
+    return customers;
   }
 
   getCreditPayments(): CreditPayment[] {
@@ -516,6 +574,126 @@ class StorageService {
     this.set(STORAGE_KEYS.SALES, []);
     this.set(STORAGE_KEYS.EXPENSES, []);
     this.set(STORAGE_KEYS.PAYMENTS, []);
+  }
+
+  // --- User Authentication & Session Management ---
+  getUsers(): AppUser[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (raw !== null) {
+      try {
+        return JSON.parse(raw) as AppUser[];
+      } catch {
+        return INITIAL_USERS;
+      }
+    }
+    this.set(STORAGE_KEYS.USERS, INITIAL_USERS);
+    return INITIAL_USERS;
+  }
+
+  getCurrentUser(): AppUser | null {
+    const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    if (raw === 'null' || raw === 'logged_out') {
+      return null;
+    }
+    if (raw !== null) {
+      try {
+        return JSON.parse(raw) as AppUser;
+      } catch {
+        return null;
+      }
+    }
+    // Default session: initial store owner
+    const defaultUser = this.getUsers()[0] || INITIAL_USERS[0];
+    this.setCurrentUser(defaultUser);
+    return defaultUser;
+  }
+
+  setCurrentUser(user: AppUser | null): void {
+    if (user === null) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, 'logged_out');
+    } else {
+      user.lastLoginAt = new Date().toISOString();
+      this.set(STORAGE_KEYS.CURRENT_USER, user);
+    }
+  }
+
+  registerUser(userData: Omit<AppUser, 'id' | 'createdAt'>): AppUser {
+    const users = this.getUsers();
+    const existing = users.find((u) => u.email.toLowerCase() === userData.email.toLowerCase());
+    if (existing) {
+      // Update existing
+      const updated: AppUser = {
+        ...existing,
+        ...userData,
+        lastLoginAt: new Date().toISOString(),
+      };
+      const list = users.map((u) => (u.id === existing.id ? updated : u));
+      this.set(STORAGE_KEYS.USERS, list);
+      this.setCurrentUser(updated);
+      return updated;
+    }
+
+    const newUser: AppUser = {
+      ...userData,
+      id: `usr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      createdAt: new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+    };
+
+    const updatedList = [newUser, ...users];
+    this.set(STORAGE_KEYS.USERS, updatedList);
+    this.setCurrentUser(newUser);
+    return newUser;
+  }
+
+  findUserByEmail(email: string): AppUser | null {
+    const users = this.getUsers();
+    return users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase()) || null;
+  }
+
+  // --- Cross-Device Cloud Synchronization Helpers ---
+  getAllData() {
+    return {
+      products: this.getProducts(),
+      customers: this.getCustomers(),
+      sales: this.getSales(),
+      expenses: this.getExpenses(),
+      creditPayments: this.getCreditPayments(),
+      config: this.getStoreConfig(),
+      users: this.getUsers(),
+    };
+  }
+
+  hydrateFromServer(state: {
+    products?: Product[];
+    customers?: Customer[];
+    sales?: Sale[];
+    expenses?: Expense[];
+    creditPayments?: CreditPayment[];
+    config?: StoreConfig;
+    users?: AppUser[];
+  }): void {
+    if (state.products && Array.isArray(state.products) && state.products.length > 0) {
+      this.set(STORAGE_KEYS.PRODUCTS, state.products);
+    }
+    if (state.customers && Array.isArray(state.customers) && state.customers.length > 0) {
+      this.set(STORAGE_KEYS.CUSTOMERS, state.customers);
+    }
+    if (state.sales && Array.isArray(state.sales)) {
+      this.set(STORAGE_KEYS.SALES, state.sales);
+    }
+    if (state.expenses && Array.isArray(state.expenses)) {
+      this.set(STORAGE_KEYS.EXPENSES, state.expenses);
+    }
+    if (state.creditPayments && Array.isArray(state.creditPayments)) {
+      this.set(STORAGE_KEYS.PAYMENTS, state.creditPayments);
+    }
+    if (state.config && typeof state.config === 'object') {
+      this.set(STORAGE_KEYS.CONFIG, state.config);
+    }
+    if (state.users && Array.isArray(state.users) && state.users.length > 0) {
+      this.set(STORAGE_KEYS.USERS, state.users);
+    }
   }
 }
 
