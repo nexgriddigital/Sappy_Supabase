@@ -444,6 +444,7 @@ class StorageService {
       sales: this.getSales(),
       creditPayments: this.getCreditPayments(),
       expenses: this.getExpenses(),
+      users: this.getUsers(),
     };
     return JSON.stringify(payload, null, 2);
   }
@@ -468,6 +469,9 @@ class StorageService {
       }
       if (data.config) {
         this.set(STORAGE_KEYS.CONFIG, data.config);
+      }
+      if (data.users && Array.isArray(data.users)) {
+        this.set(STORAGE_KEYS.USERS, data.users);
       }
       return true;
     } catch (e) {
@@ -600,6 +604,7 @@ class StorageService {
       const updated: AppUser = {
         ...existing,
         ...userData,
+        status: userData.status || existing.status || 'active',
         lastLoginAt: new Date().toISOString(),
       };
       const list = users.map((u) => (u.id === existing.id ? updated : u));
@@ -611,6 +616,7 @@ class StorageService {
     const newUser: AppUser = {
       ...userData,
       id: `usr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      status: userData.status || 'active',
       createdAt: new Date().toISOString(),
       lastLoginAt: new Date().toISOString(),
     };
@@ -621,10 +627,150 @@ class StorageService {
     return newUser;
   }
 
+  saveUser(user: AppUser): AppUser[] {
+    const users = this.getUsers();
+    const index = users.findIndex((u) => u.id === user.id);
+    let updated: AppUser[];
+
+    const sanitizedUser: AppUser = {
+      ...user,
+      status: user.status || 'active',
+    };
+
+    if (index >= 0) {
+      updated = [...users];
+      updated[index] = sanitizedUser;
+    } else {
+      updated = [sanitizedUser, ...users];
+    }
+
+    this.set(STORAGE_KEYS.USERS, updated);
+
+    // If current session user is being edited, sync current user
+    const current = this.getCurrentUser();
+    if (current && current.id === sanitizedUser.id) {
+      this.setCurrentUser({ ...current, ...sanitizedUser });
+    }
+
+    return updated;
+  }
+
+  deleteUser(userId: string): { success: boolean; error?: string; users: AppUser[] } {
+    const users = this.getUsers();
+    const target = users.find((u) => u.id === userId);
+    if (!target) {
+      return { success: false, error: 'User account not found', users };
+    }
+
+    // Safeguard: Check if this is the only owner
+    if (target.role === 'owner') {
+      const ownerCount = users.filter((u) => u.role === 'owner').length;
+      if (ownerCount <= 1) {
+        return {
+          success: false,
+          error: 'Cannot delete the only remaining Store Owner. Sappy POS requires at least one active Owner account.',
+          users,
+        };
+      }
+    }
+
+    // Safeguard: Cannot delete self
+    const current = this.getCurrentUser();
+    if (current && current.id === userId) {
+      return {
+        success: false,
+        error: 'You cannot delete your own currently active staff account.',
+        users,
+      };
+    }
+
+    const updated = users.filter((u) => u.id !== userId);
+    this.set(STORAGE_KEYS.USERS, updated);
+    return { success: true, users: updated };
+  }
+
+  updateUserStatus(userId: string, status: 'active' | 'suspended'): AppUser[] {
+    const users = this.getUsers();
+    const updated = users.map((u) => (u.id === userId ? { ...u, status } : u));
+    this.set(STORAGE_KEYS.USERS, updated);
+
+    const current = this.getCurrentUser();
+    if (current && current.id === userId) {
+      this.setCurrentUser({ ...current, status });
+    }
+
+    return updated;
+  }
+
+  setUserPin(userId: string, pin: string): AppUser[] {
+    const users = this.getUsers();
+    const cleanPin = pin.trim();
+    const updated = users.map((u) => (u.id === userId ? { ...u, pinCode: cleanPin || undefined } : u));
+    this.set(STORAGE_KEYS.USERS, updated);
+
+    const current = this.getCurrentUser();
+    if (current && current.id === userId) {
+      this.setCurrentUser({ ...current, pinCode: cleanPin || undefined });
+    }
+
+    return updated;
+  }
+
+  verifyUserPin(pin: string): AppUser | null {
+    if (!pin) return null;
+    const cleanPin = pin.trim();
+    const users = this.getUsers();
+    return users.find((u) => u.pinCode === cleanPin && u.status !== 'suspended') || null;
+  }
+
+  seedDemoStaff(): AppUser[] {
+    const users = this.getUsers();
+    const hasManager = users.some((u) => u.role === 'manager');
+    const hasCashier = users.some((u) => u.role === 'cashier');
+
+    let updated = [...users];
+
+    if (!hasManager) {
+      updated.push({
+        id: `usr-demo-mgr-${Date.now()}`,
+        email: 'manager@sappystationery.et',
+        fullName: 'Dawit Mengistu',
+        role: 'manager',
+        storeName: 'Sappy Stationary',
+        phone: '+251 91 144 5566',
+        pinCode: '2026',
+        status: 'active',
+        notes: 'Inventory supervisor & shift manager',
+        createdAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+      });
+    }
+
+    if (!hasCashier) {
+      updated.push({
+        id: `usr-demo-csh-${Date.now() + 1}`,
+        email: 'cashier@sappystationery.et',
+        fullName: 'Selamawit Kebede',
+        role: 'cashier',
+        storeName: 'Sappy Stationary',
+        phone: '+251 92 333 7788',
+        pinCode: '1234',
+        status: 'active',
+        notes: 'Front counter register & barcode checkout',
+        createdAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+      });
+    }
+
+    this.set(STORAGE_KEYS.USERS, updated);
+    return updated;
+  }
+
   findUserByEmail(email: string): AppUser | null {
     const users = this.getUsers();
     return users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase()) || null;
   }
+
 
   // --- Cross-Device Cloud Synchronization Helpers ---
   getAllData() {

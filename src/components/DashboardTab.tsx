@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Calendar,
   Settings,
+  UserCog,
 } from 'lucide-react';
 import { Sale, Product, Customer, Expense, StoreConfig } from '../types/pos.ts';
 
@@ -401,6 +402,17 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                 <div className="flex items-center gap-2.5">
                   <TrendingUp className="w-4 h-4 text-forest-400" />
                   <span>General Reports & Statements</span>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-charcoal-500" />
+              </button>
+
+              <button
+                onClick={() => onNavigate('users')}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-100 flex items-center justify-between transition-colors cursor-pointer border border-charcoal-800"
+              >
+                <div className="flex items-center gap-2.5">
+                  <UserCog className="w-4 h-4 text-forest-400" />
+                  <span>Users & Staff Directory</span>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-charcoal-500" />
               </button>

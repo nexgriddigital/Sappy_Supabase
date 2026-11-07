@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Info,
   ShieldAlert,
+  UserCog,
 } from 'lucide-react';
 import { StoreConfig, Sale, Expense, Product, Customer } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
@@ -30,6 +31,7 @@ interface SettingsTabProps {
   expenses: Expense[];
   products: Product[];
   customers: Customer[];
+  onNavigate?: (tab: any) => void;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -40,6 +42,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   expenses,
   products,
   customers,
+  onNavigate,
 }) => {
   // Form State
   const [formData, setFormData] = useState<StoreConfig>({ ...config });
@@ -447,6 +450,34 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   className="hidden"
                 />
               </label>
+            </div>
+          </div>
+
+          {/* Staff Accounts & Permissions Panel */}
+          <div className="bg-charcoal-900 rounded-2xl border border-charcoal-800 p-6 shadow-md space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-charcoal-800">
+              <div className="flex items-center gap-2">
+                <UserCog className="w-5 h-5 text-forest-400" />
+                <h2 className="text-base font-bold text-white">Staff Accounts & Terminal Access</h2>
+              </div>
+              <span className="text-[10px] font-mono text-forest-400">RBAC Security</span>
+            </div>
+
+            <p className="text-xs text-charcoal-300 leading-relaxed">
+              Manage cashier accounts, store manager permissions, 4-digit quick register PINs, and shift assignments for your stationery counter terminals.
+            </p>
+
+            <div className="flex items-center gap-3 pt-1">
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('users')}
+                  className="px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-600 text-white font-bold text-xs flex items-center gap-2 border border-forest-500 shadow-md transition-all cursor-pointer active:scale-95"
+                >
+                  <UserCog className="w-4 h-4 text-forest-200" />
+                  <span>Open Users & Staff Directory</span>
+                </button>
+              )}
             </div>
           </div>
 

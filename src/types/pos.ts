@@ -172,6 +172,7 @@ export interface DailyProfitLossReport {
 }
 
 export type UserRole = 'owner' | 'manager' | 'cashier';
+export type UserStatus = 'active' | 'suspended';
 
 export interface AppUser {
   id: string;
@@ -182,4 +183,8 @@ export interface AppUser {
   phone?: string;
   createdAt: string;
   lastLoginAt?: string;
+  status?: UserStatus;
+  pinCode?: string; // 4-digit quick terminal PIN
+  notes?: string;
 }
+

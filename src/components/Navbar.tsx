@@ -14,6 +14,7 @@ import {
   LogIn,
   User,
   Database,
+  UserCog,
 } from 'lucide-react';
 import { AppUser } from '../types/pos.ts';
 import { SappyLogo } from './SappyLogo.tsx';
@@ -28,6 +29,7 @@ export type TabType =
   | 'expenses'
   | 'reports'
   | 'qrstudio'
+  | 'users'
   | 'settings'
   | 'sync';
 
@@ -69,6 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'expenses', label: 'Expenses', icon: Wallet },
     { id: 'reports', label: 'General Reports', icon: BarChart3 },
     { id: 'qrstudio', label: 'QR & Barcode', icon: QrCode },
+    { id: 'users', label: 'Users & Staff', icon: UserCog },
     { id: 'sync', label: 'Cloud Sync', icon: Database },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -151,18 +154,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* User Auth Profile Badge / Sign Out */}
           {currentUser ? (
             <div className="flex items-center gap-1.5 bg-charcoal-950 p-1 pl-2 rounded-xl border border-charcoal-800">
-              <div className="w-6 h-6 rounded-lg bg-forest-800 text-forest-200 flex items-center justify-center font-bold text-[11px] font-mono border border-forest-600/50">
-                {currentUser.fullName.charAt(0).toUpperCase()}
-              </div>
+              <button
+                type="button"
+                onClick={() => onTabChange('users')}
+                className="flex items-center gap-1.5 text-left cursor-pointer group hover:opacity-90"
+                title={`Signed in as ${currentUser.fullName} (${currentUser.role}). Click to manage staff accounts.`}
+              >
+                <div className="w-6 h-6 rounded-lg bg-forest-800 text-forest-200 flex items-center justify-center font-bold text-[11px] font-mono border border-forest-600/50 group-hover:border-forest-400">
+                  {currentUser.fullName.charAt(0).toUpperCase()}
+                </div>
 
-              <div className="hidden lg:block text-left pr-1.5">
-                <p className="text-[11px] font-bold text-white leading-tight truncate max-w-[110px]">
-                  {currentUser.fullName}
-                </p>
-                <p className="text-[9px] font-mono text-forest-400 uppercase leading-none">
-                  {currentUser.role}
-                </p>
-              </div>
+                <div className="hidden lg:block text-left pr-1.5">
+                  <p className="text-[11px] font-bold text-white leading-tight truncate max-w-[110px] group-hover:text-forest-300">
+                    {currentUser.fullName}
+                  </p>
+                  <p className="text-[9px] font-mono text-forest-400 uppercase leading-none">
+                    {currentUser.role}
+                  </p>
+                </div>
+              </button>
 
               <button
                 onClick={onSignOut}

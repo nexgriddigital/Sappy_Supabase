@@ -8,6 +8,7 @@ import { InventoryTab } from './components/InventoryTab.tsx';
 import { ExpensesTab } from './components/ExpensesTab.tsx';
 import { ReportsTab } from './components/ReportsTab.tsx';
 import { QRBarcodeStudioTab } from './components/QRBarcodeStudioTab.tsx';
+import { UsersTab } from './components/UsersTab.tsx';
 import { SettingsTab } from './components/SettingsTab.tsx';
 import { SupabaseSyncTab } from './components/SupabaseSyncTab.tsx';
 import { A4InvoiceModal } from './components/A4InvoiceModal.tsx';
@@ -294,6 +295,18 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'users' && (
+          <UsersTab
+            currentUser={currentUser}
+            config={config}
+            onUserChanged={(u) => {
+              setCurrentUser(u);
+              reloadData();
+            }}
+            onRefreshData={reloadData}
+          />
+        )}
+
         {activeTab === 'settings' && (
           <SettingsTab
             config={config}
@@ -303,6 +316,7 @@ export default function App() {
             expenses={expenses}
             products={products}
             customers={customers}
+            onNavigate={(tab) => setActiveTab(tab)}
           />
         )}
 
