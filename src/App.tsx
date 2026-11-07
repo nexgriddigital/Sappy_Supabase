@@ -14,6 +14,7 @@ import { SupabaseSyncTab } from './components/SupabaseSyncTab.tsx';
 import { A4InvoiceModal } from './components/A4InvoiceModal.tsx';
 import { AuthPage } from './components/AuthPage.tsx';
 import { CloudSyncModal } from './components/CloudSyncModal.tsx';
+import { MasterPasscodeModal } from './components/MasterPasscodeModal.tsx';
 import { storageService } from './services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
 import { LoadingScreen } from './components/LoadingAnimation.tsx';
@@ -33,6 +34,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => storageService.getCurrentUser());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState<boolean>(false);
+  const [criticalChallenge, setCriticalChallenge] = useState<{
+    actionName: string;
+    actionDescription: string;
+    onExecute: () => void;
+  } | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -110,9 +116,16 @@ export default function App() {
   };
 
   const handleAdjustCredit = (customerId: string, amountDelta: number, reason: string) => {
-    storageService.adjustCustomerCredit(customerId, amountDelta, reason);
-    reloadData();
-    crossDeviceSyncService.syncNow();
+    const cust = customers.find((c) => c.id === customerId);
+    setCriticalChallenge({
+      actionName: 'Manual Debt Adjustment',
+      actionDescription: `Adjust outstanding credit balance for "${cust?.name || customerId}" by ${amountDelta > 0 ? '+' : ''}${amountDelta} ${config.currencySymbol}. Reason: ${reason || 'Manual override'}`,
+      onExecute: () => {
+        storageService.adjustCustomerCredit(customerId, amountDelta, reason);
+        reloadData();
+        crossDeviceSyncService.syncNow();
+      },
+    });
   };
 
   // Product Management
@@ -123,9 +136,16 @@ export default function App() {
   };
 
   const handleDeleteProduct = (productId: string) => {
-    storageService.deleteProduct(productId);
-    reloadData();
-    crossDeviceSyncService.syncNow();
+    const prod = products.find((p) => p.id === productId);
+    setCriticalChallenge({
+      actionName: 'Delete Inventory Product',
+      actionDescription: `Permanently delete product "${prod?.name || productId}" (${prod?.sku || 'SKU'}) from store catalog.`,
+      onExecute: () => {
+        storageService.deleteProduct(productId);
+        reloadData();
+        crossDeviceSyncService.syncNow();
+      },
+    });
   };
 
   const handleAdjustStock = (productId: string, delta: number) => {
@@ -142,9 +162,16 @@ export default function App() {
   };
 
   const handleDeleteExpense = (expenseId: string) => {
-    storageService.deleteExpense(expenseId);
-    reloadData();
-    crossDeviceSyncService.syncNow();
+    const exp = expenses.find((e) => e.id === expenseId);
+    setCriticalChallenge({
+      actionName: 'Delete Expense Entry',
+      actionDescription: `Permanently delete expense record "${exp?.title || expenseId}" (${config.currencySymbol}${exp?.amount.toFixed(2)}).`,
+      onExecute: () => {
+        storageService.deleteExpense(expenseId);
+        reloadData();
+        crossDeviceSyncService.syncNow();
+      },
+    });
   };
 
   // Config Management
@@ -317,6 +344,7 @@ export default function App() {
             products={products}
             customers={customers}
             onNavigate={(tab) => setActiveTab(tab)}
+            currentUser={currentUser}
           />
         )}
 
@@ -355,6 +383,22 @@ export default function App() {
           syncState={syncState}
           onNavigateToSyncTab={() => setActiveTab('sync')}
           onRefreshData={reloadData}
+        />
+      )}
+
+      {/* Master Passcode Challenge Modal for Critical System Operations */}
+      {criticalChallenge && (
+        <MasterPasscodeModal
+          isOpen={Boolean(criticalChallenge)}
+          title="Master Passcode Required"
+          actionName={criticalChallenge.actionName}
+          actionDescription={criticalChallenge.actionDescription}
+          onSuccess={() => {
+            const action = criticalChallenge.onExecute;
+            setCriticalChallenge(null);
+            action();
+          }}
+          onCancel={() => setCriticalChallenge(null)}
         />
       )}
 

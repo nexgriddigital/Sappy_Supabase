@@ -12,6 +12,7 @@ export const INITIAL_STORE_CONFIG: StoreConfig = {
   defaultTaxRate: 15, // 15% VAT standard
   receiptFooter: 'Thank you for shopping at Sappy Stationary!',
   bankDetails: '',
+  masterPasscode: 'Sappy#1313',
 };
 
 export const INITIAL_PRODUCTS: Product[] = [];

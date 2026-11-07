@@ -17,11 +17,14 @@ import {
   Info,
   ShieldAlert,
   UserCog,
+  KeyRound,
+  Lock,
 } from 'lucide-react';
-import { StoreConfig, Sale, Expense, Product, Customer } from '../types/pos.ts';
+import { StoreConfig, Sale, Expense, Product, Customer, AppUser } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
 import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase.ts';
+import { MasterPasscodeModal, ChangeMasterPasscodeModal } from './MasterPasscodeModal.tsx';
 
 interface SettingsTabProps {
   config: StoreConfig;
@@ -32,6 +35,7 @@ interface SettingsTabProps {
   products: Product[];
   customers: Customer[];
   onNavigate?: (tab: any) => void;
+  currentUser?: AppUser | null;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -43,7 +47,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   products,
   customers,
   onNavigate,
+  currentUser = null,
 }) => {
+  // Master Passcode Security State
+  const [criticalChallenge, setCriticalChallenge] = useState<{
+    actionName: string;
+    actionDescription: string;
+    onExecute: () => void;
+  } | null>(null);
+  const [showChangePasscodeModal, setShowChangePasscodeModal] = useState(false);
   // Form State
   const [formData, setFormData] = useState<StoreConfig>({ ...config });
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -121,52 +133,70 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     e.target.value = '';
   };
 
-  // Perform Yearly Reset
+  // Perform Yearly Reset (Requires Master Passcode)
   const handleExecuteYearlyReset = () => {
     if (yearlyConfirmText.trim().toUpperCase() !== 'YEARLY RESET') return;
 
-    // Automatically trigger backup download first
-    handleExportBackup();
+    setCriticalChallenge({
+      actionName: `Yearly Fiscal Reset (${selectedYear})`,
+      actionDescription: `Archive and permanently clear sales, expenses, and payment records for the year ${selectedYear}. Product inventory and customer catalog will be preserved.`,
+      onExecute: () => {
+        // Automatically trigger backup download first
+        handleExportBackup();
 
-    const result = storageService.yearlyReset(selectedYear, {
-      resetCustomerBalances: !carryDebt,
+        const result = storageService.yearlyReset(selectedYear, {
+          resetCustomerBalances: !carryDebt,
+        });
+
+        onDataReset();
+        setShowYearlyModal(false);
+        setYearlyConfirmText('');
+        setYearlySuccessMsg(
+          `Year ${selectedYear} reset complete! Cleared ${result.clearedSalesCount} sales, ${result.clearedExpensesCount} expenses, and ${result.clearedPaymentsCount} payment receipts. Inventory & product catalog preserved.`
+        );
+        setTimeout(() => setYearlySuccessMsg(null), 8000);
+      },
     });
-
-    onDataReset();
-    setShowYearlyModal(false);
-    setYearlyConfirmText('');
-    setYearlySuccessMsg(
-      `Year ${selectedYear} reset complete! Cleared ${result.clearedSalesCount} sales, ${result.clearedExpensesCount} expenses, and ${result.clearedPaymentsCount} payment receipts. Inventory & product catalog preserved.`
-    );
-    setTimeout(() => setYearlySuccessMsg(null), 8000);
   };
 
-  // Perform Reset Everything (No backup export, full clean wipe)
-  const handleExecuteResetAll = async () => {
+  // Perform Reset Everything (Full Clean Wipe - Requires Master Passcode)
+  const handleExecuteResetAll = () => {
     if (resetAllConfirmText.trim().toUpperCase() !== 'RESET ALL') return;
 
-    await crossDeviceSyncService.resetAllDevices();
-    onDataReset();
-    setShowResetAllModal(false);
-    setResetAllConfirmText('');
-    setResetAllSuccessMsg(
-      'System completely wiped clean (0 products, 0 sales, 0 debts, 0 expenses) across all connected devices.'
-    );
-    setTimeout(() => setResetAllSuccessMsg(null), 8000);
+    setCriticalChallenge({
+      actionName: 'Factory Reset (Wipe Everything)',
+      actionDescription: 'Permanently wipe all product catalog, customers, sales invoices, debts, and expenses to an empty clean slate across all devices.',
+      onExecute: async () => {
+        await crossDeviceSyncService.resetAllDevices();
+        onDataReset();
+        setShowResetAllModal(false);
+        setResetAllConfirmText('');
+        setResetAllSuccessMsg(
+          'System completely wiped clean (0 products, 0 sales, 0 debts, 0 expenses) across all connected devices.'
+        );
+        setTimeout(() => setResetAllSuccessMsg(null), 8000);
+      },
+    });
   };
 
-  // Perform Reset Transactions Only
+  // Perform Reset Transactions Only (Requires Master Passcode)
   const handleExecuteResetTx = () => {
     if (resetTxConfirmText.trim().toUpperCase() !== 'RESET TRANSACTIONS') return;
 
-    const result = storageService.resetTransactionsOnly();
-    onDataReset();
-    setShowResetTxModal(false);
-    setResetTxConfirmText('');
-    setResetAllSuccessMsg(
-      `Transaction ledgers cleared (${result.clearedSalesCount} sales, ${result.clearedExpensesCount} expenses). All products and customer profiles preserved.`
-    );
-    setTimeout(() => setResetAllSuccessMsg(null), 8000);
+    setCriticalChallenge({
+      actionName: 'Reset Transactions Only',
+      actionDescription: `Clear all transaction ledgers (${sales.length} sales, ${expenses.length} expenses) while preserving all products and customer profiles.`,
+      onExecute: () => {
+        const result = storageService.resetTransactionsOnly();
+        onDataReset();
+        setShowResetTxModal(false);
+        setResetTxConfirmText('');
+        setResetAllSuccessMsg(
+          `Transaction ledgers cleared (${result.clearedSalesCount} sales, ${result.clearedExpensesCount} expenses). All products and customer profiles preserved.`
+        );
+        setTimeout(() => setResetAllSuccessMsg(null), 8000);
+      },
+    });
   };
 
   // Supabase Push Sync
@@ -478,6 +508,47 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <span>Open Users & Staff Directory</span>
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Master Security Passcode Panel */}
+          <div className="bg-charcoal-900 rounded-2xl border border-amber-600/50 p-6 shadow-md space-y-4 relative overflow-hidden">
+            <div className="flex items-center justify-between pb-3 border-b border-charcoal-800">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-amber-400" />
+                <h2 className="text-base font-bold text-white">Master Security Passcode</h2>
+              </div>
+              <span className="text-[10px] font-mono text-amber-400 font-semibold px-2 py-0.5 rounded-full bg-amber-950 border border-amber-600/60">
+                Owner Protected
+              </span>
+            </div>
+
+            <p className="text-xs text-charcoal-300 leading-relaxed">
+              The Master Passcode is required to authorize critical actions across Sappy POS, including database wipes, fiscal resets, staff account removals, and sensitive catalog changes.
+            </p>
+
+            <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-charcoal-400">Current Status:</span>
+                <span className="text-white font-bold">Passcode Active (Default: Sappy#1313)</span>
+              </div>
+              {currentUser?.role === 'owner' ? (
+                <span className="text-[10px] text-forest-400 font-bold">Authorized Owner</span>
+              ) : (
+                <span className="text-[10px] text-charcoal-500">Owner Access Only</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowChangePasscodeModal(true)}
+                className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-charcoal-950 font-bold text-xs flex items-center gap-2 border border-amber-400 shadow-md transition-all cursor-pointer active:scale-95"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>Change Master Passcode</span>
+              </button>
             </div>
           </div>
 
@@ -831,6 +902,34 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* --- MODAL 4: Critical Action Master Passcode Challenge --- */}
+      {criticalChallenge && (
+        <MasterPasscodeModal
+          isOpen={Boolean(criticalChallenge)}
+          title="Master Passcode Required"
+          actionName={criticalChallenge.actionName}
+          actionDescription={criticalChallenge.actionDescription}
+          onSuccess={() => {
+            const action = criticalChallenge.onExecute;
+            setCriticalChallenge(null);
+            action();
+          }}
+          onCancel={() => setCriticalChallenge(null)}
+        />
+      )}
+
+      {/* --- MODAL 5: Change Master Passcode Modal --- */}
+      {showChangePasscodeModal && (
+        <ChangeMasterPasscodeModal
+          isOpen={showChangePasscodeModal}
+          currentUser={currentUser}
+          onClose={() => setShowChangePasscodeModal(false)}
+          onSuccess={() => {
+            onDataReset();
+          }}
+        />
       )}
 
     </div>

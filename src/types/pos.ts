@@ -153,6 +153,7 @@ export interface StoreConfig {
   bankDetails: string;
   databaseUrl?: string;
   lastSyncedAt?: string;
+  masterPasscode?: string; // Master security passcode for critical actions (default: "Sappy#1313")
 }
 
 export interface DailyProfitLossReport {

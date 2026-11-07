@@ -28,6 +28,7 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'sappy_pos_current_user_v1',
 };
 const INITIAL_USERS: AppUser[] = [];
+export const DEFAULT_MASTER_PASSCODE = 'Sappy#1313';
 
 class StorageService {
   private get<T>(key: string, fallback: T): T {
@@ -51,22 +52,66 @@ class StorageService {
   // --- Store Configuration ---
   getStoreConfig(): StoreConfig {
     const config = this.get<StoreConfig>(STORAGE_KEYS.CONFIG, INITIAL_STORE_CONFIG);
+    let changed = false;
+
+    // Ensure master passcode exists with fallback Sappy#1313
+    if (!config.masterPasscode) {
+      config.masterPasscode = DEFAULT_MASTER_PASSCODE;
+      changed = true;
+    }
+
     // Auto-migrate old dollar currency symbol to Ethiopian Birr (Br)
     if (config.currencySymbol === '$' || config.currencyCode === 'USD') {
-      const updatedConfig: StoreConfig = {
-        ...config,
-        currencySymbol: 'Br ',
-        currencyCode: 'ETB',
-        defaultTaxRate: config.defaultTaxRate || 15,
-      };
-      this.saveStoreConfig(updatedConfig);
-      return updatedConfig;
+      config.currencySymbol = 'Br ';
+      config.currencyCode = 'ETB';
+      config.defaultTaxRate = config.defaultTaxRate || 15;
+      changed = true;
+    }
+
+    if (changed) {
+      this.saveStoreConfig(config);
     }
     return config;
   }
 
   saveStoreConfig(config: StoreConfig): void {
+    if (!config.masterPasscode) {
+      config.masterPasscode = DEFAULT_MASTER_PASSCODE;
+    }
     this.set(STORAGE_KEYS.CONFIG, config);
+  }
+
+  getMasterPasscode(): string {
+    return this.getStoreConfig().masterPasscode || DEFAULT_MASTER_PASSCODE;
+  }
+
+  verifyMasterPasscode(entered: string): boolean {
+    if (!entered) return false;
+    const current = this.getMasterPasscode();
+    return entered.trim() === current.trim();
+  }
+
+  updateMasterPasscode(
+    newPasscode: string,
+    requester: AppUser | null
+  ): { success: boolean; error?: string } {
+    if (!requester || requester.role !== 'owner') {
+      return {
+        success: false,
+        error: 'Permission denied. The Master Passcode can only be changed by Store Owner(s).',
+      };
+    }
+    const clean = newPasscode ? newPasscode.trim() : '';
+    if (clean.length < 4) {
+      return {
+        success: false,
+        error: 'Master Passcode must be at least 4 characters long.',
+      };
+    }
+    const config = this.getStoreConfig();
+    config.masterPasscode = clean;
+    this.saveStoreConfig(config);
+    return { success: true };
   }
 
   // --- Products & Inventory ---

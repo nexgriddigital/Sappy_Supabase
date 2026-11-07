@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { AppUser, UserRole, UserStatus, StoreConfig } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
+import { MasterPasscodeModal, ChangeMasterPasscodeModal } from './MasterPasscodeModal.tsx';
 
 interface UsersTabProps {
   currentUser: AppUser | null;
@@ -67,6 +68,14 @@ export const UsersTab: React.FC<UsersTabProps> = ({
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [pinTargetUser, setPinTargetUser] = useState<AppUser | null>(null);
   const [newPinCode, setNewPinCode] = useState('');
+
+  // Master Passcode Security States
+  const [criticalChallenge, setCriticalChallenge] = useState<{
+    actionName: string;
+    actionDescription: string;
+    onExecute: () => void;
+  } | null>(null);
+  const [isChangePasscodeOpen, setIsChangePasscodeOpen] = useState(false);
 
   // Delete Confirmation State
   const [deleteTargetUser, setDeleteTargetUser] = useState<AppUser | null>(null);
@@ -284,6 +293,21 @@ export const UsersTab: React.FC<UsersTabProps> = ({
     }
 
     const nextStatus: UserStatus = (user.status || 'active') === 'active' ? 'suspended' : 'active';
+
+    // Critical: Changing owner or manager status requires Master Passcode
+    if (user.role === 'owner' || user.role === 'manager') {
+      setCriticalChallenge({
+        actionName: `${nextStatus === 'suspended' ? 'Suspend' : 'Reactivate'} ${user.role.toUpperCase()} Account`,
+        actionDescription: `${nextStatus === 'suspended' ? 'Suspend' : 'Reactivate'} staff account for "${user.fullName}" (${user.role.toUpperCase()}).`,
+        onExecute: () => {
+          storageService.updateUserStatus(user.id, nextStatus);
+          reloadUserList();
+          showSuccess(`User "${user.fullName}" is now ${nextStatus === 'active' ? 'Active' : 'Suspended'}.`);
+        },
+      });
+      return;
+    }
+
     storageService.updateUserStatus(user.id, nextStatus);
     reloadUserList();
     showSuccess(
@@ -291,17 +315,25 @@ export const UsersTab: React.FC<UsersTabProps> = ({
     );
   };
 
-  // Delete User
+  // Delete User (Requires Master Passcode)
   const handleConfirmDelete = () => {
     if (!deleteTargetUser) return;
-    const res = storageService.deleteUser(deleteTargetUser.id);
-    if (!res.success) {
-      showError(res.error || 'Failed to delete user.');
-    } else {
-      showSuccess(`User "${deleteTargetUser.fullName}" removed from system.`);
-      reloadUserList();
-    }
+    const target = deleteTargetUser;
     setDeleteTargetUser(null);
+
+    setCriticalChallenge({
+      actionName: 'Delete Staff User Account',
+      actionDescription: `Permanently delete employee account "${target.fullName}" (${target.role.toUpperCase()}). Terminal access and PIN will be revoked immediately.`,
+      onExecute: () => {
+        const res = storageService.deleteUser(target.id);
+        if (!res.success) {
+          showError(res.error || 'Failed to delete user.');
+        } else {
+          showSuccess(`User "${target.fullName}" removed from system.`);
+          reloadUserList();
+        }
+      },
+    });
   };
 
   // Set / Update Quick PIN
@@ -431,6 +463,16 @@ export const UsersTab: React.FC<UsersTabProps> = ({
           >
             <HelpCircle className="w-4 h-4 text-forest-400" />
             <span>Role Permissions</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsChangePasscodeOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-300 hover:text-amber-400 text-xs font-semibold flex items-center gap-1.5 border border-charcoal-700 transition-colors cursor-pointer"
+            title="Change Store Master Passcode (Owner Only)"
+          >
+            <KeyRound className="w-4 h-4 text-amber-400" />
+            <span>Master Passcode</span>
           </button>
 
           <button
@@ -1363,6 +1405,35 @@ export const UsersTab: React.FC<UsersTabProps> = ({
 
           </div>
         </div>
+      )}
+
+      {/* Master Passcode Challenge Modal */}
+      {criticalChallenge && (
+        <MasterPasscodeModal
+          isOpen={Boolean(criticalChallenge)}
+          title="Master Passcode Required"
+          actionName={criticalChallenge.actionName}
+          actionDescription={criticalChallenge.actionDescription}
+          onSuccess={() => {
+            const action = criticalChallenge.onExecute;
+            setCriticalChallenge(null);
+            action();
+          }}
+          onCancel={() => setCriticalChallenge(null)}
+        />
+      )}
+
+      {/* Change Master Passcode Modal */}
+      {isChangePasscodeOpen && (
+        <ChangeMasterPasscodeModal
+          isOpen={isChangePasscodeOpen}
+          currentUser={currentUser}
+          onClose={() => setIsChangePasscodeOpen(false)}
+          onSuccess={() => {
+            showSuccess('Store Master Passcode updated successfully.');
+            reloadUserList();
+          }}
+        />
       )}
 
     </div>
