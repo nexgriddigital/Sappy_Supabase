@@ -1335,7 +1335,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                     {[
                       { feat: 'POS Register Sales & Receipt Print', owner: 'Full', mgr: 'Full', cashier: 'Full' },
                       { feat: 'Customer Credit & Debt Settlement', owner: 'Full', mgr: 'Full', cashier: 'View & Collect' },
-                      { feat: 'Custom Line Item Discounting', owner: 'Uncapped', mgr: 'Standard', cashier: 'Up to 10%' },
+                      { feat: 'Custom Order & Item Discounting', owner: 'Uncapped Amount', mgr: 'Standard Amount', cashier: 'Authorized Limit' },
                       { feat: 'Product Inventory & Stock Adjustments', owner: 'Full', mgr: 'Full', cashier: 'View Only' },
                       { feat: 'COGS & Wholesale Profit Margin View', owner: 'Yes', mgr: 'Yes', cashier: 'Hidden' },
                       { feat: 'Daily P&L & Financial Reports', owner: 'Full', mgr: 'Operational', cashier: 'Hidden' },

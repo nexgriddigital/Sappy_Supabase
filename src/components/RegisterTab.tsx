@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Receipt,
   X,
+  Monitor,
+  Sparkles,
 } from 'lucide-react';
 import {
   CartItem,
@@ -24,6 +26,7 @@ import {
   StoreConfig,
 } from '../types/pos.ts';
 import { PaymentProcessingLoader } from './LoadingAnimation.tsx';
+import { soundEffects } from '../utils/soundEffects.ts';
 
 interface RegisterTabProps {
   products: Product[];
@@ -32,6 +35,17 @@ interface RegisterTabProps {
   onCompleteSale: (sale: Omit<Sale, 'id' | 'invoiceNumber' | 'timestamp'>) => Sale;
   onOpenInvoice: (sale: Sale) => void;
   onAddNewCustomer: (customer: Customer) => void;
+  onCartChange?: (data: {
+    cart: CartItem[];
+    subtotal: number;
+    discountAmount: number;
+    taxAmount: number;
+    taxRate: number;
+    grandTotal: number;
+    customer?: Customer | null;
+  }) => void;
+  onOpenCustomerDisplay?: () => void;
+  onLoadStarterPack?: () => void;
 }
 
 const CATEGORIES: (ProductCategory | 'All')[] = [
@@ -52,11 +66,14 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   onCompleteSale,
   onOpenInvoice,
   onAddNewCustomer,
+  onCartChange,
+  onOpenCustomerDisplay,
+  onLoadStarterPack,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountAmountInput, setDiscountAmountInput] = useState<string>('');
   const [applyTax, setApplyTax] = useState<boolean>(false); // All sales are Tax Exempt by default unless specially ticked
 
   // Checkout Tender Modal State
@@ -93,10 +110,11 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
     });
   }, [products, selectedCategory, searchQuery]);
 
-  // Cart Calculations
+  // Cart Calculations (Discount is always a direct monetary amount)
   const rawSubtotal = cart.reduce((acc, item) => acc + item.lineTotal, 0);
   const totalCost = cart.reduce((acc, item) => acc + item.lineCostTotal, 0);
-  const orderDiscountAmount = (rawSubtotal * discountPercent) / 100;
+  const parsedDiscount = parseFloat(discountAmountInput) || 0;
+  const orderDiscountAmount = Math.min(rawSubtotal, Math.max(0, parsedDiscount));
   const subtotalAfterDiscount = Math.max(0, rawSubtotal - orderDiscountAmount);
   const taxRate = applyTax ? config.defaultTaxRate : 0;
   const taxAmount = (subtotalAfterDiscount * taxRate) / 100;
@@ -106,9 +124,25 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   // Selected Customer for credit sales
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
 
-  // Add Item to Cart
+  // Sync cart data to parent (for Customer Display Screen)
+  useEffect(() => {
+    if (onCartChange) {
+      onCartChange({
+        cart,
+        subtotal: rawSubtotal,
+        discountAmount: orderDiscountAmount,
+        taxAmount,
+        taxRate,
+        grandTotal,
+        customer: selectedCustomer || null,
+      });
+    }
+  }, [cart, rawSubtotal, orderDiscountAmount, taxAmount, taxRate, grandTotal, selectedCustomer, onCartChange]);
+
+  // Add Item to Cart with POS Beep audio feedback
   const handleAddToCart = (product: Product) => {
     if (product.stockLevel <= 0) return;
+    soundEffects.playBeep();
 
     setCart((prevCart) => {
       const existing = prevCart.find((item) => item.product.id === product.id);
@@ -120,7 +154,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
             ? {
                 ...item,
                 quantity: newQty,
-                lineTotal: newQty * item.product.sellingPrice * (1 - item.discountPercent / 100),
+                lineTotal: newQty * (item.customPrice ?? item.product.sellingPrice),
                 lineCostTotal: newQty * item.product.costPrice,
               }
             : item
@@ -140,8 +174,14 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
     });
   };
 
-  // Adjust Cart Item Quantity
+  // Adjust Cart Item Quantity with audio feedback
   const handleUpdateQty = (productId: string, delta: number) => {
+    if (delta > 0) {
+      soundEffects.playBeep();
+    } else {
+      soundEffects.playTrash();
+    }
+
     setCart((prevCart) => {
       return prevCart
         .map((item) => {
@@ -152,7 +192,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
             return {
               ...item,
               quantity: newQty,
-              lineTotal: newQty * item.product.sellingPrice * (1 - item.discountPercent / 100),
+              lineTotal: newQty * (item.customPrice ?? item.product.sellingPrice),
               lineCostTotal: newQty * item.product.costPrice,
             };
           }
@@ -164,6 +204,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
 
   // Remove Item
   const handleRemoveItem = (productId: string) => {
+    soundEffects.playTrash();
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
@@ -252,12 +293,15 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         notes: orderNotes.trim() || undefined,
       });
 
+      // Play authentic cash drawer chime
+      soundEffects.playCashRegister();
+
       // Reset Register (all new sales default to Tax Exempt)
       setCart([]);
       setIsProcessingPayment(false);
       setIsTenderOpen(false);
       setOrderNotes('');
-      setDiscountPercent(0);
+      setDiscountAmountInput('');
       setApplyTax(false);
 
       // Immediately open A4 Invoice
@@ -391,10 +435,29 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         </div>
 
         {filteredProducts.length === 0 && (
-          <div className="bg-charcoal-900 rounded-xl border border-charcoal-800 p-8 text-center text-charcoal-400">
-            <ShoppingBag className="w-8 h-8 mx-auto text-charcoal-500 mb-2" />
-            <p className="text-sm font-semibold text-charcoal-200">No stationery items found</p>
-            <p className="text-xs text-charcoal-400 mt-1">Try selecting another category or clear your search term.</p>
+          <div className="bg-charcoal-900 rounded-2xl border border-charcoal-800 p-8 text-center text-charcoal-400 space-y-3">
+            <ShoppingBag className="w-10 h-10 mx-auto text-charcoal-500 mb-1" />
+            <div>
+              <p className="text-sm font-bold text-charcoal-200">
+                {products.length === 0 ? 'Stationery Catalog is Empty' : 'No stationery items found'}
+              </p>
+              <p className="text-xs text-charcoal-400 mt-1 max-w-md mx-auto">
+                {products.length === 0
+                  ? 'Get started instantly by loading 16 authentic stationery essentials (Parker pens, Oxford notebooks, Double A paper, Kangaro staplers, Casio calculators).'
+                  : 'Try selecting another category or clear your search term.'}
+              </p>
+            </div>
+
+            {products.length === 0 && onLoadStarterPack && (
+              <button
+                type="button"
+                onClick={onLoadStarterPack}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-600 text-white font-bold text-xs shadow-lg transition-transform active:scale-95 cursor-pointer border border-forest-500/80"
+              >
+                <Sparkles className="w-4 h-4 text-forest-200" />
+                <span>Load 16 Stationery Essentials Starter Pack</span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -403,29 +466,44 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
       <div className="lg:col-span-4 bg-charcoal-900 rounded-2xl border border-charcoal-800 shadow-xl flex flex-col h-[calc(100vh-140px)] sticky top-20">
         
         {/* Cart Header */}
-        <div className="p-4 border-b border-charcoal-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-forest-900/60 text-forest-400 border border-forest-700/50 flex items-center justify-center">
+        <div className="p-4 border-b border-charcoal-800 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-forest-900/60 text-forest-400 border border-forest-700/50 flex items-center justify-center shrink-0">
               <ShoppingBag className="w-4 h-4" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-sm font-bold text-white leading-tight">Current Sale</h2>
               <p className="text-[11px] text-charcoal-400">{cart.length} distinct item{cart.length === 1 ? '' : 's'}</p>
             </div>
           </div>
 
-          {cart.length > 0 && (
-            <button
-              onClick={() => {
-                setCart([]);
-                setDiscountPercent(0);
-                setApplyTax(false);
-              }}
-              className="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
-            >
-              Clear Cart
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenCustomerDisplay && (
+              <button
+                type="button"
+                onClick={onOpenCustomerDisplay}
+                className="p-1.5 px-2.5 rounded-lg bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-300 hover:text-white border border-charcoal-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Open Customer Counter Display & 80mm Thermal Receipt Slip"
+              >
+                <Monitor className="w-3.5 h-3.5 text-forest-400" />
+                <span className="hidden sm:inline text-[11px]">Customer Screen</span>
+              </button>
+            )}
+
+            {cart.length > 0 && (
+              <button
+                onClick={() => {
+                  soundEffects.playTrash();
+                  setCart([]);
+                  setDiscountAmountInput('');
+                  setApplyTax(false);
+                }}
+                className="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
+              >
+                Clear Cart
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Cart Line Items (Scrollable) */}
@@ -491,21 +569,29 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         <div className="p-4 border-t border-charcoal-800 bg-charcoal-950/90 rounded-b-2xl space-y-3">
           
           {/* Quick Discount & Tax Toggle */}
-          <div className="flex items-center justify-between text-xs text-charcoal-400 pt-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-[11px] text-charcoal-300">Disc %:</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={discountPercent || ''}
-                onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                placeholder="0"
-                className="w-14 px-2 py-1 bg-charcoal-900 border border-charcoal-700 rounded text-center text-xs font-mono text-white focus:border-forest-500"
-              />
+          <div className="flex items-center justify-between text-xs text-charcoal-400 pt-1 gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-[11px] text-charcoal-300 whitespace-nowrap">
+                Discount ({config.currencySymbol.trim()}):
+              </span>
+              <div className="relative flex items-center">
+                <span className="absolute left-2 text-[10px] font-mono text-charcoal-400 select-none">
+                  {config.currencySymbol.trim()}
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  max={rawSubtotal}
+                  value={discountAmountInput}
+                  onChange={(e) => setDiscountAmountInput(e.target.value)}
+                  placeholder="0.00"
+                  className="w-24 pl-6 pr-2 py-1 bg-charcoal-900 border border-charcoal-700 rounded text-right text-xs font-mono font-bold text-white placeholder-charcoal-500 focus:border-forest-500"
+                />
+              </div>
             </div>
 
-            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium select-none">
+            <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium select-none shrink-0">
               <input
                 type="checkbox"
                 checked={applyTax}
@@ -524,9 +610,9 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
               <span className="font-sans text-charcoal-400">Subtotal:</span>
               <span className="text-charcoal-200">{config.currencySymbol}{rawSubtotal.toFixed(2)}</span>
             </div>
-            {discountPercent > 0 && (
+            {orderDiscountAmount > 0 && (
               <div className="flex justify-between text-forest-400">
-                <span className="font-sans">Discount ({discountPercent}%):</span>
+                <span className="font-sans">Discount:</span>
                 <span>-{config.currencySymbol}{orderDiscountAmount.toFixed(2)}</span>
               </div>
             )}
@@ -656,8 +742,11 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => setCashTendered(preset.val.toFixed(2))}
-                          className="py-1.5 px-2 bg-charcoal-800 hover:bg-forest-900/60 text-charcoal-200 hover:text-forest-300 border border-charcoal-700 hover:border-forest-700/60 font-mono font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                          onClick={() => {
+                            soundEffects.playClick();
+                            setCashTendered(preset.val.toFixed(2));
+                          }}
+                          className="py-1.5 px-2 bg-charcoal-800 hover:bg-forest-900/60 text-charcoal-200 hover:text-forest-300 border border-charcoal-700 hover:border-forest-700/60 font-mono font-bold text-xs rounded-lg transition-colors cursor-pointer active:scale-95"
                         >
                           {preset.label}
                         </button>

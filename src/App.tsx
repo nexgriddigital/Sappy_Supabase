@@ -15,6 +15,11 @@ import { A4InvoiceModal } from './components/A4InvoiceModal.tsx';
 import { AuthPage } from './components/AuthPage.tsx';
 import { CloudSyncModal } from './components/CloudSyncModal.tsx';
 import { MasterPasscodeModal } from './components/MasterPasscodeModal.tsx';
+import { CustomerDisplayModal } from './components/CustomerDisplayModal.tsx';
+import { CommandPaletteModal } from './components/CommandPaletteModal.tsx';
+import { ToastNotification, ToastMessage } from './components/ToastNotification.tsx';
+import { soundEffects } from './utils/soundEffects.ts';
+import { STARTER_STATIONERY_PRODUCTS } from './data/starterCatalog.ts';
 import { storageService } from './services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
 import { LoadingScreen } from './components/LoadingAnimation.tsx';
@@ -27,6 +32,7 @@ import {
   Sale,
   StoreConfig,
   AppUser,
+  CartItem,
 } from './types/pos.ts';
 
 export default function App() {
@@ -53,8 +59,103 @@ export default function App() {
   // Invoice Modal State
   const [activeInvoice, setActiveInvoice] = useState<Sale | null>(null);
 
+  // UI/UX Upgrades State
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  const [isCustomerDisplayOpen, setIsCustomerDisplayOpen] = useState<boolean>(false);
+  const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => soundEffects.getIsMuted());
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [activeCartData, setActiveCartData] = useState<{
+    cart: CartItem[];
+    subtotal: number;
+    discountAmount: number;
+    taxAmount: number;
+    taxRate: number;
+    grandTotal: number;
+    customer?: Customer | null;
+  }>({
+    cart: [],
+    subtotal: 0,
+    discountAmount: 0,
+    taxAmount: 0,
+    taxRate: 0,
+    grandTotal: 0,
+    customer: null,
+  });
+
   // Supabase connection flag
   const [dbConnected, setDbConnected] = useState<boolean>(isSupabaseConfigured());
+
+  // Toast Notification helper
+  const showToast = useCallback((title: string, description?: string, type: 'success' | 'error' | 'info' = 'success', durationMs = 3500) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newToast: ToastMessage = { id, title, description, type, durationMs };
+    setToasts((prev) => [...prev, newToast]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, durationMs);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // POS Sound Toggle
+  const handleToggleSound = useCallback(() => {
+    const muted = soundEffects.toggleMute();
+    setIsSoundMuted(muted);
+    if (!muted) {
+      soundEffects.playBeep();
+      showToast('POS Sound Feedback Enabled', 'Scanner beeps and cash register chimes active', 'success', 2500);
+    } else {
+      showToast('POS Sound Feedback Muted', 'Terminal audio feedback silenced', 'info', 2500);
+    }
+  }, [showToast]);
+
+  // Touchscreen Fullscreen Toggle
+  const handleToggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        showToast('Touch POS Fullscreen Mode', 'Press Esc or toggle icon to exit full screen', 'info', 2500);
+      }).catch(() => {
+        // Fullscreen prevented by browser
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      }).catch(() => {});
+    }
+  }, [showToast]);
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  // Global Keyboard Shortcuts (Cmd+K, Ctrl+K, and '/')
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      } else if (e.key === '/' && !isCommandPaletteOpen) {
+        const target = e.target as HTMLElement;
+        const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+        if (!isInput) {
+          e.preventDefault();
+          setIsCommandPaletteOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCommandPaletteOpen]);
 
   // Load data from storage service
   const reloadData = useCallback(() => {
@@ -66,6 +167,28 @@ export default function App() {
     setConfig(storageService.getStoreConfig());
     setDbConnected(isSupabaseConfigured());
   }, []);
+
+  // Load 16 Stationery Essentials Starter Pack
+  const handleLoadStarterPack = useCallback(() => {
+    const now = Date.now();
+    STARTER_STATIONERY_PRODUCTS.forEach((starterItem, index) => {
+      const p: Product = {
+        ...starterItem,
+        id: `prod-stn-${now}-${index + 1}`,
+      };
+      storageService.saveProduct(p);
+    });
+
+    reloadData();
+    crossDeviceSyncService.syncNow();
+    soundEffects.playCashRegister();
+    showToast(
+      'Starter Pack Loaded (16 Products)',
+      'High-demand stationery essentials (Parker, Bic, Oxford, Double A, Casio) added to catalog.',
+      'success',
+      4500
+    );
+  }, [reloadData, showToast]);
 
   // Initialize data and cross-device sync service
   useEffect(() => {
@@ -228,7 +351,7 @@ export default function App() {
       <Navbar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        cartItemCount={0}
+        cartItemCount={activeCartData.cart.reduce((sum, item) => sum + item.quantity, 0)}
         dbConnected={dbConnected}
         currentUser={currentUser}
         onSignOut={handleSignOut}
@@ -237,6 +360,12 @@ export default function App() {
         isSyncing={syncState.status === 'syncing'}
         onManualSync={() => crossDeviceSyncService.syncNow()}
         onOpenCloudSync={() => setIsCloudSyncModalOpen(true)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenCustomerDisplay={() => setIsCustomerDisplayOpen(true)}
+        isSoundMuted={isSoundMuted}
+        onToggleSound={handleToggleSound}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={handleToggleFullscreen}
       />
 
       {/* Main Tab Content */}
@@ -261,6 +390,9 @@ export default function App() {
             onCompleteSale={handleCompleteSale}
             onOpenInvoice={(sale) => setActiveInvoice(sale)}
             onAddNewCustomer={handleSaveCustomer}
+            onCartChange={setActiveCartData}
+            onOpenCustomerDisplay={() => setIsCustomerDisplayOpen(true)}
+            onLoadStarterPack={handleLoadStarterPack}
           />
         )}
 
@@ -292,6 +424,7 @@ export default function App() {
             onDeleteProduct={handleDeleteProduct}
             onAdjustStock={handleAdjustStock}
             onRefreshData={reloadData}
+            onLoadStarterPack={handleLoadStarterPack}
           />
         )}
 
@@ -401,6 +534,38 @@ export default function App() {
           onCancel={() => setCriticalChallenge(null)}
         />
       )}
+
+      {/* Customer Facing Counter Display & 80mm Thermal Slip Modal */}
+      <CustomerDisplayModal
+        isOpen={isCustomerDisplayOpen}
+        onClose={() => setIsCustomerDisplayOpen(false)}
+        cart={activeCartData.cart}
+        subtotal={activeCartData.subtotal}
+        discountAmount={activeCartData.discountAmount}
+        taxAmount={activeCartData.taxAmount}
+        taxRate={activeCartData.taxRate}
+        grandTotal={activeCartData.grandTotal}
+        customer={activeCartData.customer}
+        config={config}
+        currentUser={currentUser}
+        completedSale={activeInvoice}
+      />
+
+      {/* Global Command Palette / Omni-Search Modal (Cmd+K) */}
+      <CommandPaletteModal
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        products={products}
+        customers={customers}
+        config={config}
+        onNavigate={(tab) => setActiveTab(tab)}
+        onOpenSwitchUser={() => setIsAuthModalOpen(true)}
+        onLoadStarterPack={handleLoadStarterPack}
+        currentUser={currentUser}
+      />
+
+      {/* Floating System Feedback Toasts */}
+      <ToastNotification toasts={toasts} onDismiss={dismissToast} />
 
       {/* Footer */}
       <footer className="no-print bg-charcoal-900 border-t border-charcoal-800 py-4 px-6 text-center text-xs text-charcoal-400">

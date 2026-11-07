@@ -21,6 +21,7 @@ import {
   RotateCcw,
   AlertOctagon,
   Boxes,
+  Sparkles,
 } from 'lucide-react';
 import { Product, ProductCategory, StoreConfig } from '../types/pos.ts';
 import { BulkImportModal } from './BulkImportModal.tsx';
@@ -32,6 +33,7 @@ interface InventoryTabProps {
   onDeleteProduct: (productId: string) => void;
   onAdjustStock: (productId: string, delta: number) => void;
   onRefreshData?: () => void;
+  onLoadStarterPack?: () => void;
 }
 
 const CATEGORIES: ProductCategory[] = [
@@ -52,6 +54,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
   onDeleteProduct,
   onAdjustStock,
   onRefreshData,
+  onLoadStarterPack,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -286,6 +289,18 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
             >
               <ClipboardList className="w-4 h-4 text-amber-400" />
               <span>Purchase Order ({reorderCount})</span>
+            </button>
+          )}
+
+          {products.length === 0 && onLoadStarterPack && (
+            <button
+              type="button"
+              onClick={onLoadStarterPack}
+              className="px-3.5 py-2 bg-forest-800 hover:bg-forest-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer border border-forest-600/70 shadow-sm"
+              title="Load 16 authentic stationery products"
+            >
+              <Sparkles className="w-4 h-4 text-forest-300" />
+              <span>Load 16 Starter Products</span>
             </button>
           )}
 
@@ -753,18 +768,36 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
         </div>
 
         {filteredProducts.length === 0 && (
-          <div className="p-10 text-center text-charcoal-400">
-            <Package className="w-8 h-8 mx-auto text-charcoal-600 mb-2 opacity-50" />
-            <p className="text-sm font-semibold text-charcoal-200">
-              {filterBelowReorderOnly
-                ? 'No items currently below reorder threshold!'
-                : 'No stationery products found'}
-            </p>
-            <p className="text-xs text-charcoal-400 mt-1">
-              {filterBelowReorderOnly
-                ? 'All products are sufficiently stocked above reorder minimums.'
-                : 'Try clearing your search query or reset filters.'}
-            </p>
+          <div className="p-10 text-center text-charcoal-400 space-y-3">
+            <Package className="w-10 h-10 mx-auto text-charcoal-600 opacity-60" />
+            <div>
+              <p className="text-sm font-bold text-charcoal-200">
+                {filterBelowReorderOnly
+                  ? 'No items currently below reorder threshold!'
+                  : products.length === 0
+                  ? 'Stationery Catalog is Empty'
+                  : 'No stationery products found'}
+              </p>
+              <p className="text-xs text-charcoal-400 mt-1 max-w-md mx-auto">
+                {filterBelowReorderOnly
+                  ? 'All products are sufficiently stocked above reorder minimums.'
+                  : products.length === 0
+                  ? 'Populate your inventory instantly with 16 pre-configured stationery products spanning pens, notebooks, paper, desk gear, and art supplies.'
+                  : 'Try clearing your search query or reset filters.'}
+              </p>
+            </div>
+
+            {products.length === 0 && onLoadStarterPack && (
+              <button
+                type="button"
+                onClick={onLoadStarterPack}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold transition-transform active:scale-95 cursor-pointer border border-forest-500/80 shadow-md"
+              >
+                <Sparkles className="w-4 h-4 text-forest-200" />
+                <span>Load 16 Stationery Essentials Starter Pack</span>
+              </button>
+            )}
+
             {filterBelowReorderOnly && (
               <button
                 onClick={() => setFilterBelowReorderOnly(false)}

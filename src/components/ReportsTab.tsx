@@ -399,35 +399,214 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   }, [rangeSales, grossSales, config.defaultTaxRate]);
 
   // ----------------------------------------------------
+  // Dedicated Bookkeeping & Accounting CSV Export: Financial Summary (Sales vs Expenses)
+  // ----------------------------------------------------
+  const handleExportFinancialSummaryCSV = () => {
+    const safeStore = (config.storeName || 'Sappy_Stationery').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${safeStore}_Financial_Summary_Sales_vs_Expenses_${rangePreset}_${startDate}_to_${endDate}.csv`;
+
+    const lines: string[] = [];
+
+    const escapeCsv = (val: string | number) => {
+      const s = String(val ?? '');
+      if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const addRow = (cols: (string | number)[]) => {
+      lines.push(cols.map(escapeCsv).join(','));
+    };
+
+    // --- Header Block ---
+    addRow([`=== ${config.storeName.toUpperCase()} — FINANCIAL SUMMARY (SALES VS EXPENSES) ===`]);
+    addRow(['Store Name', config.storeName]);
+    addRow(['Tax Registration / TIN', config.taxId]);
+    addRow(['Store Address', config.address]);
+    addRow(['Currency', `${config.currencySymbol.trim()} (${config.currencyCode})`]);
+    addRow(['Reporting Period', `${rangeLabel} (${startDate} to ${endDate})`]);
+    addRow(['Date Generated', new Date().toISOString()]);
+    addRow([]);
+
+    // --- Section 1: Executive Financial Summary (P&L KPIs) ---
+    addRow(['--- SECTION 1: EXECUTIVE FINANCIAL SUMMARY (PROFIT & LOSS) ---']);
+    addRow(['Financial Metric', `Amount (${config.currencySymbol.trim()})`, 'Accounting Context']);
+    addRow(['Gross Sales Revenue (Invoiced)', grossSales.toFixed(2), 'Total retail transaction volume']);
+    addRow(['Sales Tax / VAT Collected', taxCollected.toFixed(2), 'Statutory output sales tax']);
+    addRow(['Net Sales Revenue (Excl. Tax)', netSales.toFixed(2), 'Gross sales revenue minus output tax']);
+    addRow(['Cost of Goods Sold (COGS)', cogs.toFixed(2), 'Wholesale acquisition cost of items sold']);
+    addRow(['Gross Profit Margin', grossProfit.toFixed(2), 'Net Sales minus COGS']);
+    addRow(['Gross Profit Margin %', `${grossMarginPct.toFixed(2)}%`, 'Gross Profit as % of Net Sales']);
+    addRow(['Total Operating Overhead & Expenses', totalExpenses.toFixed(2), 'Disbursements across all operating expense categories']);
+    addRow(['Net Operating Income / Profit', netProfit.toFixed(2), 'Gross Profit minus total operating expenses']);
+    addRow(['Net Profit Margin %', `${netMarginPct.toFixed(2)}%`, 'Net Profit as % of Net Sales']);
+    addRow([]);
+
+    // --- Section 2: Inflow by Payment Channel ---
+    addRow(['--- SECTION 2: REVENUE INFLOWS BY PAYMENT CHANNEL ---']);
+    addRow(['Payment Channel', `Total Invoiced (${config.currencySymbol.trim()})`, 'Invoices Count', 'Revenue Share %']);
+    paymentChannelStats.forEach((c) => {
+      addRow([c.channel, c.amount.toFixed(2), c.count, `${c.pct.toFixed(2)}%`]);
+    });
+    addRow(['Total Revenue Channels', grossSales.toFixed(2), rangeSales.length, '100.00%']);
+    addRow([]);
+
+    // --- Section 3: Expenses by Accounting Category ---
+    addRow(['--- SECTION 3: OPERATING EXPENSES BY ACCOUNTING CATEGORY ---']);
+    addRow(['Expense Category', `Disbursed Amount (${config.currencySymbol.trim()})`, 'Disbursements Count', 'Share of Overhead %']);
+    if (expenseBreakdown.length === 0) {
+      addRow(['No operating expenses recorded in period', '0.00', 0, '0.00%']);
+    } else {
+      expenseBreakdown.forEach((e) => {
+        addRow([e.category, e.amount.toFixed(2), e.count, `${e.pct.toFixed(2)}%`]);
+      });
+      addRow(['Total Operating Expenses', totalExpenses.toFixed(2), rangeExpenses.length, '100.00%']);
+    }
+    addRow([]);
+
+    // --- Section 4: Daily Sales vs Expenses Comparison Schedule ---
+    addRow(['--- SECTION 4: DAILY SALES VS EXPENSES COMPARISON SCHEDULE ---']);
+    addRow([
+      'Date',
+      'Transactions',
+      `Gross Sales (${config.currencySymbol.trim()})`,
+      `COGS (${config.currencySymbol.trim()})`,
+      `Gross Profit (${config.currencySymbol.trim()})`,
+      `Operating Expenses (${config.currencySymbol.trim()})`,
+      `Net Profit (${config.currencySymbol.trim()})`,
+      'Net Margin %',
+    ]);
+    if (dailyBreakdown.length === 0) {
+      addRow(['No activity recorded in this period', 0, '0.00', '0.00', '0.00', '0.00', '0.00', '0.00%']);
+    } else {
+      dailyBreakdown.forEach((r) => {
+        addRow([
+          r.date,
+          r.orderCount,
+          r.grossSales.toFixed(2),
+          r.cogs.toFixed(2),
+          r.grossProfit.toFixed(2),
+          r.expenses.toFixed(2),
+          r.netProfit.toFixed(2),
+          `${r.netMargin.toFixed(2)}%`,
+        ]);
+      });
+    }
+    addRow([]);
+
+    // --- Section 5: Itemized Chronological Cash Flow & Audit Register ---
+    addRow(['--- SECTION 5: ITEMIZED CHRONOLOGICAL CASH FLOW & AUDIT REGISTER ---']);
+    addRow([
+      'Date',
+      'Time',
+      'Transaction Type',
+      'Reference / Invoice #',
+      'Customer / Payee',
+      'Channel / Category',
+      `Inflow (Sales ${config.currencySymbol.trim()})`,
+      `Outflow (Expense ${config.currencySymbol.trim()})`,
+      `Net Cash Impact (${config.currencySymbol.trim()})`,
+      'Notes',
+    ]);
+
+    type UnifiedEntry = {
+      date: string;
+      time: string;
+      type: 'Sale' | 'Expense';
+      ref: string;
+      party: string;
+      categoryOrChannel: string;
+      inflow: number;
+      outflow: number;
+      net: number;
+      notes: string;
+    };
+
+    const unifiedList: UnifiedEntry[] = [];
+
+    rangeSales.forEach((s) => {
+      const d = s.timestamp.slice(0, 10);
+      const t = s.timestamp.slice(11, 19) || '12:00:00';
+      unifiedList.push({
+        date: d,
+        time: t,
+        type: 'Sale',
+        ref: s.invoiceNumber,
+        party: s.customerName || 'Walk-in Customer',
+        categoryOrChannel: `Sale: ${s.paymentMethod.toUpperCase()}`,
+        inflow: s.totalAmount,
+        outflow: 0,
+        net: s.totalAmount,
+        notes: s.notes || '',
+      });
+    });
+
+    rangeExpenses.forEach((e) => {
+      const d = e.date;
+      const t = '12:00:00';
+      unifiedList.push({
+        date: d,
+        time: t,
+        type: 'Expense',
+        ref: e.receiptNumber || e.id,
+        party: e.payee || config.storeName,
+        categoryOrChannel: `Expense: ${e.category}`,
+        inflow: 0,
+        outflow: e.amount,
+        net: -e.amount,
+        notes: e.title + (e.notes ? ` (${e.notes})` : ''),
+      });
+    });
+
+    unifiedList.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+
+    if (unifiedList.length === 0) {
+      addRow(['No transactions recorded in this period', '', '', '', '', '', '0.00', '0.00', '0.00', '']);
+    } else {
+      unifiedList.forEach((entry) => {
+        addRow([
+          entry.date,
+          entry.time,
+          entry.type,
+          entry.ref,
+          entry.party,
+          entry.categoryOrChannel,
+          entry.inflow > 0 ? entry.inflow.toFixed(2) : '0.00',
+          entry.outflow > 0 ? entry.outflow.toFixed(2) : '0.00',
+          entry.net.toFixed(2),
+          entry.notes,
+        ]);
+      });
+    }
+
+    // Export with UTF-8 BOM (\uFEFF) for compatibility with Excel, LibreOffice, and bookkeeping software
+    const csvString = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // ----------------------------------------------------
   // Dynamic CSV Export for the Current Report
   // ----------------------------------------------------
   const handleExportCSV = () => {
+    if (activeReport === 'pl') {
+      handleExportFinancialSummaryCSV();
+      return;
+    }
+
     let filename = `Sappy_Stationery_${activeReport.toUpperCase()}_Report_${rangePreset}.csv`;
     let headers: string[] = [];
     let rows: (string | number)[][] = [];
 
-    if (activeReport === 'pl') {
-      headers = [
-        'Date',
-        'Transactions',
-        'Gross Sales',
-        'Cost of Goods Sold (COGS)',
-        'Gross Profit',
-        'Operating Expenses',
-        'Net Profit / Loss',
-        'Net Margin %',
-      ];
-      rows = dailyBreakdown.map((r) => [
-        r.date,
-        r.orderCount,
-        r.grossSales.toFixed(2),
-        r.cogs.toFixed(2),
-        r.grossProfit.toFixed(2),
-        r.expenses.toFixed(2),
-        r.netProfit.toFixed(2),
-        `${r.netMargin.toFixed(1)}%`,
-      ]);
-    } else if (activeReport === 'sales') {
+    if (activeReport === 'sales') {
       headers = ['Payment Channel', 'Total Amount', 'Transaction Count', 'Share %'];
       rows = paymentChannelStats.map((r) => [
         r.channel,
@@ -536,6 +715,15 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+          <button
+            onClick={handleExportFinancialSummaryCSV}
+            className="px-3.5 py-2 bg-forest-800/80 hover:bg-forest-700 text-forest-100 hover:text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-transform cursor-pointer border border-forest-600/70 active:scale-95 shadow-xs"
+            title="Export comprehensive Sales vs Expenses financial statement to CSV for bookkeeping & accounting"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-forest-300" />
+            <span>Export Financial Summary (CSV)</span>
+          </button>
+
           <button
             onClick={handleExportCSV}
             className="px-3.5 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-200 hover:text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer border border-charcoal-700 active:scale-95 shadow-2xs"
@@ -709,12 +897,24 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
           {/* Daily P&L Ledger Table */}
           <div className="bg-charcoal-900 rounded-2xl border border-charcoal-800 shadow-2xs overflow-hidden">
-            <div className="p-4 border-b border-charcoal-800 flex items-center justify-between">
+            <div className="p-4 border-b border-charcoal-800 flex items-center justify-between gap-3 flex-wrap">
               <div>
                 <h3 className="text-sm font-bold text-white">Daily Profit & Loss Ledger</h3>
                 <p className="text-xs text-charcoal-400">Day-by-day revenue, cost of goods, overhead, and net earnings.</p>
               </div>
-              <span className="text-xs font-mono text-charcoal-400">{dailyBreakdown.length} active dates</span>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleExportFinancialSummaryCSV}
+                  className="px-3 py-1.5 bg-forest-900/80 hover:bg-forest-800 text-forest-200 border border-forest-600/70 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shadow-xs"
+                  title="Download complete Sales vs Expenses CSV breakdown"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-forest-400" />
+                  <span>Download Sales vs Expenses CSV</span>
+                </button>
+                <span className="text-xs font-mono text-charcoal-400">{dailyBreakdown.length} active dates</span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">

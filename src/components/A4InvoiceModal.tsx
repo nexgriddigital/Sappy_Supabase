@@ -185,8 +185,10 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
                     <td className="py-3 px-2 text-right font-mono font-medium">{item.quantity}</td>
                     <td className="py-3 px-2 text-right font-mono">
                       {config.currencySymbol}{item.unitPrice.toFixed(2)}
-                      {item.discountPercent > 0 && (
-                        <span className="block text-[10px] text-emerald-600">-{item.discountPercent}%</span>
+                      {((item.quantity * item.unitPrice) - item.lineTotal) > 0.009 && (
+                        <span className="block text-[10px] text-emerald-600">
+                          (-{config.currencySymbol}{((item.quantity * item.unitPrice) - item.lineTotal).toFixed(2)})
+                        </span>
                       )}
                     </td>
                     <td className="py-3 px-2 text-right font-mono font-semibold text-slate-900">

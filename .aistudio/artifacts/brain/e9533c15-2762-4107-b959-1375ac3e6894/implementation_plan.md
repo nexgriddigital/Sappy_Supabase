@@ -63,18 +63,41 @@ Every tab must provide a functional empty state with helpful call-to-action prom
 
 ---
 
-## 3. Implementation Steps & Verification
+## 4. Users & Staff Management and Master Passcode Security
+- **Users Page (`src/components/UsersTab.tsx`)**:
+  - Full staff directory with roles (`owner`, `manager`, `cashier`).
+  - Terminal PIN (4-digit quick unlock) configuration for rapid register handovers.
+  - Active shift indicators and permission matrices.
+- **Master Passcode (`Sappy#1313`)**:
+  - Universal safeguard enforced across critical actions: resetting all sales data, resetting all store data, deleting products, adjusting customer credit/debt, and deleting expense entries.
+  - Restricted to Store Owner(s) for updating or changing the passcode.
 
-1. **Update `src/services/storageService.ts`**:
-   - Remove all default sample stationery items and demo user accounts (`Abebe Hailu`, etc.).
-   - Implement `isFirstLaunch()` and update `resetEverything()` to guarantee a pure zero baseline.
-2. **Create / Refine First-Launch Setup in `src/components/AuthPage.tsx`**:
-   - Build a Store Owner Setup View with golden "SAPPY" header, welcoming the owner to configure their store.
-   - Instantly create the owner account and transition directly to the POS dashboard.
-3. **Clear Server Sync File (`data/pos_store.json`)**:
-   - Reset the server data file to empty arrays.
-4. **Audit Empty States & Zero-Division Protections**:
-   - Check `ReportsTab.tsx`, `InventoryTab.tsx`, `PosTab.tsx`, and `SalesTab.tsx` for zero-state handling.
-5. **Production Build & Verification**:
-   - Co-execute `compile_applet` and `lint_applet` to confirm 0 compilation and lint errors.
-   - Verify `npm run build` succeeds cleanly for GitHub Pages.
+---
+
+## 5. UI/UX Upgrades for Maximum Customer Satisfaction
+- **Web Audio API Feedback (`src/utils/soundEffects.ts`)**:
+  - Tactile audio synthesizers generating authentic barcode scanner beeps, cash register drawer chimes, tactile tender clicks, and delete sounds.
+  - Accessible mute/unmute control in the navigation bar and command palette.
+- **Customer-Facing Counter Display & 80mm Thermal Receipt Slip (`src/components/CustomerDisplayModal.tsx`)**:
+  - Dual-mode modal with live counter view showing real-time scanned items, itemized subtotals, VAT tax rate, and large change-due display.
+  - Standard 80mm ESC/POS thermal receipt preview with 1-click browser printing.
+- **Global Command Palette / Omni-Search (`src/components/CommandPaletteModal.tsx`)**:
+  - Accessible via `⌘K`, `Ctrl+K`, or `/`.
+  - Omni-searches tabs, inventory products (with 1-click add to cart), debtors/customers (with balance preview), and rapid shift switches.
+- **Stationery Starter Essentials Catalog (`src/data/starterCatalog.ts`)**:
+  - 16 high-demand authentic stationery products (Parker, Bic, Oxford, Double A, Kangaro, Casio) with 1-click loading from the Register and Inventory empty states.
+- **Fullscreen Touch POS Mode & Toast Notification System**:
+  - One-click fullscreen toggle for hardware touchscreen terminals.
+  - Non-intrusive floating feedback toasts for actions across the app.
+
+---
+
+## 6. Financial Summary (Sales vs Expenses) CSV Bookkeeping Export
+- **Multi-Section Accounting CSV (`src/components/ReportsTab.tsx`)**:
+  - Export comprehensive P&L financial summary into a clean UTF-8 BOM CSV format for seamless import into Excel, Google Sheets, QuickBooks, and accounting ledgers.
+  - Section 1: Executive Financial Summary (Gross Sales, VAT, Net Sales, COGS, Gross Profit, Expenses, Net Profit & Margins).
+  - Section 2: Revenue Inflows by Payment Channel (Cash, Card, Digital, Credit).
+  - Section 3: Operating Expenses by Accounting Category (Rent, Utilities, Wages, Freight, Supplies, etc.).
+  - Section 4: Daily Sales vs Expenses Comparison Schedule.
+  - Section 5: Itemized Chronological Cash Flow & Audit Register with invoice/receipt references, customers/payees, and net impact.
+  - Accessible via the top Reports toolbar button and the Daily P&L Ledger table action.

@@ -15,6 +15,13 @@ import {
   User,
   Database,
   UserCog,
+  Search,
+  Command,
+  Monitor,
+  Volume2,
+  VolumeX,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { AppUser } from '../types/pos.ts';
 import { SappyLogo } from './SappyLogo.tsx';
@@ -46,6 +53,12 @@ interface NavbarProps {
   isSyncing?: boolean;
   onManualSync?: () => void;
   onOpenCloudSync?: () => void;
+  onOpenCommandPalette?: () => void;
+  onOpenCustomerDisplay?: () => void;
+  isSoundMuted?: boolean;
+  onToggleSound?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -61,6 +74,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   isSyncing = false,
   onManualSync,
   onOpenCloudSync,
+  onOpenCommandPalette,
+  onOpenCustomerDisplay,
+  isSoundMuted = false,
+  onToggleSound,
+  isFullscreen = false,
+  onToggleFullscreen,
 }) => {
   const navItems: { id: TabType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -124,9 +143,69 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
 
-        {/* Zone 3: User Profile, Sync Status & Primary Action */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* Zone 3: Quick Utilities, Cart, Sync Status & User Profile */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
+          {/* Global Omni-Search Command Palette Trigger */}
+          {onOpenCommandPalette && (
+            <button
+              type="button"
+              onClick={onOpenCommandPalette}
+              className="p-2 sm:px-2.5 sm:py-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-400 hover:text-white border border-charcoal-800 transition-colors cursor-pointer flex items-center gap-1.5 text-xs"
+              title="Global Search & Quick Actions (Ctrl+K or /)"
+              aria-label="Open command palette"
+            >
+              <Search className="w-3.5 h-3.5 text-forest-400" />
+              <span className="hidden xl:inline text-[11px] font-mono text-charcoal-400">Search</span>
+              <kbd className="hidden sm:inline-block px-1.5 py-0.2 rounded bg-charcoal-900 text-[10px] font-mono text-charcoal-400 border border-charcoal-800">
+                ⌘K
+              </kbd>
+            </button>
+          )}
+
+          {/* Customer Facing Screen Trigger */}
+          {onOpenCustomerDisplay && (
+            <button
+              type="button"
+              onClick={onOpenCustomerDisplay}
+              className="p-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-400 hover:text-forest-300 border border-charcoal-800 transition-colors cursor-pointer"
+              title="Open Customer Counter Display & Thermal Slip"
+              aria-label="Customer Counter Display"
+            >
+              <Monitor className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* POS Audio Sound Toggle */}
+          {onToggleSound && (
+            <button
+              type="button"
+              onClick={onToggleSound}
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                isSoundMuted
+                  ? 'bg-charcoal-950 text-charcoal-500 border-charcoal-800 hover:text-charcoal-300'
+                  : 'bg-charcoal-950 text-forest-400 border-charcoal-800 hover:bg-charcoal-800'
+              }`}
+              title={isSoundMuted ? 'Sound Muted. Click to enable POS audio feedback' : 'Sound Enabled. Click to mute audio feedback'}
+              aria-label="Toggle POS Sound"
+            >
+              {isSoundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+          )}
+
+          {/* Fullscreen Mode Toggle */}
+          {onToggleFullscreen && (
+            <button
+              type="button"
+              onClick={onToggleFullscreen}
+              className="hidden lg:flex p-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-400 hover:text-white border border-charcoal-800 transition-colors cursor-pointer"
+              title={isFullscreen ? 'Exit Fullscreen POS' : 'Enter Fullscreen Touch POS'}
+              aria-label="Toggle Fullscreen"
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          )}
+
           {/* Live Cross-Device Cloud Sync Indicator */}
           <div className="hidden sm:block">
             <PulseSyncIndicator
