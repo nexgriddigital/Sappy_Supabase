@@ -27,36 +27,7 @@ const STORAGE_KEYS = {
   USERS: 'sappy_pos_users_v1',
   CURRENT_USER: 'sappy_pos_current_user_v1',
 };
-
-const INITIAL_USERS: AppUser[] = [
-  {
-    id: 'usr-owner-1',
-    email: 'owner@sappystationery.et',
-    fullName: 'Abebe Hailu',
-    role: 'owner',
-    storeName: 'Sappy Stationery',
-    phone: '+251 91 123 4567',
-    createdAt: '2026-01-01T08:00:00Z',
-  },
-  {
-    id: 'usr-cashier-1',
-    email: 'cashier@sappystationery.et',
-    fullName: 'Bethelhem Tadesse',
-    role: 'cashier',
-    storeName: 'Sappy Stationery',
-    phone: '+251 92 345 6789',
-    createdAt: '2026-01-15T09:00:00Z',
-  },
-  {
-    id: 'usr-manager-1',
-    email: 'manager@sappystationery.et',
-    fullName: 'Dawit Kebede',
-    role: 'manager',
-    storeName: 'Sappy Stationery',
-    phone: '+251 93 456 7890',
-    createdAt: '2026-02-01T10:00:00Z',
-  },
-];
+const INITIAL_USERS: AppUser[] = [];
 
 class StorageService {
   private get<T>(key: string, fallback: T): T {
@@ -574,38 +545,42 @@ class StorageService {
     this.set(STORAGE_KEYS.SALES, []);
     this.set(STORAGE_KEYS.EXPENSES, []);
     this.set(STORAGE_KEYS.PAYMENTS, []);
+    this.set(STORAGE_KEYS.USERS, []);
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   }
 
   // --- User Authentication & Session Management ---
+  hasUsers(): boolean {
+    return this.getUsers().length > 0;
+  }
+
   getUsers(): AppUser[] {
     const raw = localStorage.getItem(STORAGE_KEYS.USERS);
     if (raw !== null) {
       try {
         return JSON.parse(raw) as AppUser[];
       } catch {
-        return INITIAL_USERS;
+        return [];
       }
     }
-    this.set(STORAGE_KEYS.USERS, INITIAL_USERS);
-    return INITIAL_USERS;
+    this.set(STORAGE_KEYS.USERS, []);
+    return [];
   }
 
   getCurrentUser(): AppUser | null {
     const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (raw === 'null' || raw === 'logged_out') {
+    if (raw === 'null' || raw === 'logged_out' || !raw) {
       return null;
     }
-    if (raw !== null) {
-      try {
-        return JSON.parse(raw) as AppUser;
-      } catch {
-        return null;
-      }
+    try {
+      const user = JSON.parse(raw) as AppUser;
+      // Verify user is in registered list
+      const users = this.getUsers();
+      const match = users.find((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+      return match || null;
+    } catch {
+      return null;
     }
-    // Default session: initial store owner
-    const defaultUser = this.getUsers()[0] || INITIAL_USERS[0];
-    this.setCurrentUser(defaultUser);
-    return defaultUser;
   }
 
   setCurrentUser(user: AppUser | null): void {
@@ -673,10 +648,10 @@ class StorageService {
     config?: StoreConfig;
     users?: AppUser[];
   }): void {
-    if (state.products && Array.isArray(state.products) && state.products.length > 0) {
+    if (state.products && Array.isArray(state.products)) {
       this.set(STORAGE_KEYS.PRODUCTS, state.products);
     }
-    if (state.customers && Array.isArray(state.customers) && state.customers.length > 0) {
+    if (state.customers && Array.isArray(state.customers)) {
       this.set(STORAGE_KEYS.CUSTOMERS, state.customers);
     }
     if (state.sales && Array.isArray(state.sales)) {
@@ -691,7 +666,7 @@ class StorageService {
     if (state.config && typeof state.config === 'object') {
       this.set(STORAGE_KEYS.CONFIG, state.config);
     }
-    if (state.users && Array.isArray(state.users) && state.users.length > 0) {
+    if (state.users && Array.isArray(state.users)) {
       this.set(STORAGE_KEYS.USERS, state.users);
     }
   }

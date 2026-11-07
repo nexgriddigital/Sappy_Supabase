@@ -179,11 +179,16 @@ export default function App() {
     );
   }
 
-  // If no staff user is logged in, show the full-screen Login and Signup page
+  // If no staff user is logged in, show the full-screen First-Launch Setup or Login page
   if (!currentUser) {
+    const hasUsers = storageService.hasUsers();
     return (
       <div className="min-h-screen bg-charcoal-950 text-charcoal-100 flex flex-col font-sans selection:bg-forest-700 selection:text-white">
-        <AuthPage onAuthSuccess={handleAuthSuccess} initialMode="login" isModal={false} />
+        <AuthPage
+          onAuthSuccess={handleAuthSuccess}
+          initialMode={hasUsers ? 'login' : 'setup'}
+          isModal={false}
+        />
       </div>
     );
   }

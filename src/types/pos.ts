@@ -20,6 +20,7 @@ export interface Product {
   sellingPrice: number;  // Retail selling price
   stockLevel: number;
   lowStockThreshold: number;
+  reorderThreshold?: number; // Configurable per-product reorder point
   unit: string;          // e.g. 'pcs', 'pack', 'ream', 'box', 'set'
   description?: string;
   updatedAt?: string;

@@ -18,33 +18,40 @@ import {
   KeyRound,
   X,
   BadgeCheck,
+  DollarSign,
+  Percent,
 } from 'lucide-react';
 import { AppUser, UserRole } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
 import { getSupabase } from '../lib/supabase.ts';
-import sappyBrandWordmark from '../assets/images/sappy_brand_logo_1793958913812.jpg';
 import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
 interface AuthPageProps {
   onAuthSuccess: (user: AppUser) => void;
   onClose?: () => void; // Optional if shown as modal
-  initialMode?: 'login' | 'signup';
+  initialMode?: 'login' | 'signup' | 'setup';
   isModal?: boolean;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   onAuthSuccess,
   onClose,
-  initialMode = 'login',
+  initialMode,
   isModal = false,
 }) => {
-  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
+  const hasExistingUsers = storageService.hasUsers();
+  const defaultMode = initialMode || (hasExistingUsers ? 'login' : 'setup');
+
+  const [mode, setMode] = useState<'login' | 'signup' | 'setup'>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
-  const [storeName, setStoreName] = useState('Sappy Stationery & Books');
+  const [storeName, setStoreName] = useState('Sappy Stationary');
   const [phone, setPhone] = useState('');
+  const [currencySymbol, setCurrencySymbol] = useState('Br ');
+  const [currencyCode, setCurrencyCode] = useState('ETB');
+  const [taxRate, setTaxRate] = useState('15');
   const [role, setRole] = useState<UserRole>('owner');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -52,13 +59,68 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Quick Preset Staff Fill
-  const handleQuickFill = (presetEmail: string, presetRole: UserRole, presetName: string) => {
-    setEmail(presetEmail);
-    setPassword('password123');
-    setFullName(presetName);
-    setRole(presetRole);
+  // Handle First-Time Store Owner Setup
+  const handleFirstTimeSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
+    setSuccessMsg(null);
+    setLoading(true);
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = fullName.trim();
+
+    if (!cleanName || !cleanEmail || !password) {
+      setError('Please provide your full name, email address, and master password.');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Master password must be at least 6 characters long.');
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please verify your password entry.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Save configured store settings
+      const currentConfig = storageService.getStoreConfig();
+      storageService.saveStoreConfig({
+        ...currentConfig,
+        storeName: storeName.trim() || 'Sappy Stationary',
+        phone: phone.trim() || currentConfig.phone,
+        email: cleanEmail,
+        currencySymbol: currencySymbol,
+        currencyCode: currencyCode,
+        defaultTaxRate: parseFloat(taxRate) || 15,
+      });
+
+      // 2. Register master Store Owner user
+      const ownerUser = storageService.registerUser({
+        email: cleanEmail,
+        fullName: cleanName,
+        role: 'owner',
+        storeName: storeName.trim() || 'Sappy Stationary',
+        phone: phone.trim() || undefined,
+      });
+
+      // 3. Set active session
+      storageService.setCurrentUser(ownerUser);
+      setSuccessMsg(`Welcome, ${ownerUser.fullName}! Sappy POS is configured and ready.`);
+
+      setTimeout(() => {
+        onAuthSuccess(ownerUser);
+      }, 500);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to complete setup. Please check your entries.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle Login
@@ -100,22 +162,25 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             };
           }
         } catch {
-          // Fallback to local user ledger if cloud network is offline
+          // Cloud auth skipped in local mode
         }
       }
 
       // 2. Check local user database or cloud result
       let user = cloudAuthUser || storageService.findUserByEmail(cleanEmail);
 
-      // If user doesn't exist yet in local storage but credentials look valid, auto-register as staff
       if (!user) {
-        user = storageService.registerUser({
-          email: cleanEmail,
-          fullName: cleanEmail.split('@')[0].replace('.', ' '),
-          role: cleanEmail.includes('owner') ? 'owner' : cleanEmail.includes('manager') ? 'manager' : 'cashier',
-          storeName: storeName,
-          phone: '+251 91 123 4567',
-        });
+        // If system has no registered users, redirect to setup
+        if (!storageService.hasUsers()) {
+          setMode('setup');
+          setError('No user accounts exist yet. Please complete the initial store owner setup.');
+          setLoading(false);
+          return;
+        }
+
+        setError('Invalid staff credentials. Please check your email or contact your Store Owner.');
+        setLoading(false);
+        return;
       }
 
       // Set active session
@@ -131,7 +196,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
-  // Handle Signup
+  // Handle Signup (Staff Member Registration)
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -158,42 +223,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
 
     try {
-      // 1. Try Supabase cloud user registration if configured
-      const supabase = getSupabase();
-      let cloudUserId = `usr-${Date.now()}`;
-
-      if (supabase) {
-        try {
-          const { data, error: supaErr } = await supabase.auth.signUp({
-            email: cleanEmail,
-            password: password,
-            options: {
-              data: {
-                full_name: fullName.trim(),
-                role: role,
-                store_name: storeName.trim(),
-                phone: phone.trim() || undefined,
-              },
-            },
-          });
-
-          if (supaErr) {
-            // Note if cloud returned a non-fatal message
-            console.warn('Supabase signup notice:', supaErr.message);
-          } else if (data.user) {
-            cloudUserId = data.user.id;
-          }
-        } catch {
-          // Supabase signup skipped in offline mode
-        }
-      }
-
-      // 2. Register user locally in storageService
+      // Register user locally in storageService
       const newUser = storageService.registerUser({
         email: cleanEmail,
         fullName: fullName.trim(),
         role: role,
-        storeName: storeName.trim() || 'Sappy Stationery',
+        storeName: storeName.trim() || 'Sappy Stationary',
         phone: phone.trim() || undefined,
       });
 
@@ -209,28 +244,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
-  // Guest Quick Access
-  const handleGuestAccess = () => {
-    const guestUser: AppUser = {
-      id: `usr-guest-${Date.now()}`,
-      email: 'guest.cashier@sappystationery.et',
-      fullName: 'Counter Cashier (Guest)',
-      role: 'cashier',
-      storeName: 'Sappy Stationery & Books',
-      createdAt: new Date().toISOString(),
-      lastLoginAt: new Date().toISOString(),
-    };
-    storageService.setCurrentUser(guestUser);
-    onAuthSuccess(guestUser);
-  };
-
   const containerClasses = isModal
     ? 'fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-4'
     : 'min-h-[85vh] flex items-center justify-center p-4 sm:p-6';
 
   return (
     <div className={containerClasses}>
-      <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-charcoal-100 relative">
+      <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden text-charcoal-100 relative">
         
         {/* Close Button if Modal */}
         {isModal && onClose && (
@@ -246,53 +266,69 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         <div className="bg-charcoal-950 p-6 border-b border-charcoal-800 text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-forest-600/10 rounded-full blur-2xl pointer-events-none" />
           
-          <div className="flex flex-col items-center justify-center mb-3">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden border border-amber-500/40 shadow-xl shadow-amber-950/60 mb-2.5">
-              <img src={sappySquareIcon} alt="Sappy" className="w-full h-full object-cover" />
+          <div className="flex flex-col items-center justify-center mb-2">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border border-amber-500/40 shadow-xl shadow-amber-950/60 p-0.5 bg-gradient-to-b from-amber-500/20 to-transparent">
+              <img src={sappySquareIcon} alt="Sappy" className="w-full h-full object-cover rounded-xl" />
             </div>
-            <img src={sappyBrandWordmark} alt="SAPPY" className="h-8 w-auto max-w-[160px] object-contain" />
+            <h2 className="font-serif tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 font-extrabold text-2xl mt-1.5 drop-shadow-sm">
+              SAPPY
+            </h2>
           </div>
 
-          <p className="text-xs text-charcoal-400 mt-1">
-            Commercial Point of Sale & Cross-Device Management Hub
-          </p>
+          {mode === 'setup' ? (
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold font-mono px-3 py-1 rounded-full bg-forest-950 text-forest-300 border border-forest-700/60 shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-forest-400" />
+                <span>First-Time Store Owner Setup</span>
+              </span>
+              <p className="text-xs text-charcoal-400 mt-2">
+                Register the master store owner administrator account and set your store preferences.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-charcoal-400 mt-1">
+                Commercial Point of Sale & Retail Management Hub
+              </p>
 
-          {/* Mode Switch Tabs */}
-          <div className="grid grid-cols-2 gap-1 bg-charcoal-900 p-1 rounded-xl border border-charcoal-800 mt-5">
-            <button
-              type="button"
-              onClick={() => {
-                setMode('login');
-                setError(null);
-                setSuccessMsg(null);
-              }}
-              className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                mode === 'login'
-                  ? 'bg-forest-700 text-white shadow-xs border border-forest-600/60'
-                  : 'text-charcoal-400 hover:text-white'
-              }`}
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In</span>
-            </button>
+              {/* Mode Switch Tabs */}
+              <div className="grid grid-cols-2 gap-1 bg-charcoal-900 p-1 rounded-xl border border-charcoal-800 mt-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('login');
+                    setError(null);
+                    setSuccessMsg(null);
+                  }}
+                  className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    mode === 'login'
+                      ? 'bg-forest-700 text-white shadow-xs border border-forest-600/60'
+                      : 'text-charcoal-400 hover:text-white'
+                  }`}
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setMode('signup');
-                setError(null);
-                setSuccessMsg(null);
-              }}
-              className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
-                mode === 'signup'
-                  ? 'bg-forest-700 text-white shadow-xs border border-forest-600/60'
-                  : 'text-charcoal-400 hover:text-white'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Register Store</span>
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signup');
+                    setError(null);
+                    setSuccessMsg(null);
+                  }}
+                  className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    mode === 'signup'
+                      ? 'bg-forest-700 text-white shadow-xs border border-forest-600/60'
+                      : 'text-charcoal-400 hover:text-white'
+                  }`}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Register Staff</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Error / Success Feedback */}
@@ -312,14 +348,170 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
         {/* Form Body */}
         <div className="p-6">
-          {mode === 'login' ? (
+          {mode === 'setup' ? (
             /* ======================================================== */
-            /* LOGIN FORM */
+            /* 1. FIRST-TIME STORE OWNER SETUP FORM */
+            /* ======================================================== */
+            <form onSubmit={handleFirstTimeSetup} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Store Owner Full Name *
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Store Owner Name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Store / Stationery Name *
+                  </label>
+                  <div className="relative">
+                    <Building2 className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Sappy Stationary"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Store Contact Phone
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                    <input
+                      type="tel"
+                      placeholder="+251 91 123 4567"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 font-mono focus:border-forest-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Master Owner Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="owner@sappystationery.et"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Master Password *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Min 6 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-3 pr-8 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-2.5 text-charcoal-400 hover:text-white cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Confirm Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Re-enter password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Currency Symbol
+                  </label>
+                  <input
+                    type="text"
+                    value={currencySymbol}
+                    onChange={(e) => setCurrencySymbol(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                    placeholder="Br "
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Standard Tax Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                    placeholder="15"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-3 bg-forest-700 hover:bg-forest-600 text-white font-bold text-sm rounded-xl cursor-pointer shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-forest-600/50 shadow-forest-950/60"
+              >
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <BadgeCheck className="w-4 h-4 text-forest-200" />
+                    <span>Complete Setup & Enter POS</span>
+                  </>
+                )}
+              </button>
+            </form>
+          ) : mode === 'login' ? (
+            /* ======================================================== */
+            /* 2. REGULAR LOGIN FORM */
             /* ======================================================== */
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1.5">
-                  Staff Email or Username
+                  Staff Email Address
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
@@ -335,21 +527,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-charcoal-300 uppercase tracking-wider">
-                    Password
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('owner@sappystationery.et');
-                      setPassword('password123');
-                    }}
-                    className="text-[11px] text-forest-400 hover:text-forest-300 font-semibold cursor-pointer"
-                  >
-                    Use default
-                  </button>
-                </div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1.5">
+                  Password
+                </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
                   <input
@@ -396,45 +576,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   </>
                 )}
               </button>
-
-              {/* Fast Staff Login Presets */}
-              <div className="pt-3 border-t border-charcoal-800">
-                <p className="text-[11px] font-semibold text-charcoal-400 uppercase tracking-wider mb-2 text-center">
-                  Quick Staff Login (1-Click Fill):
-                </p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('owner@sappystationery.et', 'owner', 'Abebe Hailu')}
-                    className="p-2 bg-charcoal-950 hover:bg-charcoal-800 border border-charcoal-800 hover:border-forest-600 rounded-lg text-center transition-colors cursor-pointer group"
-                  >
-                    <p className="text-[11px] font-bold text-white group-hover:text-forest-400">Owner</p>
-                    <p className="text-[9px] text-charcoal-400 truncate">Abebe</p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('manager@sappystationery.et', 'manager', 'Dawit Kebede')}
-                    className="p-2 bg-charcoal-950 hover:bg-charcoal-800 border border-charcoal-800 hover:border-blue-600 rounded-lg text-center transition-colors cursor-pointer group"
-                  >
-                    <p className="text-[11px] font-bold text-white group-hover:text-blue-400">Manager</p>
-                    <p className="text-[9px] text-charcoal-400 truncate">Dawit</p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('cashier@sappystationery.et', 'cashier', 'Bethelhem T.')}
-                    className="p-2 bg-charcoal-950 hover:bg-charcoal-800 border border-charcoal-800 hover:border-amber-600 rounded-lg text-center transition-colors cursor-pointer group"
-                  >
-                    <p className="text-[11px] font-bold text-white group-hover:text-amber-400">Cashier</p>
-                    <p className="text-[9px] text-charcoal-400 truncate">Bethelhem</p>
-                  </button>
-                </div>
-              </div>
             </form>
           ) : (
             /* ======================================================== */
-            /* SIGNUP FORM */
+            /* 3. STAFF REGISTRATION FORM */
             /* ======================================================== */
             <form onSubmit={handleSignup} className="space-y-3.5">
               <div>
@@ -446,46 +591,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Abebe Hailu"
+                    placeholder="Staff Member Name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500"
                   />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
-                    Store / Company *
-                  </label>
-                  <div className="relative">
-                    <Building2 className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Sappy Stationery"
-                      value={storeName}
-                      onChange={(e) => setStoreName(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
-                    Contact Phone
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
-                    <input
-                      type="tel"
-                      placeholder="+251 91 123 4567"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 font-mono focus:border-forest-500"
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -509,11 +619,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               {/* Role Selection */}
               <div>
                 <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
-                  Terminal Staff Role *
+                  Staff Role *
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'owner' as UserRole, label: 'Store Owner', desc: 'Full control' },
+                    { id: 'owner' as UserRole, label: 'Owner', desc: 'Full control' },
                     { id: 'manager' as UserRole, label: 'Manager', desc: 'Inventory & P&L' },
                     { id: 'cashier' as UserRole, label: 'Cashier', desc: 'POS checkout' },
                   ].map((r) => {
@@ -577,24 +687,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 ) : (
                   <>
                     <UserPlus className="w-4 h-4 text-forest-200" />
-                    <span>Create Staff Account</span>
+                    <span>Register Staff Account</span>
                   </>
                 )}
               </button>
             </form>
           )}
-
-          {/* Guest Checkout Bypass Option */}
-          <div className="mt-4 pt-3 border-t border-charcoal-800 text-center">
-            <button
-              type="button"
-              onClick={handleGuestAccess}
-              className="text-xs text-charcoal-400 hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1.5"
-            >
-              <span>Instant Test Mode: Continue as Guest Cashier</span>
-              <ArrowRight className="w-3.5 h-3.5 text-forest-400" />
-            </button>
-          </div>
 
         </div>
 

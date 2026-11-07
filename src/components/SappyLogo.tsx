@@ -52,7 +52,7 @@ export const SappyLogo: React.FC<SappyLogoProps> = ({
             src={sappyBrandWordmark}
             alt="SAPPY"
             onError={() => setImgError(true)}
-            className="h-full w-auto max-w-[140px] sm:max-w-[170px] object-contain rounded-md"
+            className="h-full w-auto max-w-[140px] sm:max-w-[170px] object-contain rounded-md mix-blend-screen"
           />
         ) : (
           <div className="flex flex-col">

@@ -1,5 +1,4 @@
 import React from 'react';
-import sappyBrandWordmark from '../assets/images/sappy_brand_logo_1793958913812.jpg';
 import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
 interface LoadingScreenProps {
@@ -32,11 +31,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
         {/* Wordmark */}
         <div className="mb-4">
-          <img
-            src={sappyBrandWordmark}
-            alt="SAPPY"
-            className="h-9 w-auto max-w-[180px] object-contain mx-auto"
-          />
+          <span className="font-serif tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 font-extrabold text-2xl drop-shadow-sm">
+            SAPPY
+          </span>
         </div>
 
         {/* Dynamic Progress Indicator */}
