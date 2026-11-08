@@ -15,6 +15,17 @@ const app = express();
 const port = parseInt(process.env.PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
+// Universal CORS Middleware for GitHub Pages and Cross-Device Access
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 // PostgreSQL Connection Pool Setup
@@ -175,6 +186,72 @@ const DEFAULT_STARTER_PRODUCTS = [
   }
 ];
 
+const DEFAULT_SERVER_CONFIG = {
+  storeName: 'Sappy Stationary',
+  tagline: 'Quality Paper, Pens, Art & Office Essentials',
+  address: 'Shop 14, Central Market Plaza, Commercial Avenue',
+  phone: '+251 91 123 4567',
+  email: 'amanuealhailu007@gmail.com',
+  taxId: 'TIN-00982412',
+  currencySymbol: 'Br ',
+  currencyCode: 'ETB',
+  defaultTaxRate: 15,
+  receiptFooter: 'Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com',
+  bankDetails: 'Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567',
+  masterPasscode: 'Sappy#1313',
+};
+
+const DEFAULT_SERVER_USERS = [
+  {
+    id: 'usr-owner-amanuel',
+    email: 'amanuealhailu007@gmail.com',
+    fullName: 'Amanuel Hailu',
+    role: 'owner',
+    storeName: 'Sappy Stationary',
+    phone: '+251 91 123 4567',
+    pinCode: '1313',
+    status: 'active',
+    createdAt: '2026-01-01T08:00:00Z',
+    notes: 'Store Owner & Commercial Administrator',
+  },
+  {
+    id: 'usr-owner-abebe',
+    email: 'owner@sappystationery.et',
+    fullName: 'Abebe Hailu',
+    role: 'owner',
+    storeName: 'Sappy Stationary',
+    phone: '+251 91 123 4567',
+    pinCode: '1313',
+    status: 'active',
+    createdAt: '2026-01-01T08:00:00Z',
+    notes: 'Master Store Owner',
+  },
+  {
+    id: 'usr-cashier-1',
+    email: 'cashier@sappystationery.et',
+    fullName: 'Bethelhem Tadesse',
+    role: 'cashier',
+    storeName: 'Sappy Stationary',
+    phone: '+251 92 345 6789',
+    pinCode: '1234',
+    status: 'active',
+    createdAt: '2026-01-15T09:00:00Z',
+    notes: 'Front checkout cashier',
+  },
+  {
+    id: 'usr-manager-1',
+    email: 'manager@sappystationery.et',
+    fullName: 'Dawit Kebede',
+    role: 'manager',
+    storeName: 'Sappy Stationary',
+    phone: '+251 93 456 7890',
+    pinCode: '2026',
+    status: 'active',
+    createdAt: '2026-02-01T10:00:00Z',
+    notes: 'Store supervisor & shift manager',
+  },
+];
+
 function loadServerState(): PosState {
   try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -183,8 +260,27 @@ function loadServerState(): PosState {
     if (fs.existsSync(STORE_FILE)) {
       const content = fs.readFileSync(STORE_FILE, 'utf-8');
       const parsed = JSON.parse(content) as PosState;
+      let changed = false;
+
       if (!parsed.products || parsed.products.length === 0) {
         parsed.products = DEFAULT_STARTER_PRODUCTS;
+        changed = true;
+      }
+
+      if (!parsed.config) {
+        parsed.config = DEFAULT_SERVER_CONFIG;
+        changed = true;
+      }
+
+      if (!parsed.users || parsed.users.length === 0) {
+        parsed.users = DEFAULT_SERVER_USERS;
+        changed = true;
+      } else if (!parsed.users.some((u: any) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com')) {
+        parsed.users.unshift(DEFAULT_SERVER_USERS[0]);
+        changed = true;
+      }
+
+      if (changed) {
         saveServerState(parsed);
       }
       return parsed;
@@ -199,8 +295,8 @@ function loadServerState(): PosState {
     sales: [],
     expenses: [],
     creditPayments: [],
-    config: null,
-    users: [],
+    config: DEFAULT_SERVER_CONFIG,
+    users: DEFAULT_SERVER_USERS,
     lastSyncedAt: new Date().toISOString(),
     version: 1,
   };
@@ -319,7 +415,13 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
     if (payload.users && Array.isArray(payload.users) && payload.users.length > 0) {
       const userMap = new Map(serverState.users.map((u) => [u.id || u.email, u]));
       for (const u of payload.users) {
-        userMap.set(u.id || u.email, u);
+        const key = u.id || u.email;
+        const existing = userMap.get(key);
+        userMap.set(key, {
+          ...existing,
+          ...u,
+          pinCode: u.pinCode || existing?.pinCode,
+        });
       }
       serverState.users = Array.from(userMap.values());
     }

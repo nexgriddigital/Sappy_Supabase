@@ -133,12 +133,25 @@
   },
   "users": [
     {
+      "id": "usr-owner-amanuel",
+      "email": "amanuealhailu007@gmail.com",
+      "fullName": "Amanuel Hailu",
+      "role": "owner",
+      "storeName": "Sappy Stationary",
+      "phone": "+251 91 123 4567",
+      "pinCode": "1313",
+      "status": "active",
+      "createdAt": "2026-01-01T08:00:00Z",
+      "notes": "Store Owner & Commercial Administrator"
+    },
+    {
       "id": "usr-owner-1",
       "email": "owner@sappystationery.et",
       "fullName": "Abebe Hailu",
       "role": "owner",
       "storeName": "Sappy Stationery",
       "phone": "+251 91 123 4567",
+      "pinCode": "1313",
       "createdAt": "2026-01-01T08:00:00Z"
     },
     {
@@ -148,6 +161,7 @@
       "role": "cashier",
       "storeName": "Sappy Stationery",
       "phone": "+251 92 345 6789",
+      "pinCode": "1234",
       "createdAt": "2026-01-15T09:00:00Z"
     },
     {
@@ -157,9 +171,10 @@
       "role": "manager",
       "storeName": "Sappy Stationery",
       "phone": "+251 93 456 7890",
+      "pinCode": "2026",
       "createdAt": "2026-02-01T10:00:00Z"
     }
   ],
-  "lastSyncedAt": "2026-11-08T08:35:25.972Z",
-  "version": 169
+  "lastSyncedAt": "2026-11-08T08:56:38.700Z",
+  "version": 244
 }

@@ -27,7 +27,59 @@ const STORAGE_KEYS = {
   USERS: 'sappy_pos_users_v1',
   CURRENT_USER: 'sappy_pos_current_user_v1',
 };
-const INITIAL_USERS: AppUser[] = [];
+
+export const DEFAULT_INITIAL_USERS: AppUser[] = [
+  {
+    id: 'usr-owner-amanuel',
+    email: 'amanuealhailu007@gmail.com',
+    fullName: 'Amanuel Hailu',
+    role: 'owner',
+    storeName: 'Sappy Stationary',
+    phone: '+251 91 123 4567',
+    pinCode: '1313',
+    status: 'active',
+    createdAt: '2026-01-01T08:00:00Z',
+    notes: 'Store Owner & Commercial Administrator',
+  },
+  {
+    id: 'usr-owner-abebe',
+    email: 'owner@sappystationery.et',
+    fullName: 'Abebe Hailu',
+    role: 'owner',
+    storeName: 'Sappy Stationary',
+    phone: '+251 91 123 4567',
+    pinCode: '1313',
+    status: 'active',
+    createdAt: '2026-01-01T08:00:00Z',
+    notes: 'Master Store Owner',
+  },
+  {
+    id: 'usr-cashier-1',
+    email: 'cashier@sappystationery.et',
+    fullName: 'Bethelhem Tadesse',
+    role: 'cashier',
+    storeName: 'Sappy Stationary',
+    phone: '+251 92 345 6789',
+    pinCode: '1234',
+    status: 'active',
+    createdAt: '2026-01-15T09:00:00Z',
+    notes: 'Front checkout cashier',
+  },
+  {
+    id: 'usr-manager-1',
+    email: 'manager@sappystationery.et',
+    fullName: 'Dawit Kebede',
+    role: 'manager',
+    storeName: 'Sappy Stationary',
+    phone: '+251 93 456 7890',
+    pinCode: '2026',
+    status: 'active',
+    createdAt: '2026-02-01T10:00:00Z',
+    notes: 'Store supervisor & shift manager',
+  },
+];
+
+const INITIAL_USERS: AppUser[] = DEFAULT_INITIAL_USERS;
 export const DEFAULT_MASTER_PASSCODE = 'Sappy#1313';
 
 class StorageService {
@@ -607,13 +659,23 @@ class StorageService {
     const raw = localStorage.getItem(STORAGE_KEYS.USERS);
     if (raw !== null) {
       try {
-        return JSON.parse(raw) as AppUser[];
+        const parsed = JSON.parse(raw) as AppUser[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Ensure Amanuel Hailu (store owner) exists in the accounts list
+          const hasAmanuel = parsed.some((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com');
+          if (!hasAmanuel) {
+            const merged = [DEFAULT_INITIAL_USERS[0], ...parsed];
+            this.set(STORAGE_KEYS.USERS, merged);
+            return merged;
+          }
+          return parsed;
+        }
       } catch {
-        return [];
+        // Fallback to defaults
       }
     }
-    this.set(STORAGE_KEYS.USERS, []);
-    return [];
+    this.set(STORAGE_KEYS.USERS, DEFAULT_INITIAL_USERS);
+    return DEFAULT_INITIAL_USERS;
   }
 
   getCurrentUser(): AppUser | null {

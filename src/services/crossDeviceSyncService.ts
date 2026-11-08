@@ -14,6 +14,8 @@ export interface SyncState {
 
 type SyncListener = (state: SyncState) => void;
 
+export const DEFAULT_CLOUD_BACKEND_URL = 'https://ais-pre-r3d7544mmard67yh6cqteh-17765999408.europe-west2.run.app';
+
 class CrossDeviceSyncService {
   private syncState: SyncState = {
     status: 'offline',
@@ -77,7 +79,21 @@ class CrossDeviceSyncService {
 
   public getBackendUrl(): string {
     if (typeof window === 'undefined') return '';
-    return localStorage.getItem('sappy_custom_backend_url') || '';
+    const custom = localStorage.getItem('sappy_custom_backend_url');
+    if (custom && custom.trim()) {
+      return custom.trim();
+    }
+    // If running on GitHub Pages (e.g. nexgriddigital.github.io) or external static host
+    const host = window.location.hostname;
+    if (
+      host.endsWith('github.io') ||
+      host.endsWith('pages.dev') ||
+      host.endsWith('vercel.app') ||
+      host.endsWith('netlify.app')
+    ) {
+      return DEFAULT_CLOUD_BACKEND_URL;
+    }
+    return '';
   }
 
   public setBackendUrl(url: string) {
@@ -108,48 +124,58 @@ class CrossDeviceSyncService {
 
   /**
    * Fast startup pull of canonical server state.
-   * Returns a promise that settles when initial state is received or timed out.
+   * Checks primary endpoint and falls back to live Cloud Run server automatically.
    */
   public async initialSync(): Promise<boolean> {
-    try {
-      const customUrl = this.getBackendUrl();
-      const targetUrl = customUrl
-        ? customUrl.endsWith('/')
-          ? `${customUrl}api/pos/state`
-          : `${customUrl}/api/pos/state`
-        : '/api/pos/state';
+    const backend = this.getBackendUrl();
+    const urlsToTry: string[] = [];
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+    if (backend) {
+      urlsToTry.push(backend.endsWith('/') ? `${backend}api/pos/state` : `${backend}/api/pos/state`);
+    } else {
+      urlsToTry.push('/api/pos/state');
+      urlsToTry.push(`${DEFAULT_CLOUD_BACKEND_URL}/api/pos/state`);
+    }
 
-      const response = await fetch(targetUrl, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+    for (const targetUrl of urlsToTry) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.state) {
-          storageService.hydrateFromServer(result.state);
-          this.updateState({
-            status: 'synced',
-            mode: 'server',
-            lastSyncedAt: result.serverTime || new Date().toISOString(),
-            message: 'Server synced (Express)',
-            serverVersion: result.state.version || this.syncState.serverVersion + 1,
-          });
+        const response = await fetch(targetUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
 
-          if (this.onDataChangedCallback) {
-            this.onDataChangedCallback();
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            continue; // Not JSON (probably HTML 404 page from static host)
           }
-          this.broadcastLocalChange();
-          return true;
+
+          const result = await response.json();
+          if (result.success && result.state) {
+            storageService.hydrateFromServer(result.state);
+            this.updateState({
+              status: 'synced',
+              mode: 'server',
+              lastSyncedAt: result.serverTime || new Date().toISOString(),
+              message: 'Server synced (Express)',
+              serverVersion: result.state.version || this.syncState.serverVersion + 1,
+            });
+
+            if (this.onDataChangedCallback) {
+              this.onDataChangedCallback();
+            }
+            this.broadcastLocalChange();
+            return true;
+          }
         }
+      } catch {
+        // Try fallback url
       }
-    } catch {
-      // Fall through to standard syncNow
     }
 
     return this.syncNow();
@@ -187,49 +213,59 @@ class CrossDeviceSyncService {
     this.updateState({ status: 'syncing', message: 'Connecting to cloud sync...' });
 
     // --- STEP 1: Attempt Express Backend Sync ---
-    try {
-      const customUrl = this.getBackendUrl();
-      const targetUrl = customUrl
-        ? customUrl.endsWith('/')
-          ? `${customUrl}api/pos/sync`
-          : `${customUrl}/api/pos/sync`
-        : '/api/pos/sync';
+    const postUrlsToTry: string[] = [];
+    const customUrl = this.getBackendUrl();
+    if (customUrl) {
+      postUrlsToTry.push(customUrl.endsWith('/') ? `${customUrl}api/pos/sync` : `${customUrl}/api/pos/sync`);
+    } else {
+      postUrlsToTry.push('/api/pos/sync');
+      postUrlsToTry.push(`${DEFAULT_CLOUD_BACKEND_URL}/api/pos/sync`);
+    }
 
-      const localData = storageService.getAllData();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const localData = storageService.getAllData();
 
-      const response = await fetch(targetUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload: localData }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+    for (const targetUrl of postUrlsToTry) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.state) {
-          storageService.hydrateFromServer(result.state);
+        const response = await fetch(targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload: localData }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
 
-          this.updateState({
-            status: 'synced',
-            mode: 'server',
-            lastSyncedAt: result.serverTime || new Date().toISOString(),
-            message: 'Server synced (Express)',
-            serverVersion: result.version || this.syncState.serverVersion + 1,
-          });
-
-          if (this.onDataChangedCallback) {
-            this.onDataChangedCallback();
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            continue; // Not JSON (probably HTML 404 page from static host)
           }
-          this.broadcastLocalChange();
-          this.isSyncing = false;
-          return true;
+
+          const result = await response.json();
+          if (result.success && result.state) {
+            storageService.hydrateFromServer(result.state);
+
+            this.updateState({
+              status: 'synced',
+              mode: 'server',
+              lastSyncedAt: result.serverTime || new Date().toISOString(),
+              message: 'Server synced (Express Cloud)',
+              serverVersion: result.version || this.syncState.serverVersion + 1,
+            });
+
+            if (this.onDataChangedCallback) {
+              this.onDataChangedCallback();
+            }
+            this.broadcastLocalChange();
+            this.isSyncing = false;
+            return true;
+          }
         }
+      } catch {
+        // Try fallback URL
       }
-    } catch {
-      // Backend not reachable on static host (e.g. GitHub Pages)
     }
 
     // --- STEP 2: Attempt Direct Supabase Sync ---
