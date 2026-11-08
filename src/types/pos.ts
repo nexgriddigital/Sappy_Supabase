@@ -187,5 +187,6 @@ export interface AppUser {
   status?: UserStatus;
   pinCode?: string; // 4-digit quick terminal PIN
   notes?: string;
+  updatedAt?: string;
 }
 

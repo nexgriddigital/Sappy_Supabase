@@ -240,7 +240,7 @@ export const SalesLedgerTab: React.FC<SalesLedgerTabProps> = ({
       {/* Sales Transactions Table */}
       <div className="bg-charcoal-900 rounded-2xl border border-charcoal-800 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full min-w-[780px] text-left text-xs border-collapse">
             <thead>
               <tr className="bg-charcoal-950/80 border-b border-charcoal-800 text-charcoal-400 font-semibold uppercase text-[10px] tracking-wider">
                 <th className="py-3 px-4">Invoice #</th>

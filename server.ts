@@ -411,17 +411,37 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
       }
     }
 
-    // 7. Merge Users
+    // 7. Handle Deleted Users
+    if (payload.deletedUserIds && Array.isArray(payload.deletedUserIds) && payload.deletedUserIds.length > 0) {
+      const delSet = new Set(payload.deletedUserIds);
+      serverState.users = serverState.users.filter((u: any) => !delSet.has(u.id));
+    }
+
+    // 8. Merge Users (retaining newest updates and PINs)
     if (payload.users && Array.isArray(payload.users) && payload.users.length > 0) {
-      const userMap = new Map(serverState.users.map((u) => [u.id || u.email, u]));
+      const userMap = new Map(serverState.users.map((u: any) => [u.id || u.email.toLowerCase(), u]));
       for (const u of payload.users) {
-        const key = u.id || u.email;
+        const key = u.id || (u.email ? u.email.toLowerCase() : '');
+        if (!key) continue;
         const existing = userMap.get(key);
-        userMap.set(key, {
-          ...existing,
-          ...u,
-          pinCode: u.pinCode || existing?.pinCode,
-        });
+        if (!existing) {
+          userMap.set(key, u);
+        } else {
+          const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+          const incomingTime = u.updatedAt ? new Date(u.updatedAt).getTime() : 0;
+          if (incomingTime >= existingTime) {
+            userMap.set(key, {
+              ...existing,
+              ...u,
+              pinCode: u.pinCode !== undefined ? u.pinCode : existing.pinCode,
+            });
+          }
+        }
+      }
+      if (payload.deletedUserIds && Array.isArray(payload.deletedUserIds)) {
+        for (const delId of payload.deletedUserIds) {
+          userMap.delete(delId);
+        }
       }
       serverState.users = Array.from(userMap.values());
     }

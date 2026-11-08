@@ -26,6 +26,7 @@ const STORAGE_KEYS = {
   CONFIG: 'sappy_pos_config_v1',
   USERS: 'sappy_pos_users_v1',
   CURRENT_USER: 'sappy_pos_current_user_v1',
+  DELETED_USER_IDS: 'sappy_pos_deleted_user_ids_v1',
 };
 
 export const DEFAULT_INITIAL_USERS: AppUser[] = [
@@ -734,6 +735,34 @@ class StorageService {
     return newUser;
   }
 
+  getDeletedUserIds(): string[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_USER_IDS);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  recordDeletedUserId(userId: string): void {
+    if (!userId) return;
+    const current = this.getDeletedUserIds();
+    if (!current.includes(userId)) {
+      const updated = [...current, userId];
+      this.set(STORAGE_KEYS.DELETED_USER_IDS, updated);
+    }
+  }
+
+  clearDeletedUserId(userId: string): void {
+    if (!userId) return;
+    const current = this.getDeletedUserIds();
+    if (current.includes(userId)) {
+      this.set(STORAGE_KEYS.DELETED_USER_IDS, current.filter((id) => id !== userId));
+    }
+  }
+
   saveUser(user: AppUser): AppUser[] {
     const users = this.getUsers();
     const index = users.findIndex((u) => u.id === user.id);
@@ -742,7 +771,10 @@ class StorageService {
     const sanitizedUser: AppUser = {
       ...user,
       status: user.status || 'active',
+      updatedAt: new Date().toISOString(),
     };
+
+    this.clearDeletedUserId(user.id);
 
     if (index >= 0) {
       updated = [...users];
@@ -793,17 +825,19 @@ class StorageService {
 
     const updated = users.filter((u) => u.id !== userId);
     this.set(STORAGE_KEYS.USERS, updated);
+    this.recordDeletedUserId(userId);
     return { success: true, users: updated };
   }
 
   updateUserStatus(userId: string, status: 'active' | 'suspended'): AppUser[] {
     const users = this.getUsers();
-    const updated = users.map((u) => (u.id === userId ? { ...u, status } : u));
+    const now = new Date().toISOString();
+    const updated = users.map((u) => (u.id === userId ? { ...u, status, updatedAt: now } : u));
     this.set(STORAGE_KEYS.USERS, updated);
 
     const current = this.getCurrentUser();
     if (current && current.id === userId) {
-      this.setCurrentUser({ ...current, status });
+      this.setCurrentUser({ ...current, status, updatedAt: now });
     }
 
     return updated;
@@ -812,12 +846,13 @@ class StorageService {
   setUserPin(userId: string, pin: string): AppUser[] {
     const users = this.getUsers();
     const cleanPin = pin.trim();
-    const updated = users.map((u) => (u.id === userId ? { ...u, pinCode: cleanPin || undefined } : u));
+    const now = new Date().toISOString();
+    const updated = users.map((u) => (u.id === userId ? { ...u, pinCode: cleanPin || undefined, updatedAt: now } : u));
     this.set(STORAGE_KEYS.USERS, updated);
 
     const current = this.getCurrentUser();
     if (current && current.id === userId) {
-      this.setCurrentUser({ ...current, pinCode: cleanPin || undefined });
+      this.setCurrentUser({ ...current, pinCode: cleanPin || undefined, updatedAt: now });
     }
 
     return updated;
@@ -889,6 +924,7 @@ class StorageService {
       creditPayments: this.getCreditPayments(),
       config: this.getStoreConfig(),
       users: this.getUsers(),
+      deletedUserIds: this.getDeletedUserIds(),
     };
   }
 
@@ -900,6 +936,7 @@ class StorageService {
     creditPayments?: CreditPayment[];
     config?: StoreConfig;
     users?: AppUser[];
+    deletedUserIds?: string[];
   }): void {
     if (state.products && Array.isArray(state.products)) {
       this.set(STORAGE_KEYS.PRODUCTS, state.products);
@@ -920,7 +957,9 @@ class StorageService {
       this.set(STORAGE_KEYS.CONFIG, state.config);
     }
     if (state.users && Array.isArray(state.users)) {
-      this.set(STORAGE_KEYS.USERS, state.users);
+      const localDeleted = new Set(this.getDeletedUserIds());
+      const filtered = state.users.filter((u) => !localDeleted.has(u.id));
+      this.set(STORAGE_KEYS.USERS, filtered);
     }
   }
 }

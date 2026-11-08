@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   UserCog,
   UserPlus,
@@ -32,26 +32,53 @@ import {
   ArrowUpDown,
   UserCheck,
   HelpCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { AppUser, UserRole, UserStatus, StoreConfig } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
+import { crossDeviceSyncService, SyncState } from '../services/crossDeviceSyncService.ts';
 import { MasterPasscodeModal, ChangeMasterPasscodeModal } from './MasterPasscodeModal.tsx';
 
 interface UsersTabProps {
   currentUser: AppUser | null;
   config: StoreConfig;
+  users?: AppUser[];
   onUserChanged: (user: AppUser) => void;
   onRefreshData: () => void;
+  syncState?: SyncState;
+  onSyncNow?: () => Promise<boolean>;
 }
 
 export const UsersTab: React.FC<UsersTabProps> = ({
   currentUser,
   config,
+  users: propUsers,
   onUserChanged,
   onRefreshData,
+  syncState,
+  onSyncNow,
 }) => {
-  // All Users from storage
-  const [users, setUsers] = useState<AppUser[]>(() => storageService.getUsers());
+  // All Users from storage / props
+  const [users, setUsers] = useState<AppUser[]>(() =>
+    propUsers && propUsers.length > 0 ? propUsers : storageService.getUsers()
+  );
+  const [isManualSyncing, setIsManualSyncing] = useState<boolean>(false);
+
+  // Keep users synchronized whenever props update from parent reloadData
+  useEffect(() => {
+    if (propUsers && propUsers.length > 0) {
+      setUsers(propUsers);
+    }
+  }, [propUsers]);
+
+  // Subscribe directly to cross-device sync broadcast and background polling
+  useEffect(() => {
+    const unsubscribe = crossDeviceSyncService.subscribe(() => {
+      const latest = storageService.getUsers();
+      setUsers(latest);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,10 +132,38 @@ export const UsersTab: React.FC<UsersTabProps> = ({
     notes: '',
   });
 
-  const reloadUserList = () => {
+  const reloadUserList = async () => {
     const list = storageService.getUsers();
     setUsers(list);
     onRefreshData();
+    crossDeviceSyncService.broadcastLocalChange();
+    try {
+      if (onSyncNow) {
+        await onSyncNow();
+      } else {
+        await crossDeviceSyncService.syncNow();
+      }
+    } catch {
+      // Offline fallback
+    }
+  };
+
+  const handleManualSync = async () => {
+    setIsManualSyncing(true);
+    try {
+      if (onSyncNow) {
+        await onSyncNow();
+      } else {
+        await crossDeviceSyncService.syncNow();
+      }
+      const freshUsers = storageService.getUsers();
+      setUsers(freshUsers);
+      showSuccess(`Cloud synced successfully! ${freshUsers.length} staff account(s) active across devices.`);
+    } catch {
+      showError('Could not sync with cloud server. Changes are saved locally.');
+    } finally {
+      setIsManualSyncing(false);
+    }
   };
 
   const showSuccess = (msg: string) => {
@@ -452,10 +507,31 @@ export const UsersTab: React.FC<UsersTabProps> = ({
           <p className="text-xs sm:text-sm text-charcoal-300 mt-1 max-w-2xl">
             Configure employee roles, 4-digit quick terminal PINs, cashier shift assignments, and role-based operational permissions for {config.storeName}.
           </p>
+
+          <div className="flex items-center gap-2 mt-2">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-charcoal-950 border border-charcoal-700 text-charcoal-300">
+              <span className={`w-2 h-2 rounded-full ${syncState?.status === 'offline' ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
+              <span>Multi-Device Sync Active · {users.length} Account{users.length === 1 ? '' : 's'}</span>
+            </span>
+            <span className="text-[10px] text-charcoal-500 font-mono hidden sm:inline">
+              Changes sync instantly across all terminals & phones
+            </span>
+          </div>
         </div>
 
         {/* Header Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isManualSyncing}
+            className="px-3.5 py-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-amber-400 hover:text-amber-300 text-xs font-semibold flex items-center gap-1.5 border border-charcoal-700 transition-colors cursor-pointer"
+            title="Synchronize staff profiles with cloud server & other terminals"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isManualSyncing ? 'animate-spin' : ''}`} />
+            <span>{isManualSyncing ? 'Syncing...' : 'Sync Devices'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setIsPermissionsGuideOpen(true)}
@@ -745,7 +821,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full min-w-[720px] text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-charcoal-950 border-b border-charcoal-800 text-[11px] font-mono uppercase text-charcoal-400 tracking-wider">
                   <th className="py-3 px-4 font-bold">Staff Member</th>
@@ -1321,8 +1397,8 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                 Sappy POS employs strict role segregation to ensure transaction integrity, inventory accuracy, and financial privacy:
               </p>
 
-              <div className="border border-charcoal-800 rounded-xl overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border border-charcoal-800 rounded-xl overflow-x-auto">
+                <table className="w-full min-w-[520px] text-left text-xs">
                   <thead>
                     <tr className="bg-charcoal-950 border-b border-charcoal-800 text-[11px] font-mono uppercase text-charcoal-400">
                       <th className="py-2.5 px-3">System Feature</th>

@@ -142,7 +142,8 @@
       "pinCode": "1313",
       "status": "active",
       "createdAt": "2026-01-01T08:00:00Z",
-      "notes": "Store Owner & Commercial Administrator"
+      "notes": "Store Owner & Commercial Administrator",
+      "updatedAt": "2026-11-08T09:42:00Z"
     },
     {
       "id": "usr-owner-1",
@@ -175,6 +176,6 @@
       "createdAt": "2026-02-01T10:00:00Z"
     }
   ],
-  "lastSyncedAt": "2026-11-08T08:56:38.700Z",
-  "version": 244
+  "lastSyncedAt": "2026-11-08T09:42:40.226Z",
+  "version": 277
 }

@@ -139,6 +139,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       storageService.setCurrentUser(ownerUser);
       setSuccessMsg(`Welcome, ${ownerUser.fullName}! Sappy POS is configured and ready.`);
 
+      // Push newly configured store & owner to cloud server immediately
+      crossDeviceSyncService.broadcastLocalChange();
+      crossDeviceSyncService.syncNow().catch(() => {});
+
       setTimeout(() => {
         onAuthSuccess(ownerUser);
       }, 500);
@@ -283,6 +287,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
       storageService.setCurrentUser(newUser);
       setSuccessMsg(`Account created successfully! Welcome, ${newUser.fullName}.`);
+
+      // Push new staff profile to cloud server immediately
+      crossDeviceSyncService.broadcastLocalChange();
+      crossDeviceSyncService.syncNow().catch(() => {});
+
       setTimeout(() => {
         onAuthSuccess(newUser);
       }, 500);
@@ -294,12 +303,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   };
 
   const containerClasses = isModal
-    ? 'fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-4'
-    : 'min-h-[85vh] flex items-center justify-center p-4 sm:p-6';
+    ? 'fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto'
+    : 'min-h-[85vh] flex items-center justify-center p-3 sm:p-6 overflow-y-auto';
 
   return (
     <div className={containerClasses}>
-      <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden text-charcoal-100 relative">
+      <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[94vh] overflow-y-auto text-charcoal-100 relative my-auto">
         
         {/* Close Button if Modal */}
         {isModal && onClose && (
@@ -312,11 +321,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         )}
 
         {/* Top Header Card */}
-        <div className="bg-charcoal-950 p-6 border-b border-charcoal-800 text-center relative overflow-hidden">
+        <div className="bg-charcoal-950 p-5 sm:p-6 border-b border-charcoal-800 text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-forest-600/10 rounded-full blur-2xl pointer-events-none" />
           
           <div className="flex flex-col items-center justify-center mb-2">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden border border-amber-500/40 shadow-xl shadow-amber-950/60 p-0.5 bg-gradient-to-b from-amber-500/20 to-transparent">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border border-amber-500/40 shadow-xl shadow-amber-950/60 p-0.5 bg-gradient-to-b from-amber-500/20 to-transparent">
               <img src={sappySquareIcon} alt="Sappy" className="w-full h-full object-cover rounded-xl" />
             </div>
             <h2 className="font-serif tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 font-extrabold text-2xl mt-1.5 drop-shadow-sm">
@@ -326,7 +335,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
           {mode === 'setup' ? (
             <div className="space-y-2">
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-2">
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-bold font-mono px-3 py-1 rounded-full bg-forest-950 text-forest-300 border border-forest-700/60 shadow-xs">
                   <Sparkles className="w-3.5 h-3.5 text-forest-400" />
                   <span>First-Time Store Owner Setup</span>
@@ -348,18 +357,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     setLoading(false);
                   }}
                   disabled={loading}
-                  className="px-2 py-1 bg-charcoal-900 hover:bg-charcoal-800 text-amber-400 border border-charcoal-700 rounded-lg text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                  className="px-2.5 py-1 bg-charcoal-900 hover:bg-charcoal-800 text-amber-400 border border-charcoal-700 rounded-lg text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
                   <span>Sync Cloud</span>
                 </button>
               </div>
-              <p className="text-xs text-charcoal-400 mt-1">
+              <p className="text-xs text-charcoal-400 mt-1 max-w-sm mx-auto">
                 Register the master store owner administrator account and set your store preferences.
               </p>
 
               {/* Instant switch for other devices / terminals */}
-              <div className="mt-3 flex items-center justify-between bg-charcoal-900/90 border border-charcoal-800 rounded-xl px-3 py-2 text-xs">
+              <div className="mt-3 flex flex-col sm:flex-row gap-1.5 items-center justify-between bg-charcoal-900/90 border border-charcoal-800 rounded-xl px-3 py-2 text-xs">
                 <span className="text-charcoal-300 text-[11px]">Already set up on another device?</span>
                 <button
                   type="button"
@@ -623,7 +632,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {staffUsers.map((u) => {
                       const isSelected = selectedStaffUser?.id === u.id || email.toLowerCase() === u.email.toLowerCase();
                       return (

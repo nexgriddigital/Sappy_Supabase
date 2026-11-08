@@ -50,6 +50,7 @@ export default function App() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [creditPayments, setCreditPayments] = useState<CreditPayment[]>([]);
+  const [users, setUsers] = useState<AppUser[]>(() => storageService.getUsers());
   const [config, setConfig] = useState<StoreConfig>(storageService.getStoreConfig());
 
   // Cross-device sync state
@@ -164,6 +165,7 @@ export default function App() {
     setSales(storageService.getSales());
     setExpenses(storageService.getExpenses());
     setCreditPayments(storageService.getCreditPayments());
+    setUsers(storageService.getUsers());
     setConfig(storageService.getStoreConfig());
     setDbConnected(isSupabaseConfigured());
   }, []);
@@ -386,7 +388,7 @@ export default function App() {
       />
 
       {/* Main Tab Content */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col pb-20 md:pb-6">
         {activeTab === 'dashboard' && (
           <DashboardTab
             sales={sales}
@@ -476,11 +478,18 @@ export default function App() {
           <UsersTab
             currentUser={currentUser}
             config={config}
+            users={users}
             onUserChanged={(u) => {
               setCurrentUser(u);
               reloadData();
             }}
             onRefreshData={reloadData}
+            syncState={syncState}
+            onSyncNow={async () => {
+              const res = await crossDeviceSyncService.syncNow();
+              reloadData();
+              return res;
+            }}
           />
         )}
 

@@ -918,7 +918,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-charcoal-950/80 border-b border-charcoal-800 text-charcoal-400 font-semibold uppercase text-[10px] tracking-wider">
                     <th className="py-3 px-4">Date</th>
@@ -1004,7 +1004,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[720px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-charcoal-950/80 border-b border-charcoal-800 text-charcoal-400 font-semibold uppercase text-[10px] tracking-wider">
                     <th className="py-3 px-4">Invoice #</th>
@@ -1093,7 +1093,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-charcoal-950/80 border-b border-charcoal-800 text-charcoal-400 font-semibold uppercase text-[10px] tracking-wider">
                     <th className="py-3 px-4">Rank / Product</th>
@@ -1209,7 +1209,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[750px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-charcoal-950/80 border-b border-charcoal-800 text-charcoal-400 font-semibold uppercase text-[10px] tracking-wider">
                     <th className="py-3 px-4">Item Name</th>
@@ -1316,7 +1316,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[660px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-charcoal-950/80 border-b border-charcoal-800 text-charcoal-400 font-semibold uppercase text-[10px] tracking-wider">
                     <th className="py-3 px-4">Customer Account</th>

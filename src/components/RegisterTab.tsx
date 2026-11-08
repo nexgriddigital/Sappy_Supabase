@@ -15,6 +15,9 @@ import {
   X,
   Monitor,
   Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  Boxes,
 } from 'lucide-react';
 import {
   CartItem,
@@ -75,6 +78,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discountAmountInput, setDiscountAmountInput] = useState<string>('');
   const [applyTax, setApplyTax] = useState<boolean>(false); // All sales are Tax Exempt by default unless specially ticked
+  const [mobileTab, setMobileTab] = useState<'catalog' | 'cart'>('catalog');
 
   // Checkout Tender Modal State
   const [isTenderOpen, setIsTenderOpen] = useState(false);
@@ -314,10 +318,44 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   const isCashSufficient = selectedMethod !== 'cash' || parsedCash >= grandTotal;
 
   return (
-    <div className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <div className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-6 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-6 items-start">
       
+      {/* Mobile Top Segmented Toggle: Catalog vs Cart */}
+      <div className="lg:hidden flex items-center bg-charcoal-950 p-1 rounded-xl border border-charcoal-800 shadow-inner">
+        <button
+          type="button"
+          onClick={() => setMobileTab('catalog')}
+          className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[42px] ${
+            mobileTab === 'catalog'
+              ? 'bg-forest-700 text-white shadow-xs border border-forest-600/60'
+              : 'text-charcoal-400 hover:text-white'
+          }`}
+        >
+          <Boxes className="w-3.5 h-3.5" />
+          <span>Catalog ({filteredProducts.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileTab('cart')}
+          className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[42px] relative ${
+            mobileTab === 'cart'
+              ? 'bg-forest-700 text-white shadow-xs border border-forest-600/60'
+              : 'text-charcoal-400 hover:text-white'
+          }`}
+        >
+          <ShoppingBag className="w-3.5 h-3.5" />
+          <span>Cart</span>
+          {cart.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-charcoal-950 text-[10px] font-mono font-black">
+              {cart.reduce((a, b) => a + b.quantity, 0)} • {config.currencySymbol}{grandTotal.toFixed(2)}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* LEFT COLUMN: Product Catalog (Touchscreen optimized) */}
-      <div className="lg:col-span-8 space-y-4">
+      <div className={`lg:col-span-8 space-y-4 ${mobileTab === 'catalog' ? 'block' : 'hidden lg:block'}`}>
         
         {/* Search & Barcode Scan Bar */}
         <div className="flex flex-col sm:flex-row gap-2.5">
@@ -463,8 +501,25 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
       </div>
 
       {/* RIGHT COLUMN: Active Cart Register (Touch Numpad & Line Items) */}
-      <div className="lg:col-span-4 bg-charcoal-900 rounded-2xl border border-charcoal-800 shadow-xl flex flex-col h-[calc(100vh-140px)] sticky top-20">
+      <div className={`lg:col-span-4 bg-charcoal-900 rounded-2xl border border-charcoal-800 shadow-xl flex flex-col ${
+        mobileTab === 'cart' ? 'flex' : 'hidden lg:flex'
+      } h-auto lg:h-[calc(100vh-140px)] lg:sticky lg:top-20`}>
         
+        {/* Mobile "Back to Catalog" Navigation Bar */}
+        <div className="lg:hidden p-3 bg-charcoal-950 border-b border-charcoal-800 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setMobileTab('catalog')}
+            className="text-xs font-bold text-forest-300 hover:text-white flex items-center gap-1.5 cursor-pointer py-1.5 px-3 rounded-xl bg-charcoal-900 border border-charcoal-700 active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4 text-forest-400" />
+            <span>Add More Items</span>
+          </button>
+          <span className="text-[11px] font-mono text-charcoal-400">
+            {cart.reduce((a, b) => a + b.quantity, 0)} item{cart.reduce((a, b) => a + b.quantity, 0) === 1 ? '' : 's'}
+          </span>
+        </div>
+
         {/* Cart Header */}
         <div className="p-4 border-b border-charcoal-800 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -652,10 +707,48 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         </div>
       </div>
 
+      {/* Mobile Floating Bottom Cart Pill (when browsing catalog on mobile) */}
+      {mobileTab === 'catalog' && cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-16 left-3 right-3 z-30 bg-gradient-to-r from-forest-900 via-forest-800 to-forest-700 border border-forest-500/90 text-white rounded-2xl p-2.5 shadow-2xl flex items-center justify-between animate-in slide-in-from-bottom duration-200">
+          <div className="flex items-center gap-2.5 pl-1.5">
+            <span className="w-8 h-8 rounded-xl bg-charcoal-950/90 border border-forest-500/60 font-mono font-black text-xs text-amber-400 flex items-center justify-center">
+              {cart.reduce((a, b) => a + b.quantity, 0)}
+            </span>
+            <div>
+              <p className="text-[10px] uppercase font-bold text-forest-200 leading-tight">Order Total</p>
+              <p className="text-sm font-mono font-black text-white">
+                {config.currencySymbol}{grandTotal.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileTab('cart')}
+              className="px-3 py-2 bg-charcoal-950/80 hover:bg-charcoal-950 text-white text-xs font-bold rounded-xl border border-charcoal-700 cursor-pointer min-h-[38px]"
+            >
+              View Cart
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCashTendered(grandTotal.toString());
+                setIsTenderOpen(true);
+              }}
+              className="px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-charcoal-950 text-xs font-black rounded-xl shadow-md cursor-pointer active:scale-95 flex items-center gap-1 min-h-[38px]"
+            >
+              <span>Charge</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* TENDER CHECKOUT MODAL */}
       {isTenderOpen && (
-        <div className="fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-charcoal-900 rounded-2xl shadow-2xl max-w-lg w-full border border-charcoal-800 overflow-hidden flex flex-col my-auto text-charcoal-100">
+        <div className="fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-charcoal-900 rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto border border-charcoal-800 flex flex-col my-auto text-charcoal-100">
             
             {/* Header */}
             <div className="bg-charcoal-950 text-white px-6 py-4 flex items-center justify-between border-b border-charcoal-800">
