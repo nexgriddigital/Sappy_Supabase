@@ -320,6 +320,7 @@ export default function App() {
   const handleSaveConfig = (updatedConfig: StoreConfig) => {
     storageService.saveStoreConfig(updatedConfig);
     reloadData();
+    crossDeviceSyncService.broadcastLocalChange();
     crossDeviceSyncService.syncNow();
   };
 

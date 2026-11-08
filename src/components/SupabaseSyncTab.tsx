@@ -17,8 +17,10 @@ import {
   isSupabaseConfigured,
   getSupabaseCredentials,
   configureSupabase,
+  resetSupabaseConfig,
 } from '../lib/supabase.ts';
 import { storageService } from '../services/storageService.ts';
+import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
 import { StoreConfig } from '../types/pos.ts';
 
 interface SupabaseSyncTabProps {
@@ -31,8 +33,8 @@ export const SupabaseSyncTab: React.FC<SupabaseSyncTabProps> = ({
   onRefreshData,
 }) => {
   const [credentials, setCredentials] = useState(getSupabaseCredentials());
-  const [urlInput, setUrlInput] = useState(credentials.url);
-  const [keyInput, setKeyInput] = useState(credentials.anonKey);
+  const [urlInput, setUrlInput] = useState(credentials.url || config.supabaseUrl || '');
+  const [keyInput, setKeyInput] = useState(credentials.anonKey || config.supabaseAnonKey || '');
   const [testStatus, setTestStatus] = useState<
     'idle' | 'testing' | 'success' | 'error'
   >('idle');
@@ -43,6 +45,18 @@ export const SupabaseSyncTab: React.FC<SupabaseSyncTabProps> = ({
   const [syncProgress, setSyncProgress] = useState('');
   const [copiedSql, setCopiedSql] = useState(false);
   const [importStatus, setImportStatus] = useState('');
+
+  // Keep inputs in sync with store config when remote credentials arrive via cloud sync
+  useEffect(() => {
+    const creds = getSupabaseCredentials();
+    setCredentials(creds);
+    if (creds.url || config.supabaseUrl) {
+      setUrlInput(creds.url || config.supabaseUrl || '');
+    }
+    if (creds.anonKey || config.supabaseAnonKey) {
+      setKeyInput(creds.anonKey || config.supabaseAnonKey || '');
+    }
+  }, [config.supabaseUrl, config.supabaseAnonKey]);
 
   // SQL script tailored for Supabase SQL Editor
   const supabaseSql = `-- ============================================================================
@@ -150,7 +164,7 @@ CREATE POLICY "Allow public read/write to credit_payments" ON public.credit_paym
 CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL USING (true) WITH CHECK (true);
 `;
 
-  // Test Connection
+  // Test Connection & Synchronize Across Devices
   const handleTestConnection = async () => {
     setTestStatus('testing');
     setTestMessage('Connecting to Supabase...');
@@ -161,9 +175,20 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
       setCredentials(getSupabaseCredentials());
 
       // Attempt test ping query
-      const { data, error } = await client
+      const { error } = await client
         .from('products')
         .select('count', { count: 'exact', head: true });
+
+      // Persist credentials into store configuration and push cross-device sync
+      const updatedConfig = {
+        ...config,
+        supabaseUrl: urlInput.trim(),
+        supabaseAnonKey: keyInput.trim(),
+      };
+      storageService.saveStoreConfig(updatedConfig);
+      await crossDeviceSyncService.syncNow();
+      crossDeviceSyncService.broadcastLocalChange();
+      onRefreshData();
 
       if (error && error.code !== 'PGRST116') {
         // If table doesn't exist yet, it still connects to Supabase auth!
@@ -174,18 +199,35 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
           error.message?.includes('does not exist')
         ) {
           setTestStatus('success');
-          setTestMessage('Successfully connected to Supabase project! (Tables not yet created - run the SQL script below in SQL Editor).');
+          setTestMessage('Connected to Supabase project! Synced across all your devices. (Tables pending - run the SQL script below in SQL Editor).');
           return;
         }
         throw error;
       }
 
       setTestStatus('success');
-      setTestMessage('Connected to Supabase PostgreSQL! Connection verified and ready for live sync.');
+      setTestMessage('Connected to Supabase PostgreSQL! Connection verified and synchronized across all your devices.');
     } catch (err: any) {
       setTestStatus('error');
       setTestMessage(err.message || 'Could not connect to Supabase. Check Project URL and Publishable Key.');
     }
+  };
+
+  // Disconnect Supabase across all devices
+  const handleDisconnect = async () => {
+    resetSupabaseConfig();
+    setUrlInput('');
+    setKeyInput('');
+    setCredentials({ url: '', anonKey: '' });
+    setTestStatus('idle');
+    setTestMessage('Supabase disconnected. System is running in local storage.');
+    const updatedConfig = { ...config };
+    delete updatedConfig.supabaseUrl;
+    delete updatedConfig.supabaseAnonKey;
+    storageService.saveStoreConfig(updatedConfig);
+    await crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.broadcastLocalChange();
+    onRefreshData();
   };
 
   // Push Local Data to Supabase
@@ -357,16 +399,28 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
     reader.readAsText(file);
   };
 
+  const activeHostname = (() => {
+    try {
+      const u = (urlInput || credentials.url || config.supabaseUrl || '').trim();
+      if (!u) return 'Not Connected (Local Storage Mode)';
+      return new URL(u).hostname;
+    } catch {
+      return (urlInput || credentials.url || config.supabaseUrl || 'Not Connected (Local Storage Mode)');
+    }
+  })();
+
+  const isConfigured = Boolean(credentials.url || config.supabaseUrl);
+
   return (
     <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
       
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-charcoal-900">
+        <h1 className="text-xl font-bold tracking-tight text-white">
           Supabase Free Tier & Cross-Device Cloud Sync
         </h1>
-        <p className="text-xs text-charcoal-500 mt-0.5">
-          Connect your free Supabase PostgreSQL instance to synchronize register sales, stock, and debtor ledgers across mobile, tablet, and desktop.
+        <p className="text-xs text-charcoal-400 mt-0.5">
+          Connecting on one device automatically shares credentials and database connection with all other devices.
         </p>
       </div>
 
@@ -379,23 +433,29 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-forest-300">
-                Connected Project
+                {isConfigured ? 'Connected Database' : 'Database Status'}
               </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-mono bg-forest-900 text-forest-200 px-2 py-0.5 rounded border border-forest-800">
+              <span className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded border ${
+                isConfigured
+                  ? 'bg-forest-900 text-forest-200 border-forest-800'
+                  : 'bg-charcoal-800 text-charcoal-300 border-charcoal-700'
+              }`}>
                 <ShieldCheck className="w-3 h-3 text-forest-300" />
-                Active
+                {isConfigured ? 'Synced Across All Devices' : 'Standby / Local Only'}
               </span>
             </div>
             <h2 className="text-lg font-extrabold tracking-tight mt-0.5 font-mono">
-              fegfrjhxxpojmalytbku.supabase.co
+              {activeHostname}
             </h2>
             <p className="text-xs text-forest-200 mt-0.5">
-              Sappy Stationary is wired to your live Supabase Free Tier PostgreSQL instance.
+              {isConfigured
+                ? 'Sappy Stationary is wired to your live Supabase Free Tier PostgreSQL instance across all devices.'
+                : 'Enter your Supabase URL & Public Key below to activate cloud syncing across all devices.'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
           <button
             onClick={handleTestConnection}
             disabled={testStatus === 'testing'}
@@ -407,12 +467,21 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
 
           <button
             onClick={handlePushToSupabase}
-            disabled={syncStatus === 'syncing'}
-            className="px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-sm active:scale-95 border border-forest-600/50"
+            disabled={syncStatus === 'syncing' || !isConfigured}
+            className="px-4 py-2 bg-forest-700 hover:bg-forest-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-sm active:scale-95 border border-forest-600/50"
           >
             <Zap className="w-3.5 h-3.5 text-forest-200" />
             <span>Push Local Data to Cloud</span>
           </button>
+
+          {isConfigured && (
+            <button
+              onClick={handleDisconnect}
+              className="px-3 py-2 bg-charcoal-900 hover:bg-rose-950/60 text-charcoal-300 hover:text-rose-300 text-xs font-semibold rounded-xl border border-charcoal-800 transition-colors cursor-pointer"
+            >
+              Disconnect
+            </button>
+          )}
         </div>
       </div>
 
@@ -486,13 +555,25 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
           </div>
 
           <div className="pt-2 flex items-center justify-between">
-            <span className="text-[11px] text-charcoal-400">Credentials saved to browser cache</span>
-            <button
-              onClick={handleTestConnection}
-              className="px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white text-xs font-semibold rounded-xl cursor-pointer border border-forest-600/50"
-            >
-              Save & Test Connection
-            </button>
+            <span className="text-[11px] text-emerald-400 font-medium">✓ Syncs automatically to all devices</span>
+            <div className="flex items-center gap-2">
+              {isConfigured && (
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  className="px-3 py-2 bg-charcoal-800 hover:bg-rose-950/60 text-charcoal-400 hover:text-rose-300 text-xs font-semibold rounded-xl cursor-pointer border border-charcoal-700 transition-colors"
+                >
+                  Disconnect
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                className="px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white text-xs font-semibold rounded-xl cursor-pointer border border-forest-600/50"
+              >
+                Save & Sync All Devices
+              </button>
+            </div>
           </div>
 
           {/* Quick Steps Card */}

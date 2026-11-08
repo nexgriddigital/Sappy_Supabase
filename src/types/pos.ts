@@ -152,6 +152,8 @@ export interface StoreConfig {
   receiptFooter: string;
   bankDetails: string;
   databaseUrl?: string;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
   lastSyncedAt?: string;
   masterPasscode?: string; // Master security passcode for critical actions (default: "Sappy#1313")
 }

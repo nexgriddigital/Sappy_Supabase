@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Cloud,
   Database,
@@ -25,6 +25,7 @@ import {
   isSupabaseConfigured,
 } from '../lib/supabase.ts';
 import { crossDeviceSyncService, SyncState } from '../services/crossDeviceSyncService.ts';
+import { storageService } from '../services/storageService.ts';
 
 const SUPABASE_SCHEMA_SQL = `-- ============================================================================
 -- SAPPY STATIONARY POS - SUPABASE FREE TIER TABLES SCHEMA
@@ -128,8 +129,8 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   onRefreshData,
 }) => {
   const [credentials, setCredentials] = useState(getSupabaseCredentials());
-  const [supabaseUrl, setSupabaseUrl] = useState(credentials.url);
-  const [supabaseKey, setSupabaseKey] = useState(credentials.anonKey);
+  const [supabaseUrl, setSupabaseUrl] = useState(credentials.url || storageService.getStoreConfig().supabaseUrl || '');
+  const [supabaseKey, setSupabaseKey] = useState(credentials.anonKey || storageService.getStoreConfig().supabaseAnonKey || '');
   const [backendUrl, setBackendUrlState] = useState(crossDeviceSyncService.getBackendUrl());
 
   const [activeSubTab, setActiveSubTab] = useState<'supabase' | 'backend'>('supabase');
@@ -141,6 +142,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     type: 'success' | 'error' | 'info' | 'warning';
     text: string;
   } | null>(null);
+
+  // Synchronize input fields when modal is opened or remote sync state updates
+  useEffect(() => {
+    if (isOpen) {
+      const creds = getSupabaseCredentials();
+      const cfg = storageService.getStoreConfig();
+      setCredentials(creds);
+      setSupabaseUrl(creds.url || cfg.supabaseUrl || '');
+      setSupabaseKey(creds.anonKey || cfg.supabaseAnonKey || '');
+      setBackendUrlState(crossDeviceSyncService.getBackendUrl());
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -179,20 +192,29 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
       const testResult = await testSupabaseConnection(client);
 
       if (testResult.success) {
+        // Automatically save to storeConfig so central server & all other devices get credentials
+        const currentConfig = storageService.getStoreConfig();
+        storageService.saveStoreConfig({
+          ...currentConfig,
+          supabaseUrl: supabaseUrl.trim(),
+          supabaseAnonKey: supabaseKey.trim(),
+        });
+        crossDeviceSyncService.broadcastLocalChange();
+        await crossDeviceSyncService.syncNow();
+        onRefreshData();
+
         if (!testResult.tableFound) {
           setMissingTables(true);
           setStatusMessage({
             type: 'warning',
-            text: 'Connected successfully to Supabase! Just one step left: run the SQL script below to create your tables.',
+            text: 'Connected successfully to Supabase & synced across devices! Just one step left: run the SQL script below to create your tables.',
           });
         } else {
           setMissingTables(false);
           setStatusMessage({
             type: 'success',
-            text: 'Connected & verified with Supabase! All tables found.',
+            text: 'Connected & verified with Supabase! All tables found and active across all devices.',
           });
-          await crossDeviceSyncService.syncNow();
-          onRefreshData();
         }
       } else {
         setMissingTables(false);
@@ -211,6 +233,22 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     }
   };
 
+  const handleDisconnectSupabase = async () => {
+    resetSupabaseConfig();
+    setSupabaseUrl('');
+    setSupabaseKey('');
+    setCredentials({ url: '', anonKey: '' });
+    setMissingTables(false);
+    setStatusMessage({ type: 'info', text: 'Supabase disconnected. Operating in local offline mode.' });
+    const currentConfig = storageService.getStoreConfig();
+    delete currentConfig.supabaseUrl;
+    delete currentConfig.supabaseAnonKey;
+    storageService.saveStoreConfig(currentConfig);
+    crossDeviceSyncService.broadcastLocalChange();
+    await crossDeviceSyncService.syncNow();
+    onRefreshData();
+  };
+
   const handleVerifyAfterSql = async () => {
     setIsTesting(true);
     setStatusMessage({ type: 'info', text: 'Verifying tables in Supabase...' });
@@ -220,11 +258,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
       const testResult = await testSupabaseConnection(client);
 
       if (testResult.success && testResult.tableFound) {
+        const currentConfig = storageService.getStoreConfig();
+        storageService.saveStoreConfig({
+          ...currentConfig,
+          supabaseUrl: supabaseUrl.trim(),
+          supabaseAnonKey: supabaseKey.trim(),
+        });
         setMissingTables(false);
         setStatusMessage({
           type: 'success',
-          text: 'Tables successfully detected! Uploading local stationery data to Supabase...',
+          text: 'Tables successfully detected! Synced across all devices & uploading local stationery data to Supabase...',
         });
+        crossDeviceSyncService.broadcastLocalChange();
         await crossDeviceSyncService.syncNow();
         onRefreshData();
       } else {
@@ -275,15 +320,21 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     resetSupabaseConfig();
     setSupabaseUrl('');
     setSupabaseKey('');
     setMissingTables(false);
     crossDeviceSyncService.setBackendUrl('');
     setBackendUrlState('');
-    setStatusMessage({ type: 'info', text: 'Reset to local offline storage mode.' });
-    crossDeviceSyncService.syncNow();
+    const currentConfig = storageService.getStoreConfig();
+    delete currentConfig.supabaseUrl;
+    delete currentConfig.supabaseAnonKey;
+    storageService.saveStoreConfig(currentConfig);
+    crossDeviceSyncService.broadcastLocalChange();
+    setStatusMessage({ type: 'info', text: 'Reset to local offline storage mode across all devices.' });
+    await crossDeviceSyncService.syncNow();
+    onRefreshData();
   };
 
   return (

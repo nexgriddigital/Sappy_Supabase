@@ -9,7 +9,6 @@ let activeClient: SupabaseClient | null = null;
 let activeUrl = envUrl;
 let activeAnonKey = envAnonKey;
 
-// Try to initialize from localStorage credentials if not in env
 try {
   const saved = typeof window !== 'undefined' ? localStorage.getItem('sappy_supabase_credentials_v1') : null;
   if (saved) {
@@ -17,6 +16,17 @@ try {
     if (parsed.url && parsed.anonKey) {
       activeUrl = parsed.url.trim();
       activeAnonKey = parsed.anonKey.trim();
+    }
+  }
+  // Check store config if credentials not found in specific key
+  if ((!activeUrl || !activeAnonKey) && typeof window !== 'undefined') {
+    const rawConfig = localStorage.getItem('sappy_pos_config_v1');
+    if (rawConfig) {
+      const cfg = JSON.parse(rawConfig);
+      if (cfg.supabaseUrl && cfg.supabaseAnonKey) {
+        activeUrl = cfg.supabaseUrl.trim();
+        activeAnonKey = cfg.supabaseAnonKey.trim();
+      }
     }
   }
 } catch {
@@ -89,13 +99,30 @@ export function configureSupabase(url: string, anonKey: string): {
   activeUrl = cleanUrl;
   activeAnonKey = cleanKey;
 
-  try {
-    localStorage.setItem(
-      'sappy_supabase_credentials_v1',
-      JSON.stringify({ url: cleanUrl, anonKey: cleanKey })
-    );
-  } catch (e) {
-    console.error('Could not persist Supabase credentials to localStorage:', e);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(
+        'sappy_supabase_credentials_v1',
+        JSON.stringify({ url: cleanUrl, anonKey: cleanKey })
+      );
+
+      // Also persist to store config so crossDeviceSyncService automatically pushes credentials to central server
+      const rawConfig = localStorage.getItem('sappy_pos_config_v1');
+      const cfg = rawConfig ? JSON.parse(rawConfig) : {};
+      cfg.supabaseUrl = cleanUrl;
+      cfg.supabaseAnonKey = cleanKey;
+      localStorage.setItem('sappy_pos_config_v1', JSON.stringify(cfg));
+
+      if ('BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('sappy_pos_sync_channel');
+          bc.postMessage({ type: 'DATA_UPDATED', timestamp: Date.now() });
+          bc.close();
+        } catch {}
+      }
+    } catch (e) {
+      console.error('Could not persist Supabase credentials:', e);
+    }
   }
 
   return { client: newClient, success: true };
@@ -108,10 +135,28 @@ export function resetSupabaseConfig(): void {
   activeClient = null;
   activeUrl = '';
   activeAnonKey = '';
-  try {
-    localStorage.removeItem('sappy_supabase_credentials_v1');
-  } catch {
-    // Ignore storage errors
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('sappy_supabase_credentials_v1');
+
+      const rawConfig = localStorage.getItem('sappy_pos_config_v1');
+      if (rawConfig) {
+        const cfg = JSON.parse(rawConfig);
+        delete cfg.supabaseUrl;
+        delete cfg.supabaseAnonKey;
+        localStorage.setItem('sappy_pos_config_v1', JSON.stringify(cfg));
+      }
+
+      if ('BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('sappy_pos_sync_channel');
+          bc.postMessage({ type: 'DATA_UPDATED', timestamp: Date.now() });
+          bc.close();
+        } catch {}
+      }
+    } catch {
+      // Ignore storage errors
+    }
   }
 }
 

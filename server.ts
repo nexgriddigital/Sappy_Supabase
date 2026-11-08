@@ -397,17 +397,26 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
       );
     }
 
-    // 6. Merge Config (protect against blank overrides)
+    // 6. Merge Config (protect against blank overrides, allow clean disconnects)
     if (payload.config && typeof payload.config === 'object') {
       if (!serverState.config) {
         serverState.config = payload.config;
       } else {
-        const cleanPayloadEntries = Object.entries(payload.config).filter(([_, v]) => v !== '' && v !== null && v !== undefined);
+        const cleanPayloadEntries = Object.entries(payload.config).filter(([k, v]) => {
+          if (k === 'supabaseUrl' || k === 'supabaseAnonKey') return true;
+          return v !== '' && v !== null && v !== undefined;
+        });
         serverState.config = {
           ...serverState.config,
           ...Object.fromEntries(cleanPayloadEntries),
           masterPasscode: payload.config.masterPasscode || serverState.config.masterPasscode || 'Sappy#1313',
         };
+        if (payload.config.supabaseUrl === '' || payload.config.supabaseUrl === null) {
+          delete serverState.config.supabaseUrl;
+        }
+        if (payload.config.supabaseAnonKey === '' || payload.config.supabaseAnonKey === null) {
+          delete serverState.config.supabaseAnonKey;
+        }
       }
     }
 

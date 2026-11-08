@@ -15,6 +15,11 @@ import {
   INITIAL_SALES,
   INITIAL_STORE_CONFIG,
 } from '../data/seedData.ts';
+import {
+  configureSupabase,
+  getSupabaseCredentials,
+  isSupabaseConfigured,
+} from '../lib/supabase.ts';
 
 const STORAGE_KEYS = {
   INITIALIZED: 'sappy_pos_initialized_v2',
@@ -132,6 +137,21 @@ class StorageService {
       config.masterPasscode = DEFAULT_MASTER_PASSCODE;
     }
     this.set(STORAGE_KEYS.CONFIG, config);
+
+    if (config.supabaseUrl && config.supabaseAnonKey) {
+      try {
+        const creds = getSupabaseCredentials();
+        if (
+          creds.url !== config.supabaseUrl ||
+          creds.anonKey !== config.supabaseAnonKey ||
+          !isSupabaseConfigured()
+        ) {
+          configureSupabase(config.supabaseUrl, config.supabaseAnonKey);
+        }
+      } catch (e) {
+        console.warn('Error auto-configuring Supabase from store config:', e);
+      }
+    }
   }
 
   getMasterPasscode(): string {
@@ -955,6 +975,20 @@ class StorageService {
     }
     if (state.config && typeof state.config === 'object') {
       this.set(STORAGE_KEYS.CONFIG, state.config);
+      if (state.config.supabaseUrl && state.config.supabaseAnonKey) {
+        try {
+          const creds = getSupabaseCredentials();
+          if (
+            creds.url !== state.config.supabaseUrl ||
+            creds.anonKey !== state.config.supabaseAnonKey ||
+            !isSupabaseConfigured()
+          ) {
+            configureSupabase(state.config.supabaseUrl, state.config.supabaseAnonKey);
+          }
+        } catch (e) {
+          console.warn('Auto-configuring Supabase from server state failed:', e);
+        }
+      }
     }
     if (state.users && Array.isArray(state.users)) {
       const localDeleted = new Set(this.getDeletedUserIds());
