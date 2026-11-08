@@ -107,13 +107,59 @@ class CrossDeviceSyncService {
   }
 
   /**
+   * Fast startup pull of canonical server state.
+   * Returns a promise that settles when initial state is received or timed out.
+   */
+  public async initialSync(): Promise<boolean> {
+    try {
+      const customUrl = this.getBackendUrl();
+      const targetUrl = customUrl
+        ? customUrl.endsWith('/')
+          ? `${customUrl}api/pos/state`
+          : `${customUrl}/api/pos/state`
+        : '/api/pos/state';
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+      const response = await fetch(targetUrl, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.state) {
+          storageService.hydrateFromServer(result.state);
+          this.updateState({
+            status: 'synced',
+            mode: 'server',
+            lastSyncedAt: result.serverTime || new Date().toISOString(),
+            message: 'Server synced (Express)',
+            serverVersion: result.state.version || this.syncState.serverVersion + 1,
+          });
+
+          if (this.onDataChangedCallback) {
+            this.onDataChangedCallback();
+          }
+          this.broadcastLocalChange();
+          return true;
+        }
+      }
+    } catch {
+      // Fall through to standard syncNow
+    }
+
+    return this.syncNow();
+  }
+
+  /**
    * Initializes background polling and binds data refresh handler.
    */
   public init(onDataChanged: () => void) {
     this.onDataChangedCallback = onDataChanged;
-
-    // Initial sync
-    this.syncNow();
 
     // Regular interval sync every 15 seconds
     if (this.syncIntervalId) {

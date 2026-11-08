@@ -192,6 +192,9 @@ export default function App() {
 
   // Initialize data and cross-device sync service
   useEffect(() => {
+    let isMounted = true;
+
+    // Load any existing local data
     reloadData();
 
     // Subscribe to cross-device sync state changes
@@ -202,14 +205,28 @@ export default function App() {
     // Start background syncing with server
     crossDeviceSyncService.init(reloadData);
 
-    // Initial smooth startup loader
-    const timer = setTimeout(() => {
-      setIsInitialLoading(false);
-    }, 500);
+    // Initial server state fetch: await remote canonical state before deciding Auth mode
+    const startupPromise = crossDeviceSyncService.initialSync();
+    const minLoaderPromise = new Promise((resolve) => setTimeout(resolve, 400));
+    const safetyTimeoutPromise = new Promise((resolve) => setTimeout(resolve, 2500));
+
+    Promise.race([
+      Promise.all([startupPromise, minLoaderPromise]),
+      safetyTimeoutPromise,
+    ]).then(() => {
+      if (isMounted) {
+        reloadData();
+        const activeUser = storageService.getCurrentUser();
+        if (activeUser) {
+          setCurrentUser(activeUser);
+        }
+        setIsInitialLoading(false);
+      }
+    });
 
     return () => {
+      isMounted = false;
       unsubscribe();
-      clearTimeout(timer);
     };
   }, [reloadData]);
 

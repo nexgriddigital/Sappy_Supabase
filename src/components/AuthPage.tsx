@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Store,
   Mail,
@@ -20,9 +20,12 @@ import {
   BadgeCheck,
   DollarSign,
   Percent,
+  RefreshCw,
+  Users,
 } from 'lucide-react';
 import { AppUser, UserRole } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
+import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
@@ -43,6 +46,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const defaultMode = initialMode || (hasExistingUsers ? 'login' : 'setup');
 
   const [mode, setMode] = useState<'login' | 'signup' | 'setup'>(defaultMode);
+  const [staffUsers, setStaffUsers] = useState<AppUser[]>(() => storageService.getUsers());
+  const [selectedStaffUser, setSelectedStaffUser] = useState<AppUser | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,6 +63,27 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Sync mode whenever initialMode changes or when users become available via cloud sync
+  useEffect(() => {
+    if (initialMode) {
+      setMode(initialMode);
+    } else if (storageService.hasUsers()) {
+      setMode('login');
+    }
+  }, [initialMode]);
+
+  // Listen to cross-device sync updates so new devices auto-switch to login when synced
+  useEffect(() => {
+    const unsubscribe = crossDeviceSyncService.subscribe(() => {
+      const users = storageService.getUsers();
+      setStaffUsers(users);
+      if (users.length > 0 && mode === 'setup' && !initialMode) {
+        setMode('login');
+      }
+    });
+    return () => unsubscribe();
+  }, [mode, initialMode]);
 
   // Handle First-Time Store Owner Setup
   const handleFirstTimeSetup = async (e: React.FormEvent) => {
@@ -123,72 +149,95 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
-  // Handle Login
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handle Login (Supports Email+Password, 4-Digit Terminal PIN, or 1-Tap Staff Selection)
+  const handleLogin = async (e?: React.FormEvent, targetStaff?: AppUser) => {
+    if (e) e.preventDefault();
     setError(null);
     setSuccessMsg(null);
     setLoading(true);
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !password) {
-      setError('Please provide both email address and password.');
+    const userToAuth = targetStaff || selectedStaffUser;
+    const cleanEmail = userToAuth ? userToAuth.email.toLowerCase() : email.trim().toLowerCase();
+    const enteredPass = password.trim();
+
+    if (!cleanEmail && !enteredPass) {
+      setError('Please select a staff member or enter your email address.');
       setLoading(false);
       return;
     }
 
     try {
-      // 1. Check Supabase Auth if configured
-      const supabase = getSupabase();
-      let cloudAuthUser: AppUser | null = null;
+      // 1. Direct user match if staff was selected
+      let user = userToAuth || (cleanEmail ? storageService.findUserByEmail(cleanEmail) : null);
 
-      if (supabase) {
-        try {
-          const { data, error: supaErr } = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password: password,
-          });
+      // 2. PIN-based direct lookup if 4-digit PIN entered without email
+      if (!user && enteredPass) {
+        user = storageService.verifyUserPin(enteredPass);
+      }
 
-          if (!supaErr && data.user) {
-            const metadata = data.user.user_metadata || {};
-            cloudAuthUser = {
-              id: data.user.id,
-              email: data.user.email || cleanEmail,
-              fullName: metadata.full_name || cleanEmail.split('@')[0],
-              role: (metadata.role as UserRole) || 'cashier',
-              storeName: metadata.store_name || storeName,
-              createdAt: data.user.created_at,
-              lastLoginAt: new Date().toISOString(),
-            };
-          }
-        } catch {
-          // Cloud auth skipped in local mode
+      // 3. Check Supabase Auth if configured
+      if (!user && cleanEmail && enteredPass) {
+        const supabase = getSupabase();
+        if (supabase) {
+          try {
+            const { data, error: supaErr } = await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password: enteredPass,
+            });
+
+            if (!supaErr && data.user) {
+              const metadata = data.user.user_metadata || {};
+              user = {
+                id: data.user.id,
+                email: data.user.email || cleanEmail,
+                fullName: metadata.full_name || cleanEmail.split('@')[0],
+                role: (metadata.role as UserRole) || 'cashier',
+                storeName: metadata.store_name || storeName,
+                createdAt: data.user.created_at,
+                lastLoginAt: new Date().toISOString(),
+              };
+            }
+          } catch {}
         }
       }
 
-      // 2. Check local user database or cloud result
-      let user = cloudAuthUser || storageService.findUserByEmail(cleanEmail);
-
       if (!user) {
-        // If system has no registered users, redirect to setup
         if (!storageService.hasUsers()) {
           setMode('setup');
-          setError('No user accounts exist yet. Please complete the initial store owner setup.');
+          setError('No user accounts exist yet. Please complete setup or click "Check Cloud Sync Now".');
           setLoading(false);
           return;
         }
 
-        setError('Invalid staff credentials. Please check your email or contact your Store Owner.');
+        setError('Invalid staff credentials. Please check your email or enter your 4-digit PIN.');
         setLoading(false);
         return;
       }
 
+      // Suspended check
+      if (user.status === 'suspended') {
+        setError('This staff account has been suspended by the Store Owner.');
+        setLoading(false);
+        return;
+      }
+
+      // If user has a pinCode, verify PIN (unless Master Passcode was used)
+      if (user.pinCode && enteredPass) {
+        const isMaster = storageService.verifyMasterPasscode(enteredPass);
+        const isPinMatch = user.pinCode === enteredPass;
+        if (!isPinMatch && !isMaster && enteredPass.length <= 6) {
+          setError(`Incorrect PIN code for ${user.fullName}. Please enter your 4-digit PIN.`);
+          setLoading(false);
+          return;
+        }
+      }
+
       // Set active session
       storageService.setCurrentUser(user);
-      setSuccessMsg(`Welcome back, ${user.fullName}!`);
+      setSuccessMsg(`Welcome, ${user.fullName} (${user.role.toUpperCase()})!`);
       setTimeout(() => {
         onAuthSuccess(user!);
-      }, 400);
+      }, 350);
     } catch (err: any) {
       setError(err?.message || 'Failed to authenticate. Please check your credentials.');
     } finally {
@@ -276,14 +325,53 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </div>
 
           {mode === 'setup' ? (
-            <div className="space-y-1">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold font-mono px-3 py-1 rounded-full bg-forest-950 text-forest-300 border border-forest-700/60 shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-forest-400" />
-                <span>First-Time Store Owner Setup</span>
-              </span>
-              <p className="text-xs text-charcoal-400 mt-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold font-mono px-3 py-1 rounded-full bg-forest-950 text-forest-300 border border-forest-700/60 shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-forest-400" />
+                  <span>First-Time Store Owner Setup</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoading(true);
+                    setError(null);
+                    await crossDeviceSyncService.initialSync();
+                    const users = storageService.getUsers();
+                    setStaffUsers(users);
+                    if (users.length > 0) {
+                      setMode('login');
+                      setSuccessMsg(`Server synced! ${users.length} staff profile(s) found.`);
+                    } else {
+                      setError('No existing store records found on server. Proceed with initial setup below.');
+                    }
+                    setLoading(false);
+                  }}
+                  disabled={loading}
+                  className="px-2 py-1 bg-charcoal-900 hover:bg-charcoal-800 text-amber-400 border border-charcoal-700 rounded-lg text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Sync Cloud</span>
+                </button>
+              </div>
+              <p className="text-xs text-charcoal-400 mt-1">
                 Register the master store owner administrator account and set your store preferences.
               </p>
+
+              {/* Instant switch for other devices / terminals */}
+              <div className="mt-3 flex items-center justify-between bg-charcoal-900/90 border border-charcoal-800 rounded-xl px-3 py-2 text-xs">
+                <span className="text-charcoal-300 text-[11px]">Already set up on another device?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('login');
+                    setError(null);
+                  }}
+                  className="text-amber-400 hover:text-amber-300 font-bold text-xs underline cursor-pointer"
+                >
+                  Switch to Staff Login →
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -506,9 +594,74 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </form>
           ) : mode === 'login' ? (
             /* ======================================================== */
-            /* 2. REGULAR LOGIN FORM */
+            /* 2. REGULAR / TOUCH TERMINAL LOGIN FORM */
             /* ======================================================== */
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={(e) => handleLogin(e)} className="space-y-4">
+              
+              {/* Quick Staff Profile Cards */}
+              {staffUsers.length > 0 && (
+                <div className="bg-charcoal-950 p-3 rounded-xl border border-charcoal-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-forest-400" />
+                      <span>Select Staff Profile ({staffUsers.length} Found)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setLoading(true);
+                        await crossDeviceSyncService.initialSync();
+                        const users = storageService.getUsers();
+                        setStaffUsers(users);
+                        setSuccessMsg('Terminals synchronized with server!');
+                        setLoading(false);
+                      }}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer font-mono"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                      <span>Sync</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {staffUsers.map((u) => {
+                      const isSelected = selectedStaffUser?.id === u.id || email.toLowerCase() === u.email.toLowerCase();
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedStaffUser(u);
+                            setEmail(u.email);
+                            setError(null);
+                          }}
+                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-forest-900/70 border-forest-500 text-white shadow-xs ring-1 ring-forest-500/50'
+                              : 'bg-charcoal-900 border-charcoal-800 text-charcoal-300 hover:border-charcoal-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold truncate">{u.fullName.split(' ')[0]}</span>
+                            <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-bold ${
+                              u.role === 'owner' ? 'bg-amber-950 text-amber-300 border border-amber-800' :
+                              u.role === 'manager' ? 'bg-sky-950 text-sky-300 border border-sky-800' :
+                              'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            }`}>
+                              {u.role}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-charcoal-400 font-mono truncate">{u.email}</p>
+                          {u.pinCode && (
+                            <p className="text-[9px] text-charcoal-500 font-mono mt-1">PIN: ••••</p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1.5">
                   Staff Email Address
@@ -520,22 +673,31 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     required
                     placeholder="e.g. owner@sappystationery.et"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setSelectedStaffUser(null);
+                    }}
                     className="w-full pl-10 pr-4 py-2.5 bg-charcoal-950 border border-charcoal-700 rounded-xl text-sm text-white placeholder-charcoal-500 focus:outline-hidden focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 font-medium"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1.5">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider">
+                    Password or 4-Digit PIN
+                  </label>
+                  {selectedStaffUser?.pinCode && (
+                    <span className="text-[10px] text-forest-400 font-mono">
+                      PIN Code Enabled
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Enter password..."
+                    placeholder="Enter password or 4-digit PIN..."
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 bg-charcoal-950 border border-charcoal-700 rounded-xl text-sm text-white placeholder-charcoal-500 focus:outline-hidden focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 font-mono"
@@ -548,6 +710,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                <p className="text-[10px] text-charcoal-500 mt-1">
+                  Default Staff PINs: Owner (1313) · Cashier (1234) · Manager (2026)
+                </p>
               </div>
 
               <div className="flex items-center justify-between text-xs text-charcoal-400">
@@ -572,10 +737,43 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 ) : (
                   <>
                     <LogIn className="w-4 h-4 text-forest-200" />
-                    <span>Sign In to Terminal</span>
+                    <span>
+                      {selectedStaffUser
+                        ? `Sign In as ${selectedStaffUser.fullName}`
+                        : 'Sign In to Terminal'}
+                    </span>
                   </>
                 )}
               </button>
+
+              {/* Auxiliary Navigation */}
+              <div className="pt-3 border-t border-charcoal-800/80 flex items-center justify-between text-xs text-charcoal-400">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('setup');
+                    setError(null);
+                  }}
+                  className="hover:text-amber-300 transition-colors cursor-pointer text-[11px]"
+                >
+                  First-Time Store Setup
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoading(true);
+                    await crossDeviceSyncService.initialSync();
+                    const users = storageService.getUsers();
+                    setStaffUsers(users);
+                    setSuccessMsg('Terminals synchronized with server!');
+                    setLoading(false);
+                  }}
+                  className="hover:text-white flex items-center gap-1 text-[11px] cursor-pointer font-mono"
+                >
+                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Refresh Cloud</span>
+                </button>
+              </div>
             </form>
           ) : (
             /* ======================================================== */

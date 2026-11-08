@@ -1,5 +1,118 @@
 {
-  "products": [],
+  "products": [
+    {
+      "id": "prod-stn-001",
+      "sku": "PEN-PAR-001",
+      "barcode": "3026981254321",
+      "name": "Parker Jotter Stainless Steel Ballpoint Pen",
+      "category": "Writing & Pens",
+      "costPrice": 280,
+      "sellingPrice": 420,
+      "stockLevel": 35,
+      "lowStockThreshold": 8,
+      "reorderThreshold": 12,
+      "unit": "pcs",
+      "description": "Iconic classic refillable ballpoint pen with signature arrow clip and smooth Quinkflow ink."
+    },
+    {
+      "id": "prod-stn-002",
+      "sku": "PEN-BIC-050",
+      "barcode": "3086126600213",
+      "name": "Bic Cristal Medium Blue Ballpoint Pens (Box of 50)",
+      "category": "Writing & Pens",
+      "costPrice": 450,
+      "sellingPrice": 650,
+      "stockLevel": 24,
+      "lowStockThreshold": 5,
+      "reorderThreshold": 10,
+      "unit": "box",
+      "description": "The world reliable everyday pen, 1.0mm medium point, crystal clear barrel with blue caps."
+    },
+    {
+      "id": "prod-stn-003",
+      "sku": "PAP-DBL-500",
+      "barcode": "8851961120018",
+      "name": "Double A Premium Photocopy Paper A4 80gsm (Ream of 500)",
+      "category": "Paper & Notebooks",
+      "costPrice": 580,
+      "sellingPrice": 750,
+      "stockLevel": 80,
+      "lowStockThreshold": 20,
+      "reorderThreshold": 30,
+      "unit": "ream",
+      "description": "Ultra-smooth high opacity paper engineered for jam-free printing and sharp monochrome photocopying."
+    },
+    {
+      "id": "prod-stn-004",
+      "sku": "NOT-OXF-192",
+      "barcode": "5010356123456",
+      "name": "Oxford Black n Red A4 Hardcover Ruled Notebook (192 Pages)",
+      "category": "Paper & Notebooks",
+      "costPrice": 220,
+      "sellingPrice": 340,
+      "stockLevel": 45,
+      "lowStockThreshold": 10,
+      "reorderThreshold": 15,
+      "unit": "pcs",
+      "description": "Premium 90gsm Optik paper notebook with durable wipe-clean hard cover and red ribbon marker."
+    },
+    {
+      "id": "prod-stn-005",
+      "sku": "DES-CAL-012",
+      "barcode": "6921734912014",
+      "name": "Deli Desktop Calculator 12-Digit Large Angle Screen",
+      "category": "Desk & Office",
+      "costPrice": 380,
+      "sellingPrice": 550,
+      "stockLevel": 22,
+      "lowStockThreshold": 5,
+      "reorderThreshold": 8,
+      "unit": "pcs",
+      "description": "Solar & battery dual power with durable plastic buttons, grand total and tax calculation keys."
+    },
+    {
+      "id": "prod-stn-006",
+      "sku": "SCH-CAS-991",
+      "barcode": "4549526603328",
+      "name": "Casio FX-991EX ClassWiz Advanced Scientific Calculator",
+      "category": "School & Math",
+      "costPrice": 1250,
+      "sellingPrice": 1750,
+      "stockLevel": 18,
+      "lowStockThreshold": 4,
+      "reorderThreshold": 8,
+      "unit": "pcs",
+      "description": "High-resolution Natural Textbook Display with 552 functions, matrix, equation, and spreadsheet solver."
+    },
+    {
+      "id": "prod-stn-007",
+      "sku": "DES-KNG-010",
+      "barcode": "8901238120104",
+      "name": "Kangaro Heavy Duty Desktop Stapler & Staples (No. 10)",
+      "category": "Desk & Office",
+      "costPrice": 190,
+      "sellingPrice": 290,
+      "stockLevel": 30,
+      "lowStockThreshold": 6,
+      "reorderThreshold": 10,
+      "unit": "set",
+      "description": "All-metal construction with quick-load mechanism, staples up to 25 sheets effortlessly."
+    },
+    {
+      "id": "prod-stn-008",
+      "sku": "DES-TP-048",
+      "barcode": "051131640023",
+      "name": "Scotch Heavy Duty Clear Packaging Tape 48mm x 50m",
+      "category": "Desk & Office",
+      "costPrice": 120,
+      "sellingPrice": 180,
+      "stockLevel": 65,
+      "lowStockThreshold": 15,
+      "reorderThreshold": 25,
+      "unit": "pcs",
+      "description": "Strong solvent-free hot melt adhesive tape for secure parcel sealing and office carton packing."
+    }
+  ],
   "customers": [],
   "sales": [],
   "expenses": [],
@@ -15,7 +128,8 @@
     "currencyCode": "ETB",
     "defaultTaxRate": 15,
     "receiptFooter": "Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com",
-    "bankDetails": "Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567"
+    "bankDetails": "Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567",
+    "masterPasscode": "Sappy#1313"
   },
   "users": [
     {
@@ -46,6 +160,6 @@
       "createdAt": "2026-02-01T10:00:00Z"
     }
   ],
-  "lastSyncedAt": "2026-11-07T17:13:09.382Z",
-  "version": 161
+  "lastSyncedAt": "2026-11-08T08:35:25.972Z",
+  "version": 169
 }

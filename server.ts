@@ -60,6 +60,121 @@ interface PosState {
   version: number;
 }
 
+const DEFAULT_STARTER_PRODUCTS = [
+  {
+    id: 'prod-stn-001',
+    sku: 'PEN-PAR-001',
+    barcode: '3026981254321',
+    name: 'Parker Jotter Stainless Steel Ballpoint Pen',
+    category: 'Writing & Pens',
+    costPrice: 280,
+    sellingPrice: 420,
+    stockLevel: 35,
+    lowStockThreshold: 8,
+    reorderThreshold: 12,
+    unit: 'pcs',
+    description: 'Iconic classic refillable ballpoint pen with signature arrow clip and smooth Quinkflow ink.',
+  },
+  {
+    id: 'prod-stn-002',
+    sku: 'PEN-BIC-050',
+    barcode: '3086126600213',
+    name: 'Bic Cristal Medium Blue Ballpoint Pens (Box of 50)',
+    category: 'Writing & Pens',
+    costPrice: 450,
+    sellingPrice: 650,
+    stockLevel: 24,
+    lowStockThreshold: 5,
+    reorderThreshold: 10,
+    unit: 'box',
+    description: 'The world reliable everyday pen, 1.0mm medium point, crystal clear barrel with blue caps.',
+  },
+  {
+    id: 'prod-stn-003',
+    sku: 'PAP-DBL-500',
+    barcode: '8851961120018',
+    name: 'Double A Premium Photocopy Paper A4 80gsm (Ream of 500)',
+    category: 'Paper & Notebooks',
+    costPrice: 580,
+    sellingPrice: 750,
+    stockLevel: 80,
+    lowStockThreshold: 20,
+    reorderThreshold: 30,
+    unit: 'ream',
+    description: 'Ultra-smooth high opacity paper engineered for jam-free printing and sharp monochrome photocopying.',
+  },
+  {
+    id: 'prod-stn-004',
+    sku: 'NOT-OXF-192',
+    barcode: '5010356123456',
+    name: 'Oxford Black n Red A4 Hardcover Ruled Notebook (192 Pages)',
+    category: 'Paper & Notebooks',
+    costPrice: 220,
+    sellingPrice: 340,
+    stockLevel: 45,
+    lowStockThreshold: 10,
+    reorderThreshold: 15,
+    unit: 'pcs',
+    description: 'Premium 90gsm Optik paper notebook with durable wipe-clean hard cover and red ribbon marker.',
+  },
+  {
+    id: 'prod-stn-005',
+    sku: 'DES-CAL-012',
+    barcode: '6921734912014',
+    name: 'Deli Desktop Calculator 12-Digit Large Angle Screen',
+    category: 'Desk & Office',
+    costPrice: 380,
+    sellingPrice: 550,
+    stockLevel: 22,
+    lowStockThreshold: 5,
+    reorderThreshold: 8,
+    unit: 'pcs',
+    description: 'Solar & battery dual power with durable plastic buttons, grand total and tax calculation keys.',
+  },
+  {
+    id: 'prod-stn-006',
+    sku: 'SCH-CAS-991',
+    barcode: '4549526603328',
+    name: 'Casio FX-991EX ClassWiz Advanced Scientific Calculator',
+    category: 'School & Math',
+    costPrice: 1250,
+    sellingPrice: 1750,
+    stockLevel: 18,
+    lowStockThreshold: 4,
+    reorderThreshold: 8,
+    unit: 'pcs',
+    description: 'High-resolution Natural Textbook Display with 552 functions, matrix, equation, and spreadsheet solver.',
+  },
+  {
+    id: 'prod-stn-007',
+    sku: 'DES-KNG-010',
+    barcode: '8901238120104',
+    name: 'Kangaro Heavy Duty Desktop Stapler & Staples (No. 10)',
+    category: 'Desk & Office',
+    costPrice: 190,
+    sellingPrice: 290,
+    stockLevel: 30,
+    lowStockThreshold: 6,
+    reorderThreshold: 10,
+    unit: 'set',
+    description: 'All-metal construction with quick-load mechanism, staples up to 25 sheets effortlessly.',
+  },
+  {
+    id: 'prod-stn-008',
+    sku: 'DES-TP-048',
+    barcode: '051131640023',
+    name: 'Scotch Heavy Duty Clear Packaging Tape 48mm x 50m',
+    category: 'Desk & Office',
+    costPrice: 120,
+    sellingPrice: 180,
+    stockLevel: 65,
+    lowStockThreshold: 15,
+    reorderThreshold: 25,
+    unit: 'pcs',
+    description: 'Strong solvent-free hot melt adhesive tape for secure parcel sealing and office carton packing.',
+  }
+];
+
 function loadServerState(): PosState {
   try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -67,14 +182,19 @@ function loadServerState(): PosState {
     }
     if (fs.existsSync(STORE_FILE)) {
       const content = fs.readFileSync(STORE_FILE, 'utf-8');
-      return JSON.parse(content) as PosState;
+      const parsed = JSON.parse(content) as PosState;
+      if (!parsed.products || parsed.products.length === 0) {
+        parsed.products = DEFAULT_STARTER_PRODUCTS;
+        saveServerState(parsed);
+      }
+      return parsed;
     }
   } catch (err) {
     console.error('Error loading server state:', err);
   }
 
   const defaultState: PosState = {
-    products: [],
+    products: DEFAULT_STARTER_PRODUCTS,
     customers: [],
     sales: [],
     expenses: [],
@@ -113,6 +233,7 @@ app.get('/api/pos/state', (_req: Request, res: Response) => {
       sales: serverState.sales.length,
       expenses: serverState.expenses.length,
       creditPayments: serverState.creditPayments.length,
+      users: serverState.users.length,
     },
   });
 });
@@ -128,7 +249,7 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
     // 1. Merge Products (keep latest updates)
     if (serverState.products.length === 0 && payload.products && payload.products.length > 0) {
       serverState.products = payload.products;
-    } else if (payload.products && Array.isArray(payload.products)) {
+    } else if (payload.products && Array.isArray(payload.products) && payload.products.length > 0) {
       const prodMap = new Map(serverState.products.map((p) => [p.id, p]));
       for (const p of payload.products) {
         prodMap.set(p.id, p);
@@ -139,7 +260,7 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
     // 2. Merge Customers
     if (serverState.customers.length === 0 && payload.customers && payload.customers.length > 0) {
       serverState.customers = payload.customers;
-    } else if (payload.customers && Array.isArray(payload.customers)) {
+    } else if (payload.customers && Array.isArray(payload.customers) && payload.customers.length > 0) {
       const custMap = new Map(serverState.customers.map((c) => [c.id, c]));
       for (const c of payload.customers) {
         custMap.set(c.id, c);
@@ -148,7 +269,7 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
     }
 
     // 3. Merge Sales (union by id, sorted by timestamp descending)
-    if (payload.sales && Array.isArray(payload.sales)) {
+    if (payload.sales && Array.isArray(payload.sales) && payload.sales.length > 0) {
       const salesMap = new Map(serverState.sales.map((s) => [s.id, s]));
       for (const s of payload.sales) {
         salesMap.set(s.id, s);
@@ -159,7 +280,7 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
     }
 
     // 4. Merge Expenses
-    if (payload.expenses && Array.isArray(payload.expenses)) {
+    if (payload.expenses && Array.isArray(payload.expenses) && payload.expenses.length > 0) {
       const expMap = new Map(serverState.expenses.map((e) => [e.id, e]));
       for (const e of payload.expenses) {
         expMap.set(e.id, e);
@@ -170,7 +291,7 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
     }
 
     // 5. Merge Credit Payments
-    if (payload.creditPayments && Array.isArray(payload.creditPayments)) {
+    if (payload.creditPayments && Array.isArray(payload.creditPayments) && payload.creditPayments.length > 0) {
       const payMap = new Map(serverState.creditPayments.map((p) => [p.id, p]));
       for (const p of payload.creditPayments) {
         payMap.set(p.id, p);
@@ -180,13 +301,22 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
       );
     }
 
-    // 6. Merge Config
-    if (payload.config) {
-      serverState.config = payload.config;
+    // 6. Merge Config (protect against blank overrides)
+    if (payload.config && typeof payload.config === 'object') {
+      if (!serverState.config) {
+        serverState.config = payload.config;
+      } else {
+        const cleanPayloadEntries = Object.entries(payload.config).filter(([_, v]) => v !== '' && v !== null && v !== undefined);
+        serverState.config = {
+          ...serverState.config,
+          ...Object.fromEntries(cleanPayloadEntries),
+          masterPasscode: payload.config.masterPasscode || serverState.config.masterPasscode || 'Sappy#1313',
+        };
+      }
     }
 
     // 7. Merge Users
-    if (payload.users && Array.isArray(payload.users)) {
+    if (payload.users && Array.isArray(payload.users) && payload.users.length > 0) {
       const userMap = new Map(serverState.users.map((u) => [u.id || u.email, u]));
       for (const u of payload.users) {
         userMap.set(u.id || u.email, u);
