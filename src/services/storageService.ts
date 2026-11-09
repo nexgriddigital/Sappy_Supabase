@@ -687,25 +687,33 @@ class StorageService {
     return DEFAULT_INITIAL_USERS;
   }
 
-  getCurrentUser(): AppUser | null {
+  getCurrentUser(): AppUser {
+    const users = this.getUsers();
+    const defaultOwner =
+      users.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') ||
+      users.find((u) => u.role === 'owner') ||
+      users[0] ||
+      DEFAULT_INITIAL_USERS[0];
+
     const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (raw === 'null' || raw === 'logged_out' || !raw) {
-      return null;
+    if (raw && raw !== 'null' && raw !== 'logged_out') {
+      try {
+        const user = JSON.parse(raw) as AppUser;
+        const match = users.find((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+        if (match) return match;
+      } catch {
+        // Fallback
+      }
     }
-    try {
-      const user = JSON.parse(raw) as AppUser;
-      // Verify user is in registered list
-      const users = this.getUsers();
-      const match = users.find((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
-      return match || null;
-    } catch {
-      return null;
-    }
+    // Login not required: automatically authenticate as Store Owner (Amanuel Hailu)
+    return defaultOwner;
   }
 
   setCurrentUser(user: AppUser | null): void {
     if (user === null) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, 'logged_out');
+      // Revert to default owner instead of logging out to a blank locked screen
+      const defaultOwner = DEFAULT_INITIAL_USERS[0];
+      this.set(STORAGE_KEYS.CURRENT_USER, defaultOwner);
     } else {
       user.lastLoginAt = new Date().toISOString();
       this.set(STORAGE_KEYS.CURRENT_USER, user);
