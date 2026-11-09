@@ -38,7 +38,7 @@ import {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
-  const [currentUser, setCurrentUser] = useState<AppUser>(() => storageService.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => storageService.getCurrentUser());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState<boolean>(false);
   const [criticalChallenge, setCriticalChallenge] = useState<{
@@ -351,8 +351,9 @@ export default function App() {
   };
 
   const handleSignOut = () => {
-    // Login is not required: opening modal allows switching profiles or managing users without locking the terminal
-    setIsAuthModalOpen(true);
+    storageService.setCurrentUser(null);
+    setCurrentUser(null);
+    showToast('Signed Out', 'Please sign in to access terminal', 'info', 2500);
   };
 
   const handleOpenAuth = () => {
@@ -369,8 +370,19 @@ export default function App() {
     );
   }
 
-  // Active user profile (guaranteed authenticated as Store Owner Amanuel Hailu or active staff)
-  const activeUser = currentUser || storageService.getCurrentUser();
+  // Login is strictly required: if no staff user is logged in, show the full-screen Login page
+  if (!currentUser) {
+    const hasUsers = storageService.hasUsers();
+    return (
+      <div className="min-h-screen bg-charcoal-950 text-charcoal-100 flex flex-col font-sans selection:bg-forest-700 selection:text-white">
+        <AuthPage
+          onAuthSuccess={handleAuthSuccess}
+          initialMode={hasUsers ? 'login' : 'setup'}
+          isModal={false}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-charcoal-950 text-charcoal-100 flex flex-col font-sans selection:bg-forest-700 selection:text-white">
@@ -381,7 +393,7 @@ export default function App() {
         onTabChange={setActiveTab}
         cartItemCount={activeCartData.cart.reduce((sum, item) => sum + item.quantity, 0)}
         dbConnected={dbConnected}
-        currentUser={activeUser}
+        currentUser={currentUser}
         onSignOut={handleSignOut}
         onOpenAuth={handleOpenAuth}
         syncStatus={syncState.status}
@@ -512,7 +524,7 @@ export default function App() {
             products={products}
             customers={customers}
             onNavigate={(tab) => setActiveTab(tab)}
-            currentUser={activeUser}
+            currentUser={currentUser}
           />
         )}
 
