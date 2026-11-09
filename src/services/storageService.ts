@@ -688,11 +688,18 @@ class StorageService {
   }
 
   getCurrentUser(): AppUser | null {
-    const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (!raw || raw === 'null' || raw === 'logged_out') {
-      return null;
-    }
+    if (typeof window === 'undefined') return null;
+    // Wipe any legacy localStorage auto-login if present
     try {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    } catch {}
+
+    // Strictly check active tab sessionStorage
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      if (!raw || raw === 'null' || raw === 'logged_out') {
+        return null;
+      }
       const user = JSON.parse(raw) as AppUser;
       const users = this.getUsers();
       const match = users.find((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
@@ -703,11 +710,19 @@ class StorageService {
   }
 
   setCurrentUser(user: AppUser | null): void {
-    if (user === null) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, 'logged_out');
-    } else {
-      user.lastLoginAt = new Date().toISOString();
-      this.set(STORAGE_KEYS.CURRENT_USER, user);
+    if (typeof window === 'undefined') return;
+    try {
+      // Clear legacy localStorage
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+
+      if (user === null) {
+        sessionStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      } else {
+        user.lastLoginAt = new Date().toISOString();
+        sessionStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      }
+    } catch (e) {
+      console.warn('Session write error:', e);
     }
   }
 
