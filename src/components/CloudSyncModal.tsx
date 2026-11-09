@@ -15,6 +15,11 @@ import {
   ChevronDown,
   ChevronUp,
   FileCode,
+  Smartphone,
+  QrCode,
+  Link2,
+  Share2,
+  Check,
 } from 'lucide-react';
 import {
   getSupabase,
@@ -26,6 +31,12 @@ import {
 } from '../lib/supabase.ts';
 import { crossDeviceSyncService, SyncState } from '../services/crossDeviceSyncService.ts';
 import { storageService } from '../services/storageService.ts';
+import {
+  generatePairingUrl,
+  generatePairingCode,
+  applyPairingToken,
+} from '../services/pairingService.ts';
+import { generateQrMatrix } from '../utils/barcodeGenerator.ts';
 
 const SUPABASE_SCHEMA_SQL = `-- ============================================================================
 -- SAPPY STATIONARY POS - SUPABASE FREE TIER TABLES SCHEMA
@@ -133,15 +144,44 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   const [supabaseKey, setSupabaseKey] = useState(credentials.anonKey || storageService.getStoreConfig().supabaseAnonKey || '');
   const [backendUrl, setBackendUrlState] = useState(crossDeviceSyncService.getBackendUrl());
 
-  const [activeSubTab, setActiveSubTab] = useState<'supabase' | 'backend'>('supabase');
+  const [activeSubTab, setActiveSubTab] = useState<'pair' | 'supabase' | 'backend'>(isSupabaseConfigured() ? 'pair' : 'supabase');
   const [isTesting, setIsTesting] = useState(false);
   const [missingTables, setMissingTables] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [copiedPairLink, setCopiedPairLink] = useState(false);
+  const [copiedPairCode, setCopiedPairCode] = useState(false);
+  const [pastePairInput, setPastePairInput] = useState('');
+  const [pairError, setPairError] = useState<string | null>(null);
+  const [pairSuccess, setPairSuccess] = useState<string | null>(null);
   const [showSqlPreview, setShowSqlPreview] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
     type: 'success' | 'error' | 'info' | 'warning';
     text: string;
   } | null>(null);
+
+  const handleApplyPairing = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setPairError(null);
+    setPairSuccess(null);
+    if (!pastePairInput.trim()) {
+      setPairError('Please paste a pairing link or code from your other device.');
+      return;
+    }
+    const result = applyPairingToken(pastePairInput);
+    if (result.success) {
+      setPairSuccess(result.message);
+      setPastePairInput('');
+      const creds = getSupabaseCredentials();
+      setCredentials(creds);
+      setSupabaseUrl(creds.url);
+      setSupabaseKey(creds.anonKey);
+      crossDeviceSyncService.broadcastLocalChange();
+      crossDeviceSyncService.syncNow();
+      onRefreshData();
+    } else {
+      setPairError(result.message);
+    }
+  };
 
   // Synchronize input fields when modal is opened or remote sync state updates
   useEffect(() => {
@@ -398,30 +438,42 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
         </div>
 
         {/* Tab Selection */}
-        <div className="px-6 grid grid-cols-2 gap-2 border-b border-charcoal-800 pb-3 shrink-0">
+        <div className="px-6 grid grid-cols-3 gap-2 border-b border-charcoal-800 pb-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('pair')}
+            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+              activeSubTab === 'pair'
+                ? 'bg-forest-900/80 text-forest-300 border border-forest-700'
+                : 'bg-charcoal-950 text-charcoal-400 border border-charcoal-800 hover:text-white'
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span className="truncate">Pair Device</span>
+          </button>
           <button
             type="button"
             onClick={() => setActiveSubTab('supabase')}
-            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
               activeSubTab === 'supabase'
                 ? 'bg-forest-900/80 text-forest-300 border border-forest-700'
                 : 'bg-charcoal-950 text-charcoal-400 border border-charcoal-800 hover:text-white'
             }`}
           >
             <Database className="w-3.5 h-3.5" />
-            <span>Supabase Free Tier</span>
+            <span className="truncate">Supabase DB</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveSubTab('backend')}
-            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+            className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
               activeSubTab === 'backend'
                 ? 'bg-forest-900/80 text-forest-300 border border-forest-700'
                 : 'bg-charcoal-950 text-charcoal-400 border border-charcoal-800 hover:text-white'
             }`}
           >
             <Server className="w-3.5 h-3.5" />
-            <span>Custom Backend URL</span>
+            <span className="truncate">Custom Server</span>
           </button>
         </div>
 
@@ -507,6 +559,133 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
                   {SUPABASE_SCHEMA_SQL}
                 </div>
               )}
+            </div>
+          )}
+
+          {activeSubTab === 'pair' && (
+            <div className="space-y-4">
+              {isSupabaseConfigured() ? (
+                <div className="space-y-3.5">
+                  <div className="p-3 bg-emerald-950/60 border border-emerald-600/60 rounded-xl text-xs flex items-center gap-2 text-emerald-200">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Database active! Scan QR code or copy the 1-click link to connect your phone or another laptop instantly.</span>
+                  </div>
+
+                  {/* QR Code Card */}
+                  <div className="p-4 bg-charcoal-950 border border-charcoal-800 rounded-2xl flex flex-col items-center text-center space-y-3">
+                    <div className="bg-white p-3 rounded-xl shadow-lg border border-charcoal-700">
+                      <svg className="w-36 h-36" viewBox="0 0 21 21">
+                        {generateQrMatrix(generatePairingUrl()).map((row, r) =>
+                          row.map((cell, c) =>
+                            cell ? (
+                              <rect
+                                key={`${r}-${c}`}
+                                x={c}
+                                y={r}
+                                width={1}
+                                height={1}
+                                fill="#0a0f0d"
+                              />
+                            ) : null
+                          )
+                        )}
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
+                        <Smartphone className="w-4 h-4 text-amber-400" />
+                        <span>Scan with Mobile Phone Camera</span>
+                      </h4>
+                      <p className="text-[11px] text-charcoal-400 mt-0.5">
+                        Open camera on your iPhone or Android and point it here. It opens Sappy POS with your cloud database connected!
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 1-Click Link Button */}
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = generatePairingUrl();
+                        navigator.clipboard.writeText(url);
+                        setCopiedPairLink(true);
+                        setTimeout(() => setCopiedPairLink(false), 3000);
+                      }}
+                      className="w-full py-2.5 px-3 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-sm"
+                    >
+                      {copiedPairLink ? <Check className="w-4 h-4 text-emerald-300" /> : <Link2 className="w-4 h-4 text-forest-200" />}
+                      <span>{copiedPairLink ? 'Pairing Link Copied to Clipboard!' : 'Copy 1-Click Connect Link'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = generatePairingCode();
+                        navigator.clipboard.writeText(code);
+                        setCopiedPairCode(true);
+                        setTimeout(() => setCopiedPairCode(false), 3000);
+                      }}
+                      className="w-full py-2 px-3 bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-300 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border border-charcoal-800 cursor-pointer transition-colors"
+                    >
+                      {copiedPairCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-charcoal-400" />}
+                      <span>{copiedPairCode ? 'Pairing Code Copied!' : 'Copy Manual Pairing Code'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-charcoal-950 border border-charcoal-800 rounded-xl space-y-2 text-xs">
+                  <div className="flex items-start gap-2 text-amber-300">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p className="text-charcoal-300 text-xs">
+                      No cloud database configured on this device yet. If you already connected on another device, paste its pairing link or code below:
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSubTab('supabase')}
+                    className="text-amber-400 hover:underline text-xs font-semibold inline-flex items-center gap-1 pt-1"
+                  >
+                    <span>Or connect Supabase directly here</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+
+              {/* Paste pairing code section */}
+              <div className="pt-2 border-t border-charcoal-800/80 space-y-2">
+                <label className="block text-xs font-bold text-charcoal-300">
+                  Connect This Device From Another
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={pastePairInput}
+                    onChange={(e) => setPastePairInput(e.target.value)}
+                    placeholder="Paste pairing link or code from PC..."
+                    className="flex-1 px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 font-mono focus:border-forest-500 focus:outline-hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPairing()}
+                    className="py-2 px-4 rounded-xl bg-forest-700 hover:bg-forest-600 text-white text-xs font-bold cursor-pointer transition-colors shrink-0"
+                  >
+                    Pair Now
+                  </button>
+                </div>
+                {pairSuccess && (
+                  <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>{pairSuccess}</span>
+                  </p>
+                )}
+                {pairError && (
+                  <p className="text-xs text-rose-400 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{pairError}</span>
+                  </p>
+                )}
+              </div>
             </div>
           )}
 

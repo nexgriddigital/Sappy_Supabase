@@ -47,42 +47,6 @@ export const DEFAULT_INITIAL_USERS: AppUser[] = [
     createdAt: '2026-01-01T08:00:00Z',
     notes: 'Store Owner & Commercial Administrator',
   },
-  {
-    id: 'usr-owner-abebe',
-    email: 'owner@sappystationery.et',
-    fullName: 'Abebe Hailu',
-    role: 'owner',
-    storeName: 'Sappy Stationary',
-    phone: '+251 91 123 4567',
-    pinCode: '1313',
-    status: 'active',
-    createdAt: '2026-01-01T08:00:00Z',
-    notes: 'Master Store Owner',
-  },
-  {
-    id: 'usr-cashier-1',
-    email: 'cashier@sappystationery.et',
-    fullName: 'Bethelhem Tadesse',
-    role: 'cashier',
-    storeName: 'Sappy Stationary',
-    phone: '+251 92 345 6789',
-    pinCode: '1234',
-    status: 'active',
-    createdAt: '2026-01-15T09:00:00Z',
-    notes: 'Front checkout cashier',
-  },
-  {
-    id: 'usr-manager-1',
-    email: 'manager@sappystationery.et',
-    fullName: 'Dawit Kebede',
-    role: 'manager',
-    storeName: 'Sappy Stationary',
-    phone: '+251 93 456 7890',
-    pinCode: '2026',
-    status: 'active',
-    createdAt: '2026-02-01T10:00:00Z',
-    notes: 'Store supervisor & shift manager',
-  },
 ];
 
 const INITIAL_USERS: AppUser[] = DEFAULT_INITIAL_USERS;
@@ -123,6 +87,18 @@ class StorageService {
       config.currencySymbol = 'Br ';
       config.currencyCode = 'ETB';
       config.defaultTaxRate = config.defaultTaxRate || 15;
+      changed = true;
+    }
+
+    // Auto-populate Supabase DB secrets from build environment
+    const envUrl = ((import.meta as any).env?.VITE_SUPABASE_URL || '').trim();
+    const envKey = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '').trim();
+    if (envUrl && (!config.supabaseUrl || config.supabaseUrl.includes('your-project'))) {
+      config.supabaseUrl = envUrl;
+      changed = true;
+    }
+    if (envKey && (!config.supabaseAnonKey || config.supabaseAnonKey.includes('...'))) {
+      config.supabaseAnonKey = envKey;
       changed = true;
     }
 
@@ -682,14 +658,26 @@ class StorageService {
       try {
         const parsed = JSON.parse(raw) as AppUser[];
         if (Array.isArray(parsed) && parsed.length > 0) {
+          // Filter out the three unknown mock users: Abebe, Bethelhem, and Dawit
+          let filtered = parsed.filter((u) => {
+            const email = (u?.email || '').toLowerCase().trim();
+            return (
+              email !== 'owner@sappystationery.et' &&
+              email !== 'cashier@sappystationery.et' &&
+              email !== 'manager@sappystationery.et'
+            );
+          });
+
           // Ensure Amanuel Hailu (store owner) exists in the accounts list
-          const hasAmanuel = parsed.some((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com');
+          const hasAmanuel = filtered.some((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com');
           if (!hasAmanuel) {
-            const merged = [DEFAULT_INITIAL_USERS[0], ...parsed];
-            this.set(STORAGE_KEYS.USERS, merged);
-            return merged;
+            filtered = [DEFAULT_INITIAL_USERS[0], ...filtered];
           }
-          return parsed;
+
+          if (filtered.length !== parsed.length || !hasAmanuel) {
+            this.set(STORAGE_KEYS.USERS, filtered);
+          }
+          return filtered;
         }
       } catch {
         // Fallback to defaults

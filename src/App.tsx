@@ -24,6 +24,7 @@ import { storageService } from './services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
 import { LoadingScreen } from './components/LoadingAnimation.tsx';
 import { isSupabaseConfigured } from './lib/supabase.ts';
+import { checkAndApplyUrlPairing } from './services/pairingService.ts';
 import {
   Customer,
   CreditPayment,
@@ -196,8 +197,26 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
-    // Load any existing local data
-    reloadData();
+    // Check if device opened with 1-click pairing link (#pair=...)
+    const didPairFromUrl = checkAndApplyUrlPairing();
+    if (didPairFromUrl) {
+      reloadData();
+      setDbConnected(true);
+      const ownerUser = storageService.getUsers().find((u) => u.role === 'owner') || storageService.getUsers()[0];
+      if (ownerUser) {
+        storageService.setCurrentUser(ownerUser);
+        setCurrentUser(ownerUser);
+      }
+      showToast(
+        'Device Paired Successfully',
+        'Connected to Sappy Stationary cloud database and synchronized!',
+        'success',
+        5000
+      );
+    } else {
+      // Load any existing local data
+      reloadData();
+    }
 
     // Subscribe to cross-device sync state changes
     const unsubscribe = crossDeviceSyncService.subscribe((state) => {
@@ -230,7 +249,7 @@ export default function App() {
       isMounted = false;
       unsubscribe();
     };
-  }, [reloadData]);
+  }, [reloadData, showToast]);
 
   // Complete Sale
   const handleCompleteSale = (

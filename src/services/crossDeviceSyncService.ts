@@ -273,10 +273,35 @@ class CrossDeviceSyncService {
       const client = getSupabase();
       if (client) {
         try {
-          const localProducts = storageService.getProducts();
-          if (localProducts.length > 0) {
+          // 1. Pull and merge Products
+          const { data: remoteProducts } = await client.from('products').select('*');
+          if (remoteProducts && Array.isArray(remoteProducts) && remoteProducts.length > 0) {
+            const mappedProducts = remoteProducts.map((p: any) => ({
+              id: p.id,
+              sku: p.sku,
+              barcode: p.barcode || '',
+              name: p.name,
+              category: p.category,
+              costPrice: Number(p.cost_price || 0),
+              sellingPrice: Number(p.selling_price || 0),
+              stockLevel: Number(p.stock_level || 0),
+              lowStockThreshold: Number(p.low_stock_threshold || 5),
+              unit: p.unit || 'pcs',
+              description: p.description || '',
+            }));
+            const localProducts = storageService.getProducts();
+            const prodMap = new Map(localProducts.map((p) => [p.id, p]));
+            for (const rp of mappedProducts) {
+              prodMap.set(rp.id, rp);
+            }
+            storageService.hydrateFromServer({ products: Array.from(prodMap.values()) });
+          }
+
+          // Push local products to Supabase
+          const currentProducts = storageService.getProducts();
+          if (currentProducts.length > 0) {
             await client.from('products').upsert(
-              localProducts.map((p) => ({
+              currentProducts.map((p) => ({
                 id: p.id,
                 sku: p.sku,
                 barcode: p.barcode,
@@ -292,16 +317,47 @@ class CrossDeviceSyncService {
             );
           }
 
-          const localCustomers = storageService.getCustomers();
-          if (localCustomers.length > 0) {
+          // 2. Pull and merge Customers
+          const { data: remoteCustomers } = await client.from('customers').select('*');
+          if (remoteCustomers && Array.isArray(remoteCustomers) && remoteCustomers.length > 0) {
+            const mappedCustomers = remoteCustomers.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              companyName: c.company_name || undefined,
+              phone: c.phone,
+              email: c.email || undefined,
+              address: c.address || undefined,
+              taxNumber: c.tax_number || undefined,
+              creditBalance: Number(c.credit_balance || 0),
+              creditLimit: Number(c.credit_limit || 500),
+              totalPurchased: Number(c.total_purchased || 0),
+              notes: c.notes || undefined,
+              createdAt: c.created_at || new Date().toISOString(),
+            }));
+            const localCust = storageService.getCustomers();
+            const custMap = new Map(localCust.map((c) => [c.id, c]));
+            for (const rc of mappedCustomers) {
+              custMap.set(rc.id, rc);
+            }
+            storageService.hydrateFromServer({ customers: Array.from(custMap.values()) });
+          }
+
+          // Push local customers to Supabase
+          const currentCustomers = storageService.getCustomers();
+          if (currentCustomers.length > 0) {
             await client.from('customers').upsert(
-              localCustomers.map((c) => ({
+              currentCustomers.map((c) => ({
                 id: c.id,
                 name: c.name,
+                company_name: c.companyName,
                 phone: c.phone,
+                email: c.email,
+                address: c.address,
+                tax_number: c.taxNumber,
                 credit_balance: c.creditBalance,
                 credit_limit: c.creditLimit,
                 total_purchased: c.totalPurchased,
+                notes: c.notes,
               }))
             );
           }
@@ -310,7 +366,7 @@ class CrossDeviceSyncService {
             status: 'synced',
             mode: 'supabase',
             lastSyncedAt: new Date().toISOString(),
-            message: 'Cloud synced (Supabase)',
+            message: 'Cloud synced (Supabase Live)',
             serverVersion: this.syncState.serverVersion + 1,
           });
 

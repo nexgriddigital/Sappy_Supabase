@@ -199,6 +199,9 @@ const DEFAULT_SERVER_CONFIG = {
   receiptFooter: 'Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com',
   bankDetails: 'Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567',
   masterPasscode: 'Sappy#1313',
+  supabaseUrl: (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://fegfrjhxxpojmalytbku.supabase.co').trim(),
+  supabaseAnonKey: (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim(),
+  databaseUrl: (process.env.DATABASE_URL || '').trim(),
 };
 
 const DEFAULT_SERVER_USERS = [
@@ -213,42 +216,6 @@ const DEFAULT_SERVER_USERS = [
     status: 'active',
     createdAt: '2026-01-01T08:00:00Z',
     notes: 'Store Owner & Commercial Administrator',
-  },
-  {
-    id: 'usr-owner-abebe',
-    email: 'owner@sappystationery.et',
-    fullName: 'Abebe Hailu',
-    role: 'owner',
-    storeName: 'Sappy Stationary',
-    phone: '+251 91 123 4567',
-    pinCode: '1313',
-    status: 'active',
-    createdAt: '2026-01-01T08:00:00Z',
-    notes: 'Master Store Owner',
-  },
-  {
-    id: 'usr-cashier-1',
-    email: 'cashier@sappystationery.et',
-    fullName: 'Bethelhem Tadesse',
-    role: 'cashier',
-    storeName: 'Sappy Stationary',
-    phone: '+251 92 345 6789',
-    pinCode: '1234',
-    status: 'active',
-    createdAt: '2026-01-15T09:00:00Z',
-    notes: 'Front checkout cashier',
-  },
-  {
-    id: 'usr-manager-1',
-    email: 'manager@sappystationery.et',
-    fullName: 'Dawit Kebede',
-    role: 'manager',
-    storeName: 'Sappy Stationary',
-    phone: '+251 93 456 7890',
-    pinCode: '2026',
-    status: 'active',
-    createdAt: '2026-02-01T10:00:00Z',
-    notes: 'Store supervisor & shift manager',
   },
 ];
 
@@ -269,6 +236,30 @@ function loadServerState(): PosState {
 
       if (!parsed.config) {
         parsed.config = DEFAULT_SERVER_CONFIG;
+        changed = true;
+      } else {
+        // Inject DB secrets from env if missing
+        const envSupabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://fegfrjhxxpojmalytbku.supabase.co').trim();
+        const envSupabaseKey = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+        if (envSupabaseUrl && (!parsed.config.supabaseUrl || parsed.config.supabaseUrl.includes('your-project'))) {
+          parsed.config.supabaseUrl = envSupabaseUrl;
+          changed = true;
+        }
+        if (envSupabaseKey && (!parsed.config.supabaseAnonKey || parsed.config.supabaseAnonKey.includes('...'))) {
+          parsed.config.supabaseAnonKey = envSupabaseKey;
+          changed = true;
+        }
+      }
+
+      // Filter out the three unknown mock users: Abebe, Bethelhem, and Dawit
+      const purgedUsers = (parsed.users || []).filter((u: any) => {
+        const email = (u?.email || '').toLowerCase().trim();
+        return email !== 'owner@sappystationery.et' &&
+               email !== 'cashier@sappystationery.et' &&
+               email !== 'manager@sappystationery.et';
+      });
+      if (purgedUsers.length !== (parsed.users || []).length) {
+        parsed.users = purgedUsers;
         changed = true;
       }
 
@@ -316,9 +307,23 @@ function saveServerState(state: PosState): void {
 }
 
 let serverState: PosState = loadServerState();
+// Ensure unknown demo users are purged immediately
+serverState.users = (serverState.users || []).filter((u: any) => {
+  const email = (u?.email || '').toLowerCase().trim();
+  return email !== 'owner@sappystationery.et' &&
+         email !== 'cashier@sappystationery.et' &&
+         email !== 'manager@sappystationery.et';
+});
+saveServerState(serverState);
 
 // Multi-Device Sync: Fetch Canonical Server State
 app.get('/api/pos/state', (_req: Request, res: Response) => {
+  serverState.users = (serverState.users || []).filter((u: any) => {
+    const email = (u?.email || '').toLowerCase().trim();
+    return email !== 'owner@sappystationery.et' &&
+           email !== 'cashier@sappystationery.et' &&
+           email !== 'manager@sappystationery.et';
+  });
   return res.json({
     success: true,
     state: serverState,
@@ -452,7 +457,12 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
           userMap.delete(delId);
         }
       }
-      serverState.users = Array.from(userMap.values());
+      serverState.users = Array.from(userMap.values()).filter((u: any) => {
+        const email = (u?.email || '').toLowerCase().trim();
+        return email !== 'owner@sappystationery.et' &&
+               email !== 'cashier@sappystationery.et' &&
+               email !== 'manager@sappystationery.et';
+      });
     }
 
     serverState.lastSyncedAt = new Date().toISOString();

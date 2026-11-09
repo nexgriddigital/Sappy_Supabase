@@ -26,6 +26,7 @@ import {
   X,
   ChevronRight,
   ShieldCheck,
+  Smartphone,
 } from 'lucide-react';
 import { AppUser } from '../types/pos.ts';
 import { SappyLogo } from './SappyLogo.tsx';
@@ -225,6 +226,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 aria-label="Toggle Fullscreen"
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+            )}
+
+            {/* Quick Mobile / Second Device Pairing Trigger */}
+            {onOpenCloudSync && (
+              <button
+                type="button"
+                onClick={onOpenCloudSync}
+                className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-300 hover:text-white border border-charcoal-800 text-xs font-semibold cursor-pointer transition-colors"
+                title="Connect Phone or Another Terminal"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px] font-mono">Pair Phone</span>
               </button>
             )}
 

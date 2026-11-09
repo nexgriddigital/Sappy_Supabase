@@ -22,10 +22,13 @@ import {
   Percent,
   RefreshCw,
   Users,
+  Smartphone,
+  Link2,
 } from 'lucide-react';
 import { AppUser, UserRole } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
 import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
+import { applyPairingToken } from '../services/pairingService.ts';
 import { getSupabase } from '../lib/supabase.ts';
 import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
@@ -46,6 +49,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const defaultMode = initialMode || (hasExistingUsers ? 'login' : 'setup');
 
   const [mode, setMode] = useState<'login' | 'signup' | 'setup'>(defaultMode);
+  const [showPairModal, setShowPairModal] = useState(false);
+  const [pairInput, setPairInput] = useState('');
+  const [pairError, setPairError] = useState<string | null>(null);
   const [staffUsers, setStaffUsers] = useState<AppUser[]>(() => storageService.getUsers());
   const [selectedStaffUser, setSelectedStaffUser] = useState<AppUser | null>(null);
   const [email, setEmail] = useState('');
@@ -71,6 +77,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     } else if (storageService.hasUsers()) {
       setMode('login');
     }
+    const currentUsers = storageService.getUsers();
+    setStaffUsers(currentUsers);
+    if (currentUsers.length === 1) {
+      setSelectedStaffUser(currentUsers[0]);
+      setEmail(currentUsers[0].email);
+    }
   }, [initialMode]);
 
   // Listen to cross-device sync updates so new devices auto-switch to login when synced
@@ -78,6 +90,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     const unsubscribe = crossDeviceSyncService.subscribe(() => {
       const users = storageService.getUsers();
       setStaffUsers(users);
+      if (users.length === 1) {
+        setSelectedStaffUser(users[0]);
+        setEmail(users[0].email);
+      }
       if (users.length > 0 && mode === 'setup' && !initialMode) {
         setMode('login');
       }
@@ -348,12 +364,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     await crossDeviceSyncService.initialSync();
                     const users = storageService.getUsers();
                     setStaffUsers(users);
-                    if (users.length > 0) {
-                      setMode('login');
-                      setSuccessMsg(`Server synced! ${users.length} staff profile(s) found.`);
-                    } else {
-                      setError('No existing store records found on server. Proceed with initial setup below.');
-                    }
+                    setMode('login');
+                    setSuccessMsg(`Store accounts ready. Select your profile to enter.`);
                     setLoading(false);
                   }}
                   disabled={loading}
@@ -368,18 +380,32 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               </p>
 
               {/* Instant switch for other devices / terminals */}
-              <div className="mt-3 flex flex-col sm:flex-row gap-1.5 items-center justify-between bg-charcoal-900/90 border border-charcoal-800 rounded-xl px-3 py-2 text-xs">
+              <div className="mt-3 flex flex-col sm:flex-row gap-2 items-center justify-between bg-charcoal-900/90 border border-charcoal-800 rounded-xl px-3 py-2 text-xs">
                 <span className="text-charcoal-300 text-[11px]">Already set up on another device?</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode('login');
-                    setError(null);
-                  }}
-                  className="text-amber-400 hover:text-amber-300 font-bold text-xs underline cursor-pointer"
-                >
-                  Switch to Staff Login →
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPairModal(true);
+                      setPairError(null);
+                    }}
+                    className="text-emerald-400 hover:text-emerald-300 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Pair Device</span>
+                  </button>
+                  <span className="text-charcoal-600">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                    }}
+                    className="text-amber-400 hover:text-amber-300 font-bold text-xs underline cursor-pointer"
+                  >
+                    Staff Login →
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -913,6 +939,88 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         </div>
 
       </div>
+
+      {/* Pair from Another Device Modal */}
+      {showPairModal && (
+        <div className="fixed inset-0 z-50 bg-charcoal-950/85 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-charcoal-100">
+            <div className="flex items-center justify-between pb-3 border-b border-charcoal-800">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-forest-950 border border-forest-700/60 flex items-center justify-center text-forest-300">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Pair This Device</h3>
+                  <p className="text-[11px] text-charcoal-400">Connect to your primary POS database instantly</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPairModal(false)}
+                className="text-charcoal-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-charcoal-300 leading-relaxed">
+                On your PC or primary device, open <strong>Cloud Sync</strong> and click <strong>&quot;Copy 1-Click Link&quot;</strong> or <strong>&quot;Copy Code&quot;</strong>. Paste it below:
+              </p>
+
+              <textarea
+                value={pairInput}
+                onChange={(e) => setPairInput(e.target.value)}
+                placeholder="Paste pairing link or code here..."
+                rows={3}
+                className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 font-mono focus:border-forest-500 focus:outline-hidden"
+              />
+
+              {pairError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{pairError}</span>
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPairModal(false)}
+                  className="px-3 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-300 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPairError(null);
+                    if (!pairInput.trim()) {
+                      setPairError('Please paste a pairing code or URL.');
+                      return;
+                    }
+                    const res = applyPairingToken(pairInput);
+                    if (res.success) {
+                      setShowPairModal(false);
+                      const users = storageService.getUsers();
+                      const owner = users.find((u) => u.role === 'owner') || users[0];
+                      storageService.setCurrentUser(owner);
+                      crossDeviceSyncService.broadcastLocalChange();
+                      crossDeviceSyncService.syncNow();
+                      onAuthSuccess(owner);
+                    } else {
+                      setPairError(res.message);
+                    }
+                  }}
+                  className="px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+                >
+                  Connect & Sign In
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

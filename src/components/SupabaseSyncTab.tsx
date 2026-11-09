@@ -11,6 +11,10 @@ import {
   ExternalLink,
   ShieldCheck,
   Zap,
+  Smartphone,
+  Link2,
+  Check,
+  QrCode,
 } from 'lucide-react';
 import {
   getSupabase,
@@ -21,6 +25,12 @@ import {
 } from '../lib/supabase.ts';
 import { storageService } from '../services/storageService.ts';
 import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
+import {
+  generatePairingUrl,
+  generatePairingCode,
+  applyPairingToken,
+} from '../services/pairingService.ts';
+import { generateQrMatrix } from '../utils/barcodeGenerator.ts';
 import { StoreConfig } from '../types/pos.ts';
 
 interface SupabaseSyncTabProps {
@@ -45,6 +55,28 @@ export const SupabaseSyncTab: React.FC<SupabaseSyncTabProps> = ({
   const [syncProgress, setSyncProgress] = useState('');
   const [copiedSql, setCopiedSql] = useState(false);
   const [importStatus, setImportStatus] = useState('');
+  const [copiedPairLink, setCopiedPairLink] = useState(false);
+  const [copiedPairCode, setCopiedPairCode] = useState(false);
+  const [pastePairInput, setPastePairInput] = useState('');
+  const [pairingNotice, setPairingNotice] = useState<string | null>(null);
+
+  const handleApplyPairToken = () => {
+    if (!pastePairInput.trim()) return;
+    const res = applyPairingToken(pastePairInput);
+    if (res.success) {
+      setPairingNotice('Device successfully paired!');
+      setPastePairInput('');
+      const creds = getSupabaseCredentials();
+      setCredentials(creds);
+      setUrlInput(creds.url);
+      setKeyInput(creds.anonKey);
+      crossDeviceSyncService.broadcastLocalChange();
+      crossDeviceSyncService.syncNow();
+      onRefreshData();
+    } else {
+      setPairingNotice(`Error: ${res.message}`);
+    }
+  };
 
   // Keep inputs in sync with store config when remote credentials arrive via cloud sync
   useEffect(() => {
@@ -515,6 +547,107 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
         >
           <RefreshCw className={`w-4 h-4 shrink-0 ${syncStatus === 'syncing' ? 'animate-spin text-forest-400' : 'text-forest-400'}`} />
           <span>{syncProgress}</span>
+        </div>
+      )}
+
+      {/* Instant Device Pairing Card (QR Code & 1-Click Link) */}
+      {isConfigured && (
+        <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-charcoal-800">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-forest-950 border border-forest-700/60 flex items-center justify-center text-forest-300">
+                <Smartphone className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Connect Your Mobile Phone or Second Terminal</span>
+                  <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-700 px-2 py-0.5 rounded-full font-bold">1-Scan Auto-Pair</span>
+                </h3>
+                <p className="text-xs text-charcoal-400 mt-0.5">
+                  Scan this QR code with your phone camera or copy the pairing link. Opens POS already connected to your cloud database!
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const url = generatePairingUrl();
+                  navigator.clipboard.writeText(url);
+                  setCopiedPairLink(true);
+                  setTimeout(() => setCopiedPairLink(false), 3000);
+                }}
+                className="py-2 px-3 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+              >
+                {copiedPairLink ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Link2 className="w-3.5 h-3.5 text-forest-200" />}
+                <span>{copiedPairLink ? 'Link Copied!' : 'Copy 1-Click Link'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const code = generatePairingCode();
+                  navigator.clipboard.writeText(code);
+                  setCopiedPairCode(true);
+                  setTimeout(() => setCopiedPairCode(false), 3000);
+                }}
+                className="py-2 px-3 bg-charcoal-950 hover:bg-charcoal-800 text-charcoal-300 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-charcoal-800 cursor-pointer transition-colors"
+              >
+                {copiedPairCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-charcoal-400" />}
+                <span>{copiedPairCode ? 'Code Copied!' : 'Copy Code'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="bg-white p-2.5 rounded-xl shadow-lg border border-charcoal-700 shrink-0">
+              <svg className="w-32 h-32" viewBox="0 0 21 21">
+                {generateQrMatrix(generatePairingUrl()).map((row, r) =>
+                  row.map((cell, c) =>
+                    cell ? (
+                      <rect
+                        key={`${r}-${c}`}
+                        x={c}
+                        y={r}
+                        width={1}
+                        height={1}
+                        fill="#0a0f0d"
+                      />
+                    ) : null
+                  )
+                )}
+              </svg>
+            </div>
+
+            <div className="space-y-2 text-xs text-charcoal-300 flex-1">
+              <p className="font-semibold text-white">How it works:</p>
+              <ol className="list-decimal pl-4 space-y-1 text-charcoal-400 text-xs">
+                <li>Open the Camera app on your iPhone or Android phone.</li>
+                <li>Point the camera at this QR code and tap the link that appears on screen.</li>
+                <li>Sappy POS opens on your phone with your cloud database connected instantly—no setup needed!</li>
+              </ol>
+              <div className="pt-2 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={pastePairInput}
+                  onChange={(e) => setPastePairInput(e.target.value)}
+                  placeholder="Or paste pairing link/code from another device here..."
+                  className="flex-1 px-3 py-1.5 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 font-mono focus:border-forest-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyPairToken}
+                  className="py-1.5 px-3 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Pair Device
+                </button>
+              </div>
+              {pairingNotice && (
+                <p className="text-xs text-emerald-400">{pairingNotice}</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

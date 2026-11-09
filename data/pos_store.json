@@ -144,38 +144,8 @@
       "createdAt": "2026-01-01T08:00:00Z",
       "notes": "Store Owner & Commercial Administrator",
       "updatedAt": "2026-11-08T09:42:00Z"
-    },
-    {
-      "id": "usr-owner-1",
-      "email": "owner@sappystationery.et",
-      "fullName": "Abebe Hailu",
-      "role": "owner",
-      "storeName": "Sappy Stationery",
-      "phone": "+251 91 123 4567",
-      "pinCode": "1313",
-      "createdAt": "2026-01-01T08:00:00Z"
-    },
-    {
-      "id": "usr-cashier-1",
-      "email": "cashier@sappystationery.et",
-      "fullName": "Bethelhem Tadesse",
-      "role": "cashier",
-      "storeName": "Sappy Stationery",
-      "phone": "+251 92 345 6789",
-      "pinCode": "1234",
-      "createdAt": "2026-01-15T09:00:00Z"
-    },
-    {
-      "id": "usr-manager-1",
-      "email": "manager@sappystationery.et",
-      "fullName": "Dawit Kebede",
-      "role": "manager",
-      "storeName": "Sappy Stationery",
-      "phone": "+251 93 456 7890",
-      "pinCode": "2026",
-      "createdAt": "2026-02-01T10:00:00Z"
     }
   ],
-  "lastSyncedAt": "2026-11-08T10:04:56.211Z",
-  "version": 332
+  "lastSyncedAt": "2026-11-09T17:41:08.296Z",
+  "version": 346
 }
