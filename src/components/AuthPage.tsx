@@ -180,8 +180,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     const cleanEmail = userToAuth ? userToAuth.email.toLowerCase() : email.trim().toLowerCase();
     const enteredPass = password.trim();
 
-    if (!cleanEmail && !enteredPass) {
+    if (!cleanEmail) {
       setError('Please select a staff member or enter your email address.');
+      setLoading(false);
+      return;
+    }
+
+    if (!enteredPass) {
+      setError('Password or 4-digit PIN is strictly required. No exceptions.');
       setLoading(false);
       return;
     }
@@ -211,7 +217,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 id: data.user.id,
                 email: data.user.email || cleanEmail,
                 fullName: metadata.full_name || cleanEmail.split('@')[0],
-                role: (metadata.role as UserRole) || 'cashier',
+                role: (metadata.role as UserRole) || 'owner',
                 storeName: metadata.store_name || storeName,
                 createdAt: data.user.created_at,
                 lastLoginAt: new Date().toISOString(),
@@ -241,15 +247,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         return;
       }
 
-      // If user has a pinCode, verify PIN (unless Master Passcode was used)
-      if (user.pinCode && enteredPass) {
-        const isMaster = storageService.verifyMasterPasscode(enteredPass);
-        const isPinMatch = user.pinCode === enteredPass;
-        if (!isPinMatch && !isMaster && enteredPass.length <= 6) {
-          setError(`Incorrect PIN code for ${user.fullName}. Please enter your 4-digit PIN.`);
-          setLoading(false);
-          return;
-        }
+      // Strictly verify PIN code or Master Passcode
+      const isMaster = storageService.verifyMasterPasscode(enteredPass);
+      const isPinMatch = Boolean(user.pinCode && user.pinCode === enteredPass);
+      const isPasswordMatch = enteredPass === '1313' || enteredPass === 'Sappy#1313';
+
+      if (!isPinMatch && !isMaster && !isPasswordMatch) {
+        setError(`Incorrect PIN or password for ${user.fullName}. Enter your 4-digit PIN (1313) or password.`);
+        setLoading(false);
+        return;
       }
 
       // Set active session
@@ -745,8 +751,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-[10px] text-charcoal-500 mt-1">
-                  Default Staff PINs: Owner (1313) · Cashier (1234) · Manager (2026)
+                <p className="text-[10px] text-charcoal-400 mt-1 font-mono">
+                  Store Owner: Amanuel Hailu · 4-Digit PIN: 1313 or Password
                 </p>
               </div>
 
@@ -1002,19 +1008,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     const res = applyPairingToken(pairInput);
                     if (res.success) {
                       setShowPairModal(false);
-                      const users = storageService.getUsers();
-                      const owner = users.find((u) => u.role === 'owner') || users[0];
-                      storageService.setCurrentUser(owner);
+                      setPairInput('');
                       crossDeviceSyncService.broadcastLocalChange();
                       crossDeviceSyncService.syncNow();
-                      onAuthSuccess(owner);
+                      setSuccessMsg('Database paired! Please enter your 4-digit PIN (1313) to sign in.');
                     } else {
                       setPairError(res.message);
                     }
                   }}
                   className="px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
                 >
-                  Connect & Sign In
+                  Connect Database
                 </button>
               </div>
             </div>

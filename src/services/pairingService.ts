@@ -100,19 +100,7 @@ export function applyPairingToken(tokenOrUrl: string): { success: boolean; messa
     };
     storageService.saveStoreConfig(updatedConfig);
 
-    // 3. Auto-login as Owner if no user active
-    const currentAuthUser = storageService.getCurrentUser();
-    if (!currentAuthUser) {
-      const users = storageService.getUsers();
-      const ownerUser = users.find((u) => u.email === 'amanuealhailu007@gmail.com') ||
-                        users.find((u) => u.role === 'owner') ||
-                        users[0];
-      if (ownerUser) {
-        storageService.setCurrentUser(ownerUser);
-      }
-    }
-
-    // 4. Trigger cloud sync immediately
+    // 3. Trigger cloud sync
     try {
       crossDeviceSyncService.syncNow().catch(() => {});
     } catch {}

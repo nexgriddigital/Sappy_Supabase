@@ -202,14 +202,9 @@ export default function App() {
     if (didPairFromUrl) {
       reloadData();
       setDbConnected(true);
-      const ownerUser = storageService.getUsers().find((u) => u.role === 'owner') || storageService.getUsers()[0];
-      if (ownerUser) {
-        storageService.setCurrentUser(ownerUser);
-        setCurrentUser(ownerUser);
-      }
       showToast(
-        'Device Paired Successfully',
-        'Connected to Sappy Stationary cloud database and synchronized!',
+        'Database Paired Successfully',
+        'Cloud database connected! Please enter your PIN or password to sign in.',
         'success',
         5000
       );

@@ -129,7 +129,9 @@
     "defaultTaxRate": 15,
     "receiptFooter": "Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com",
     "bankDetails": "Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567",
-    "masterPasscode": "Sappy#1313"
+    "masterPasscode": "Sappy#1313",
+    "supabaseUrl": "https://fegfrjhxxpojmalytbku.supabase.co",
+    "supabaseAnonKey": "sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2"
   },
   "users": [
     {
@@ -146,6 +148,6 @@
       "updatedAt": "2026-11-08T09:42:00Z"
     }
   ],
-  "lastSyncedAt": "2026-11-09T17:41:08.296Z",
-  "version": 346
+  "lastSyncedAt": "2026-11-09T18:22:54.210Z",
+  "version": 359
 }
