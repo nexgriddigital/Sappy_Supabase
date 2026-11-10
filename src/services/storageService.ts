@@ -53,6 +53,29 @@ const INITIAL_USERS: AppUser[] = DEFAULT_INITIAL_USERS;
 export const DEFAULT_MASTER_PASSCODE = 'Sappy#1313';
 
 class StorageService {
+  private changeListeners: Set<() => void> = new Set();
+
+  /**
+   * Subscribes to any local storage data mutation (product, sale, customer, payment, expense, config, user).
+   * Called immediately whenever any action completes.
+   */
+  public subscribeToChanges(fn: () => void): () => void {
+    this.changeListeners.add(fn);
+    return () => {
+      this.changeListeners.delete(fn);
+    };
+  }
+
+  public notifyChange(): void {
+    this.changeListeners.forEach((fn) => {
+      try {
+        fn();
+      } catch (err) {
+        console.warn('Storage change listener warning:', err);
+      }
+    });
+  }
+
   private get<T>(key: string, fallback: T): T {
     try {
       const data = localStorage.getItem(key);
@@ -63,9 +86,12 @@ class StorageService {
     }
   }
 
-  private set<T>(key: string, value: T): void {
+  private set<T>(key: string, value: T, notify = true): void {
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      if (notify) {
+        this.notifyChange();
+      }
     } catch (e) {
       console.error('LocalStorage write failed:', e);
     }
@@ -922,22 +948,22 @@ class StorageService {
     deletedUserIds?: string[];
   }): void {
     if (state.products && Array.isArray(state.products)) {
-      this.set(STORAGE_KEYS.PRODUCTS, state.products);
+      this.set(STORAGE_KEYS.PRODUCTS, state.products, false);
     }
     if (state.customers && Array.isArray(state.customers)) {
-      this.set(STORAGE_KEYS.CUSTOMERS, state.customers);
+      this.set(STORAGE_KEYS.CUSTOMERS, state.customers, false);
     }
     if (state.sales && Array.isArray(state.sales)) {
-      this.set(STORAGE_KEYS.SALES, state.sales);
+      this.set(STORAGE_KEYS.SALES, state.sales, false);
     }
     if (state.expenses && Array.isArray(state.expenses)) {
-      this.set(STORAGE_KEYS.EXPENSES, state.expenses);
+      this.set(STORAGE_KEYS.EXPENSES, state.expenses, false);
     }
     if (state.creditPayments && Array.isArray(state.creditPayments)) {
-      this.set(STORAGE_KEYS.PAYMENTS, state.creditPayments);
+      this.set(STORAGE_KEYS.PAYMENTS, state.creditPayments, false);
     }
     if (state.config && typeof state.config === 'object') {
-      this.set(STORAGE_KEYS.CONFIG, state.config);
+      this.set(STORAGE_KEYS.CONFIG, state.config, false);
       if (state.config.supabaseUrl && state.config.supabaseAnonKey) {
         try {
           const creds = getSupabaseCredentials();
@@ -956,7 +982,7 @@ class StorageService {
     if (state.users && Array.isArray(state.users)) {
       const localDeleted = new Set(this.getDeletedUserIds());
       const filtered = state.users.filter((u) => !localDeleted.has(u.id));
-      this.set(STORAGE_KEYS.USERS, filtered);
+      this.set(STORAGE_KEYS.USERS, filtered, false);
     }
   }
 }

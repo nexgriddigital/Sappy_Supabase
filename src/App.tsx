@@ -252,7 +252,7 @@ export default function App() {
   ): Sale => {
     const newSale = storageService.recordSale(saleData);
     reloadData();
-    crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.triggerActionSync(10);
     return newSale;
   };
 
@@ -260,7 +260,7 @@ export default function App() {
   const handleSaveCustomer = (customer: Customer) => {
     storageService.saveCustomer(customer);
     reloadData();
-    crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.triggerActionSync(10);
   };
 
   const handleRecordPayment = (
@@ -268,7 +268,7 @@ export default function App() {
   ) => {
     storageService.recordCreditPayment(payment);
     reloadData();
-    crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.triggerActionSync(10);
   };
 
   const handleAdjustCredit = (customerId: string, amountDelta: number, reason: string) => {
@@ -279,7 +279,7 @@ export default function App() {
       onExecute: () => {
         storageService.adjustCustomerCredit(customerId, amountDelta, reason);
         reloadData();
-        crossDeviceSyncService.syncNow();
+        crossDeviceSyncService.triggerActionSync(10);
       },
     });
   };
@@ -288,7 +288,7 @@ export default function App() {
   const handleSaveProduct = (product: Product) => {
     storageService.saveProduct(product);
     reloadData();
-    crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.triggerActionSync(10);
   };
 
   const handleDeleteProduct = (productId: string) => {
@@ -299,7 +299,7 @@ export default function App() {
       onExecute: () => {
         storageService.deleteProduct(productId);
         reloadData();
-        crossDeviceSyncService.syncNow();
+        crossDeviceSyncService.triggerActionSync(10);
       },
     });
   };
@@ -307,14 +307,14 @@ export default function App() {
   const handleAdjustStock = (productId: string, delta: number) => {
     storageService.adjustStock(productId, delta);
     reloadData();
-    crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.triggerActionSync(10);
   };
 
   // Expense Management
   const handleSaveExpense = (expense: Omit<Expense, 'id' | 'createdAt'>) => {
     storageService.saveExpense(expense);
     reloadData();
-    crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.triggerActionSync(10);
   };
 
   const handleDeleteExpense = (expenseId: string) => {
@@ -325,7 +325,7 @@ export default function App() {
       onExecute: () => {
         storageService.deleteExpense(expenseId);
         reloadData();
-        crossDeviceSyncService.syncNow();
+        crossDeviceSyncService.triggerActionSync(10);
       },
     });
   };
@@ -335,14 +335,14 @@ export default function App() {
     storageService.saveStoreConfig(updatedConfig);
     reloadData();
     crossDeviceSyncService.broadcastLocalChange();
-    crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.triggerActionSync(10);
   };
 
   // User Authentication
   const handleAuthSuccess = (user: AppUser) => {
     setCurrentUser(user);
     setIsAuthModalOpen(false);
-    crossDeviceSyncService.syncNow();
+    crossDeviceSyncService.triggerActionSync(10);
   };
 
   const handleSignOut = () => {
