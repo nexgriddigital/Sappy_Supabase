@@ -54,11 +54,34 @@ export const SupabaseSyncTab: React.FC<SupabaseSyncTabProps> = ({
   >('idle');
   const [syncProgress, setSyncProgress] = useState('');
   const [copiedSql, setCopiedSql] = useState(false);
+  const [copiedRlsFix, setCopiedRlsFix] = useState(false);
   const [importStatus, setImportStatus] = useState('');
   const [copiedPairLink, setCopiedPairLink] = useState(false);
   const [copiedPairCode, setCopiedPairCode] = useState(false);
   const [pastePairInput, setPastePairInput] = useState('');
   const [pairingNotice, setPairingNotice] = useState<string | null>(null);
+
+  const supabaseRlsFixSql = `-- ============================================================================
+-- SAPPY STATIONARY POS - 1-CLICK RLS FIX (SOLVES ERROR 42501)
+-- ============================================================================
+ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.credit_payments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.expenses DISABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.customers TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.sales TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.credit_payments TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.expenses TO anon, authenticated, service_role;
+`;
+
+  const handleCopyRlsFix = () => {
+    navigator.clipboard.writeText(supabaseRlsFixSql);
+    setCopiedRlsFix(true);
+    setTimeout(() => setCopiedRlsFix(false), 3000);
+  };
 
   const handleApplyPairToken = () => {
     if (!pastePairInput.trim()) return;
@@ -182,18 +205,19 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Enable Row Level Security (RLS) with open read/write access for POS client
-ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.credit_payments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
+-- 6. Disable Row Level Security (RLS) for POS client read/write access (Solves Error 42501)
+ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.credit_payments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.expenses DISABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public read/write to products" ON public.products FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read/write to customers" ON public.customers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read/write to sales" ON public.sales FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read/write to credit_payments" ON public.credit_payments FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL USING (true) WITH CHECK (true);
+-- Grant permissions to public/anon and authenticated roles
+GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.customers TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.sales TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.credit_payments TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.expenses TO anon, authenticated, service_role;
 `;
 
   // Test Connection & Synchronize Across Devices
@@ -650,6 +674,43 @@ CREATE POLICY "Allow public read/write to expenses" ON public.expenses FOR ALL U
           </div>
         </div>
       )}
+
+      {/* RLS Policy Fix Card (Solves Error 42501) */}
+      <div className="p-4 rounded-2xl bg-amber-950/50 border border-amber-600/70 text-amber-100 shadow-lg space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-amber-800/60">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-amber-400" />
+            <h4 className="font-bold text-xs uppercase tracking-wider text-amber-300">
+              Fix Row-Level Security (Error 42501)
+            </h4>
+          </div>
+          <span className="text-[10px] font-mono bg-charcoal-950 border border-amber-700/60 text-amber-300 px-2 py-0.5 rounded-md">
+            PostgreSQL Error 42501
+          </span>
+        </div>
+        <p className="text-xs text-charcoal-300 leading-relaxed">
+          If your Supabase logs show <code className="bg-charcoal-950 px-1 py-0.5 rounded text-amber-300 font-mono">new row violates row-level security policy for table &quot;products&quot;</code>, run this 1-click SQL fix to allow POS client synchronization:
+        </p>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleCopyRlsFix}
+            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-charcoal-950 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            <span>{copiedRlsFix ? 'Copied RLS Fix to Clipboard!' : 'Copy 1-Click RLS Fix'}</span>
+          </button>
+          <a
+            href="https://supabase.com/dashboard/project/fegfrjhxxpojmalytbku/sql/new"
+            target="_blank"
+            rel="noreferrer"
+            className="px-3.5 py-2 bg-charcoal-950 hover:bg-charcoal-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer border border-charcoal-700 transition-colors"
+          >
+            <span>Open Supabase SQL Editor</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
 
       {/* Grid: 2 Columns (Credentials & SQL Schema Setup) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

@@ -670,32 +670,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
 
       </div>
 
-      {/* Quick Demo Staff Seeding Banner if only 1 user exists */}
-      {users.length <= 1 && (
-        <div className="p-4 rounded-2xl bg-charcoal-900 border border-forest-800/80 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-forest-950 border border-forest-600/60 flex items-center justify-center text-forest-400 shrink-0">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white">
-                Multi-User Terminal Quick Start
-              </p>
-              <p className="text-[11px] text-charcoal-400">
-                Generate pre-configured demo staff profiles (Store Manager & Cashier with PINs 2026 & 1234) to test role switching right away.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleSeedDemoStaff}
-            className="px-3.5 py-2 rounded-xl bg-forest-800 hover:bg-forest-700 text-white text-xs font-bold transition-colors cursor-pointer border border-forest-600 shrink-0 flex items-center justify-center gap-1.5 active:scale-95"
-          >
-            <UserPlus className="w-3.5 h-3.5 text-forest-300" />
-            <span>Seed Demo Staff</span>
-          </button>
-        </div>
-      )}
+
 
       {/* ======================================================== */}
       {/* 4. SEARCH, FILTER & SORT TOOLBAR */}

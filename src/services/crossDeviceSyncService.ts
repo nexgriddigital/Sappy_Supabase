@@ -300,7 +300,7 @@ class CrossDeviceSyncService {
           // Push local products to Supabase
           const currentProducts = storageService.getProducts();
           if (currentProducts.length > 0) {
-            await client.from('products').upsert(
+            const { error: prodErr } = await client.from('products').upsert(
               currentProducts.map((p) => ({
                 id: p.id,
                 sku: p.sku,
@@ -315,6 +315,18 @@ class CrossDeviceSyncService {
                 description: p.description,
               }))
             );
+            if (prodErr) {
+              if (prodErr.code === '42501' || prodErr.message?.includes('row-level security')) {
+                this.updateState({
+                  status: 'error',
+                  mode: 'supabase',
+                  message: 'Supabase RLS active (42501): Run 1-click RLS fix in Cloud Sync',
+                });
+                console.warn('Supabase Row-Level Security policy active (Error 42501). Run RLS fix script.');
+                this.isSyncing = false;
+                return false;
+              }
+            }
           }
 
           // 2. Pull and merge Customers
@@ -345,7 +357,7 @@ class CrossDeviceSyncService {
           // Push local customers to Supabase
           const currentCustomers = storageService.getCustomers();
           if (currentCustomers.length > 0) {
-            await client.from('customers').upsert(
+            const { error: custErr } = await client.from('customers').upsert(
               currentCustomers.map((c) => ({
                 id: c.id,
                 name: c.name,
@@ -360,6 +372,17 @@ class CrossDeviceSyncService {
                 notes: c.notes,
               }))
             );
+            if (custErr) {
+              if (custErr.code === '42501' || custErr.message?.includes('row-level security')) {
+                this.updateState({
+                  status: 'error',
+                  mode: 'supabase',
+                  message: 'Supabase RLS active (42501): Run 1-click RLS fix in Cloud Sync',
+                });
+                this.isSyncing = false;
+                return false;
+              }
+            }
           }
 
           this.updateState({

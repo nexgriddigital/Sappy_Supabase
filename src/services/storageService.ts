@@ -90,14 +90,14 @@ class StorageService {
       changed = true;
     }
 
-    // Auto-populate Supabase DB secrets from build environment
-    const envUrl = ((import.meta as any).env?.VITE_SUPABASE_URL || '').trim();
-    const envKey = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '').trim();
-    if (envUrl && (!config.supabaseUrl || config.supabaseUrl.includes('your-project'))) {
+    // Auto-populate Supabase DB secrets from build environment or permanent defaults
+    const envUrl = (((import.meta as any).env?.VITE_SUPABASE_URL || 'https://fegfrjhxxpojmalytbku.supabase.co') as string).trim();
+    const envKey = (((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2') as string).trim();
+    if (!config.supabaseUrl || config.supabaseUrl.includes('your-project')) {
       config.supabaseUrl = envUrl;
       changed = true;
     }
-    if (envKey && (!config.supabaseAnonKey || config.supabaseAnonKey.includes('...'))) {
+    if (!config.supabaseAnonKey || config.supabaseAnonKey.includes('...')) {
       config.supabaseAnonKey = envKey;
       changed = true;
     }
@@ -888,46 +888,7 @@ class StorageService {
   }
 
   seedDemoStaff(): AppUser[] {
-    const users = this.getUsers();
-    const hasManager = users.some((u) => u.role === 'manager');
-    const hasCashier = users.some((u) => u.role === 'cashier');
-
-    let updated = [...users];
-
-    if (!hasManager) {
-      updated.push({
-        id: `usr-demo-mgr-${Date.now()}`,
-        email: 'manager@sappystationery.et',
-        fullName: 'Dawit Mengistu',
-        role: 'manager',
-        storeName: 'Sappy Stationary',
-        phone: '+251 91 144 5566',
-        pinCode: '2026',
-        status: 'active',
-        notes: 'Inventory supervisor & shift manager',
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-      });
-    }
-
-    if (!hasCashier) {
-      updated.push({
-        id: `usr-demo-csh-${Date.now() + 1}`,
-        email: 'cashier@sappystationery.et',
-        fullName: 'Selamawit Kebede',
-        role: 'cashier',
-        storeName: 'Sappy Stationary',
-        phone: '+251 92 333 7788',
-        pinCode: '1234',
-        status: 'active',
-        notes: 'Front counter register & barcode checkout',
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-      });
-    }
-
-    this.set(STORAGE_KEYS.USERS, updated);
-    return updated;
+    return this.getUsers();
   }
 
   findUserByEmail(email: string): AppUser | null {

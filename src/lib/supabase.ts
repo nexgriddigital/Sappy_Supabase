@@ -1,13 +1,17 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Read from Vite environment variables or localStorage
-const envUrl = ((import.meta as any).env?.VITE_SUPABASE_URL || '').trim();
-const envAnonKey = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '').trim();
+// Default Supabase project credentials for Sappy Stationary POS
+export const DEFAULT_SUPABASE_URL = 'https://fegfrjhxxpojmalytbku.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2';
+
+// Read from Vite environment variables or defaults
+const envUrl = (((import.meta as any).env?.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL) as string).trim();
+const envAnonKey = (((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY) as string).trim();
 
 // Stored client singleton
 let activeClient: SupabaseClient | null = null;
-let activeUrl = envUrl;
-let activeAnonKey = envAnonKey;
+let activeUrl = envUrl || DEFAULT_SUPABASE_URL;
+let activeAnonKey = envAnonKey || DEFAULT_SUPABASE_ANON_KEY;
 
 try {
   const saved = typeof window !== 'undefined' ? localStorage.getItem('sappy_supabase_credentials_v1') : null;
@@ -32,6 +36,10 @@ try {
 } catch {
   // Ignore storage errors
 }
+
+// Fallback to defaults if empty
+if (!activeUrl) activeUrl = DEFAULT_SUPABASE_URL;
+if (!activeAnonKey) activeAnonKey = DEFAULT_SUPABASE_ANON_KEY;
 
 // Create singleton if credentials exist
 if (activeUrl && activeAnonKey) {
@@ -129,12 +137,19 @@ export function configureSupabase(url: string, anonKey: string): {
 }
 
 /**
- * Clears saved Supabase credentials and resets to local offline mode.
+ * Resets saved custom Supabase credentials back to the primary store Supabase instance.
  */
 export function resetSupabaseConfig(): void {
-  activeClient = null;
-  activeUrl = '';
-  activeAnonKey = '';
+  activeUrl = DEFAULT_SUPABASE_URL;
+  activeAnonKey = DEFAULT_SUPABASE_ANON_KEY;
+  try {
+    activeClient = createClient(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    });
+  } catch {}
   if (typeof window !== 'undefined') {
     try {
       localStorage.removeItem('sappy_supabase_credentials_v1');
@@ -142,8 +157,8 @@ export function resetSupabaseConfig(): void {
       const rawConfig = localStorage.getItem('sappy_pos_config_v1');
       if (rawConfig) {
         const cfg = JSON.parse(rawConfig);
-        delete cfg.supabaseUrl;
-        delete cfg.supabaseAnonKey;
+        cfg.supabaseUrl = DEFAULT_SUPABASE_URL;
+        cfg.supabaseAnonKey = DEFAULT_SUPABASE_ANON_KEY;
         localStorage.setItem('sappy_pos_config_v1', JSON.stringify(cfg));
       }
 
@@ -165,7 +180,7 @@ export function resetSupabaseConfig(): void {
  */
 export async function testSupabaseConnection(
   testClient?: SupabaseClient | null
-): Promise<{ success: boolean; message: string; tableFound: boolean }> {
+): Promise<{ success: boolean; message: string; tableFound: boolean; rlsError?: boolean }> {
   const client = testClient || activeClient;
   if (!client) {
     return { success: false, message: 'No Supabase client configured.', tableFound: false };
@@ -187,16 +202,58 @@ export async function testSupabaseConnection(
           message: 'Connected to Supabase project! Database tables need to be created in your Supabase SQL Editor.',
         };
       }
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        return {
+          success: true,
+          tableFound: true,
+          rlsError: true,
+          message: 'Connected to Supabase! Row-Level Security policy (Error 42501) is blocking table access. Run the RLS fix in SQL Editor.',
+        };
+      }
       return {
         success: false,
         tableFound: false,
         message: `Connection error: ${error.message} (${error.code || ''})`,
       };
     }
+
+    // Quick write probe to detect RLS write block (Error 42501)
+    const testProbeId = `probe-${Date.now()}`;
+    const { error: writeErr } = await client.from('products').upsert({
+      id: testProbeId,
+      sku: `PROBE-${testProbeId}`,
+      barcode: '',
+      name: '__probe_test__',
+      category: 'Diagnostic',
+      cost_price: 1,
+      selling_price: 1,
+      stock_level: 0,
+      low_stock_threshold: 0,
+      unit: 'pcs',
+      description: 'Temporary RLS diagnostic probe',
+    });
+
+    if (writeErr) {
+      if (writeErr.code === '42501' || writeErr.message?.includes('row-level security')) {
+        return {
+          success: true,
+          tableFound: true,
+          rlsError: true,
+          message: 'Connected to Supabase, but Row-Level Security (Error 42501) is blocking new records. Run the 1-click RLS fix in SQL Editor.',
+        };
+      }
+    } else {
+      // Clean up diagnostic probe row
+      try {
+        await client.from('products').delete().eq('id', testProbeId);
+      } catch {}
+    }
+
     return {
       success: true,
       tableFound: true,
-      message: 'Successfully connected to Supabase and verified tables!',
+      rlsError: false,
+      message: 'Successfully connected to Supabase! Read and write permissions are fully active.',
     };
   } catch (err: any) {
     return {

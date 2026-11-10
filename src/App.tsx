@@ -365,14 +365,13 @@ export default function App() {
     );
   }
 
-  // Login is strictly required: if no staff user is logged in, show the full-screen Login page
+  // Login is strictly required: every device must authenticate through the staff login screen
   if (!currentUser) {
-    const hasUsers = storageService.hasUsers();
     return (
       <div className="min-h-screen bg-charcoal-950 text-charcoal-100 flex flex-col font-sans selection:bg-forest-700 selection:text-white">
         <AuthPage
           onAuthSuccess={handleAuthSuccess}
-          initialMode={hasUsers ? 'login' : 'setup'}
+          initialMode="login"
           isModal={false}
         />
       </div>

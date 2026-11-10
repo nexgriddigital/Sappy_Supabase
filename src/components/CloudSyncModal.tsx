@@ -122,7 +122,38 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     receipt_number TEXT,
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);`;
+);
+
+-- Disable Row Level Security (RLS) so POS terminals can sync without 42501 policy violations
+ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.credit_payments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.expenses DISABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.customers TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.sales TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.credit_payments TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.expenses TO anon, authenticated, service_role;
+`;
+
+export const SUPABASE_RLS_FIX_SQL = `-- ============================================================================
+-- SAPPY STATIONARY POS - 1-CLICK RLS (ROW-LEVEL SECURITY) FIX
+-- Solves PostgreSQL error 42501: "new row violates row-level security policy for table"
+-- ============================================================================
+ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.sales DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.credit_payments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.expenses DISABLE ROW LEVEL SECURITY;
+
+GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.customers TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.sales TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.credit_payments TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.expenses TO anon, authenticated, service_role;
+`;
 
 interface CloudSyncModalProps {
   isOpen: boolean;
@@ -147,7 +178,9 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'pair' | 'supabase' | 'backend'>(isSupabaseConfigured() ? 'pair' : 'supabase');
   const [isTesting, setIsTesting] = useState(false);
   const [missingTables, setMissingTables] = useState(false);
+  const [hasRlsError, setHasRlsError] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [copiedRlsSql, setCopiedRlsSql] = useState(false);
   const [copiedPairLink, setCopiedPairLink] = useState(false);
   const [copiedPairCode, setCopiedPairCode] = useState(false);
   const [pastePairInput, setPastePairInput] = useState('');
@@ -217,6 +250,12 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     setTimeout(() => setCopiedSql(false), 3000);
   };
 
+  const handleCopyRlsSql = () => {
+    navigator.clipboard.writeText(SUPABASE_RLS_FIX_SQL);
+    setCopiedRlsSql(true);
+    setTimeout(() => setCopiedRlsSql(false), 3000);
+  };
+
   const handleSaveSupabase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabaseUrl.trim() || !supabaseKey.trim()) {
@@ -245,19 +284,29 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
         if (!testResult.tableFound) {
           setMissingTables(true);
+          setHasRlsError(false);
           setStatusMessage({
             type: 'warning',
             text: 'Connected successfully to Supabase & synced across devices! Just one step left: run the SQL script below to create your tables.',
           });
+        } else if (testResult.rlsError) {
+          setMissingTables(false);
+          setHasRlsError(true);
+          setStatusMessage({
+            type: 'warning',
+            text: 'Connected to Supabase, but Row-Level Security (Error 42501) is active on products table. Run the 1-click RLS fix below.',
+          });
         } else {
           setMissingTables(false);
+          setHasRlsError(false);
           setStatusMessage({
             type: 'success',
-            text: 'Connected & verified with Supabase! All tables found and active across all devices.',
+            text: 'Connected & verified with Supabase! All tables and write permissions are active across all devices.',
           });
         }
       } else {
         setMissingTables(false);
+        setHasRlsError(false);
         setStatusMessage({
           type: 'error',
           text: testResult.message,
@@ -279,6 +328,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     setSupabaseKey('');
     setCredentials({ url: '', anonKey: '' });
     setMissingTables(false);
+    setHasRlsError(false);
     setStatusMessage({ type: 'info', text: 'Supabase disconnected. Operating in local offline mode.' });
     const currentConfig = storageService.getStoreConfig();
     delete currentConfig.supabaseUrl;
@@ -305,10 +355,19 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           supabaseAnonKey: supabaseKey.trim(),
         });
         setMissingTables(false);
-        setStatusMessage({
-          type: 'success',
-          text: 'Tables successfully detected! Synced across all devices & uploading local stationery data to Supabase...',
-        });
+        if (testResult.rlsError) {
+          setHasRlsError(true);
+          setStatusMessage({
+            type: 'warning',
+            text: 'Tables found, but Row-Level Security policy (Error 42501) is still active. Please run the RLS fix script in SQL Editor.',
+          });
+        } else {
+          setHasRlsError(false);
+          setStatusMessage({
+            type: 'success',
+            text: 'Permissions and tables verified! Synced across all devices & uploading local stationery data to Supabase...',
+          });
+        }
         crossDeviceSyncService.broadcastLocalChange();
         await crossDeviceSyncService.syncNow();
         onRefreshData();
@@ -559,6 +618,61 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
                   {SUPABASE_SCHEMA_SQL}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* RLS Error 42501 Actionable Helper Card */}
+          {(hasRlsError || syncState.message.includes('42501') || syncState.message.includes('RLS')) && (
+            <div className="p-4 rounded-xl bg-amber-950/70 border border-amber-600/80 text-amber-100 space-y-3 shadow-xl">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-xs text-amber-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Fix Row-Level Security (RLS) · Error 42501</span>
+                  </h4>
+                  <p className="text-xs text-charcoal-200 mt-1 leading-relaxed">
+                    Supabase is rejecting product rows with: <code className="bg-charcoal-950 px-1 py-0.5 rounded text-amber-300 font-mono text-[11px]">new row violates row-level security policy for table &quot;products&quot;</code>.
+                    Run this 1-click SQL fix to allow your POS terminal to insert records.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-charcoal-950 rounded-xl border border-charcoal-800 font-mono text-[11px] text-amber-300 whitespace-pre overflow-x-auto">
+                {`ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.customers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.sales DISABLE ROW LEVEL SECURITY;`}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleCopyRlsSql}
+                  className="py-2 px-3.5 bg-amber-600 hover:bg-amber-500 text-charcoal-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedRlsSql ? 'Copied RLS Fix to Clipboard!' : 'Copy 1-Click RLS Fix'}</span>
+                </button>
+
+                <a
+                  href={sqlEditorDirectUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2 px-3.5 bg-charcoal-950 hover:bg-charcoal-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer border border-charcoal-700 transition-colors"
+                >
+                  <span>Open Supabase SQL Editor</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleVerifyAfterSql}
+                  disabled={isTesting}
+                  className="py-2 px-3.5 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+                  <span>Verify & Sync Now</span>
+                </button>
+              </div>
             </div>
           )}
 

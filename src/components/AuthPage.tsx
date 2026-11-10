@@ -45,16 +45,22 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   initialMode,
   isModal = false,
 }) => {
-  const hasExistingUsers = storageService.hasUsers();
-  const defaultMode = initialMode || (hasExistingUsers ? 'login' : 'setup');
+  const defaultMode = initialMode || 'login';
 
   const [mode, setMode] = useState<'login' | 'signup' | 'setup'>(defaultMode);
   const [showPairModal, setShowPairModal] = useState(false);
   const [pairInput, setPairInput] = useState('');
   const [pairError, setPairError] = useState<string | null>(null);
   const [staffUsers, setStaffUsers] = useState<AppUser[]>(() => storageService.getUsers());
-  const [selectedStaffUser, setSelectedStaffUser] = useState<AppUser | null>(null);
-  const [email, setEmail] = useState('');
+  const [selectedStaffUser, setSelectedStaffUser] = useState<AppUser | null>(() => {
+    const initialList = storageService.getUsers();
+    return initialList.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || initialList[0] || null;
+  });
+  const [email, setEmail] = useState(() => {
+    const initialList = storageService.getUsers();
+    const owner = initialList.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || initialList[0];
+    return owner ? owner.email : 'amanuealhailu007@gmail.com';
+  });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -70,36 +76,31 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Sync mode whenever initialMode changes or when users become available via cloud sync
+  // Sync mode whenever initialMode changes or when users become available
   useEffect(() => {
-    if (initialMode) {
-      setMode(initialMode);
-    } else if (storageService.hasUsers()) {
-      setMode('login');
-    }
+    setMode(initialMode || 'login');
     const currentUsers = storageService.getUsers();
     setStaffUsers(currentUsers);
-    if (currentUsers.length === 1) {
-      setSelectedStaffUser(currentUsers[0]);
-      setEmail(currentUsers[0].email);
+    if (currentUsers.length > 0) {
+      const ownerUser = currentUsers.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || currentUsers[0];
+      setSelectedStaffUser(ownerUser);
+      setEmail(ownerUser.email);
     }
   }, [initialMode]);
 
-  // Listen to cross-device sync updates so new devices auto-switch to login when synced
+  // Listen to cross-device sync updates
   useEffect(() => {
     const unsubscribe = crossDeviceSyncService.subscribe(() => {
       const users = storageService.getUsers();
       setStaffUsers(users);
-      if (users.length === 1) {
-        setSelectedStaffUser(users[0]);
-        setEmail(users[0].email);
-      }
-      if (users.length > 0 && mode === 'setup' && !initialMode) {
-        setMode('login');
+      if (users.length > 0) {
+        const ownerUser = users.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || users[0];
+        setSelectedStaffUser((prev) => prev || ownerUser);
+        setEmail((prev) => prev || ownerUser.email);
       }
     });
     return () => unsubscribe();
-  }, [mode, initialMode]);
+  }, []);
 
   // Handle First-Time Store Owner Setup
   const handleFirstTimeSetup = async (e: React.FormEvent) => {

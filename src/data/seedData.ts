@@ -14,6 +14,8 @@ export const INITIAL_STORE_CONFIG: StoreConfig = {
   receiptFooter: 'Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com',
   bankDetails: 'Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567',
   masterPasscode: 'Sappy#1313',
+  supabaseUrl: 'https://fegfrjhxxpojmalytbku.supabase.co',
+  supabaseAnonKey: 'sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2',
 };
 
 export const INITIAL_PRODUCTS: Product[] = STARTER_STATIONERY_PRODUCTS.map((p, idx) => ({
