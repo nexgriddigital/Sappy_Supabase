@@ -98,68 +98,33 @@ export function generateBarcodeSvgPath(
   };
 }
 
-/**
- * Deterministic 2D QR matrix generator (21x21 Version 1 format)
- * Produces crisp vector QR code with 3 standard finder eyes and data payload.
- */
-export function generateQrMatrix(text: string): boolean[][] {
-  const size = 21;
-  const matrix: boolean[][] = Array.from({ length: size }, () => Array(size).fill(false));
+import QRCode from 'qrcode';
 
-  // Helper to add Finder Pattern at (row, col)
-  const addFinder = (r: number, c: number) => {
-    for (let i = 0; i < 7; i++) {
-      for (let j = 0; j < 7; j++) {
-        if (
-          i === 0 || i === 6 ||
-          j === 0 || j === 6 ||
-          (i >= 2 && i <= 4 && j >= 2 && j <= 4)
-        ) {
-          matrix[r + i][c + j] = true;
+/**
+ * Standards-compliant 2D QR matrix generator (ISO/IEC 18004) with Reed-Solomon error correction.
+ * Produces verified, camera-scannable 4-sided square matrix with quiet margins on all sides.
+ */
+export function generateQrMatrix(text: string, margin: number = 2): boolean[][] {
+  try {
+    const raw = String(text || '').trim() || '0000';
+    const qr = QRCode.create(raw, {
+      errorCorrectionLevel: 'M',
+    });
+    const coreSize = qr.modules.size;
+    const totalSize = coreSize + margin * 2;
+    const matrix: boolean[][] = Array.from({ length: totalSize }, () => Array(totalSize).fill(false));
+
+    for (let r = 0; r < coreSize; r++) {
+      for (let c = 0; c < coreSize; c++) {
+        if (qr.modules.get(r, c)) {
+          matrix[r + margin][c + margin] = true;
         }
       }
     }
-  };
-
-  // 3 Finder patterns (Top-Left, Top-Right, Bottom-Left)
-  addFinder(0, 0);
-  addFinder(0, size - 7);
-  addFinder(size - 7, 0);
-
-  // Timing patterns
-  for (let i = 8; i < size - 8; i++) {
-    matrix[6][i] = i % 2 === 0;
-    matrix[i][6] = i % 2 === 0;
+    return matrix;
+  } catch (err) {
+    console.warn('QR code generation error:', err);
+    return Array.from({ length: 25 }, () => Array(25).fill(false));
   }
-
-  // Dark module
-  matrix[size - 8][8] = true;
-
-  // Hash-based data encoding for reproducible, high-contrast QR patterns
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
-    hash = (hash * 0x01000193) >>> 0;
-  }
-
-  // Fill data cells avoiding finders and timing tracks
-  let bitIndex = 0;
-  for (let r = 0; r < size; r++) {
-    for (let c = 0; c < size; c++) {
-      // Skip finder zones
-      const isFinderTL = r < 9 && c < 9;
-      const isFinderTR = r < 9 && c >= size - 8;
-      const isFinderBL = r >= size - 8 && c < 9;
-      const isTiming = r === 6 || c === 6;
-
-      if (!isFinderTL && !isFinderTR && !isFinderBL && !isTiming) {
-        // Derive bit from hash and coordinates
-        const pseudoRand = ((hash ^ (r * 31 + c * 17)) + bitIndex) % 100;
-        matrix[r][c] = pseudoRand > 46;
-        bitIndex++;
-      }
-    }
-  }
-
-  return matrix;
 }
+

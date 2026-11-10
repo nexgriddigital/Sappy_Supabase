@@ -626,22 +626,29 @@ GRANT ALL ON TABLE public.expenses TO anon, authenticated, service_role;
 
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="bg-white p-2.5 rounded-xl shadow-lg border border-charcoal-700 shrink-0">
-              <svg className="w-32 h-32" viewBox="0 0 21 21">
-                {generateQrMatrix(generatePairingUrl()).map((row, r) =>
-                  row.map((cell, c) =>
-                    cell ? (
-                      <rect
-                        key={`${r}-${c}`}
-                        x={c}
-                        y={r}
-                        width={1}
-                        height={1}
-                        fill="#0a0f0d"
-                      />
-                    ) : null
-                  )
-                )}
-              </svg>
+              {(() => {
+                const matrix = generateQrMatrix(generatePairingUrl());
+                const dim = matrix.length || 29;
+                return (
+                  <svg className="w-32 h-32 aspect-square" viewBox={`0 0 ${dim} ${dim}`} shapeRendering="crispEdges">
+                    <rect width="100%" height="100%" fill="#ffffff" />
+                    {matrix.map((row, r) =>
+                      row.map((cell, c) =>
+                        cell ? (
+                          <rect
+                            key={`${r}-${c}`}
+                            x={c}
+                            y={r}
+                            width={1}
+                            height={1}
+                            fill="#0a0f0d"
+                          />
+                        ) : null
+                      )
+                    )}
+                  </svg>
+                );
+              })()}
             </div>
 
             <div className="space-y-2 text-xs text-charcoal-300 flex-1">

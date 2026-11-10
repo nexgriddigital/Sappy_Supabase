@@ -897,57 +897,77 @@ export const QRBarcodeStudioTab: React.FC<QRBarcodeStudioTabProps> = ({
                         </div>
                       )}
 
-                      {sticker.format === 'qr' && (
-                        <div className="flex items-center justify-center">
-                          <svg className="w-10 h-10" viewBox="0 0 21 21">
-                            {generateQrMatrix(sticker.barcode).map((row, r) =>
-                              row.map((cell, c) =>
-                                cell ? (
-                                  <rect
-                                    key={`${r}-${c}`}
-                                    x={c}
-                                    y={r}
-                                    width={1}
-                                    height={1}
-                                    fill="#000000"
-                                  />
-                                ) : null
-                              )
-                            )}
-                          </svg>
-                        </div>
-                      )}
+                      {sticker.format === 'qr' && (() => {
+                        const matrix = generateQrMatrix(sticker.barcode);
+                        const dim = matrix.length || 25;
+                        return (
+                          <div className="flex items-center justify-center">
+                            <svg
+                              className="w-11 h-11 max-h-12 aspect-square bg-white border border-gray-200 rounded-xs p-0.5 shadow-2xs"
+                              viewBox={`0 0 ${dim} ${dim}`}
+                              shapeRendering="crispEdges"
+                              preserveAspectRatio="xMidYMid meet"
+                            >
+                              <rect width="100%" height="100%" fill="#ffffff" />
+                              {matrix.map((row, r) =>
+                                row.map((cell, c) =>
+                                  cell ? (
+                                    <rect
+                                      key={`${r}-${c}`}
+                                      x={c}
+                                      y={r}
+                                      width={1}
+                                      height={1}
+                                      fill="#000000"
+                                    />
+                                  ) : null
+                                )
+                              )}
+                            </svg>
+                          </div>
+                        );
+                      })()}
 
-                      {sticker.format === 'both' && (
-                        <div className="w-full flex items-center justify-between gap-1 px-1">
-                          <svg className="w-7 h-7 shrink-0" viewBox="0 0 21 21">
-                            {generateQrMatrix(sticker.barcode).map((row, r) =>
-                              row.map((cell, c) =>
-                                cell ? (
-                                  <rect
-                                    key={`${r}-${c}`}
-                                    x={c}
-                                    y={r}
-                                    width={1}
-                                    height={1}
-                                    fill="#000000"
-                                  />
-                                ) : null
-                              )
-                            )}
-                          </svg>
-                          <svg
-                            className="flex-1 max-h-6 object-contain"
-                            preserveAspectRatio="none"
-                            viewBox={generateBarcodeSvgPath(sticker.barcode).viewBox}
-                          >
-                            <path
-                              d={generateBarcodeSvgPath(sticker.barcode).pathData}
-                              fill="#000000"
-                            />
-                          </svg>
-                        </div>
-                      )}
+                      {sticker.format === 'both' && (() => {
+                        const matrix = generateQrMatrix(sticker.barcode);
+                        const dim = matrix.length || 25;
+                        return (
+                          <div className="w-full flex items-center justify-between gap-1 px-1">
+                            <svg
+                              className="w-7 h-7 shrink-0 aspect-square bg-white border border-gray-200 rounded-xs p-0.5 shadow-2xs"
+                              viewBox={`0 0 ${dim} ${dim}`}
+                              shapeRendering="crispEdges"
+                              preserveAspectRatio="xMidYMid meet"
+                            >
+                              <rect width="100%" height="100%" fill="#ffffff" />
+                              {matrix.map((row, r) =>
+                                row.map((cell, c) =>
+                                  cell ? (
+                                    <rect
+                                      key={`${r}-${c}`}
+                                      x={c}
+                                      y={r}
+                                      width={1}
+                                      height={1}
+                                      fill="#000000"
+                                    />
+                                  ) : null
+                                )
+                              )}
+                            </svg>
+                            <svg
+                              className="flex-1 max-h-6 object-contain"
+                              preserveAspectRatio="none"
+                              viewBox={generateBarcodeSvgPath(sticker.barcode).viewBox}
+                            >
+                              <path
+                                d={generateBarcodeSvgPath(sticker.barcode).pathData}
+                                fill="#000000"
+                              />
+                            </svg>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Line 4: Bottom details (SKU, Value, Price) */}

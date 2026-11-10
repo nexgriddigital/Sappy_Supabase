@@ -688,22 +688,29 @@ ALTER TABLE IF EXISTS public.sales DISABLE ROW LEVEL SECURITY;`}
                   {/* QR Code Card */}
                   <div className="p-4 bg-charcoal-950 border border-charcoal-800 rounded-2xl flex flex-col items-center text-center space-y-3">
                     <div className="bg-white p-3 rounded-xl shadow-lg border border-charcoal-700">
-                      <svg className="w-36 h-36" viewBox="0 0 21 21">
-                        {generateQrMatrix(generatePairingUrl()).map((row, r) =>
-                          row.map((cell, c) =>
-                            cell ? (
-                              <rect
-                                key={`${r}-${c}`}
-                                x={c}
-                                y={r}
-                                width={1}
-                                height={1}
-                                fill="#0a0f0d"
-                              />
-                            ) : null
-                          )
-                        )}
-                      </svg>
+                      {(() => {
+                        const matrix = generateQrMatrix(generatePairingUrl());
+                        const dim = matrix.length || 29;
+                        return (
+                          <svg className="w-36 h-36 aspect-square" viewBox={`0 0 ${dim} ${dim}`} shapeRendering="crispEdges">
+                            <rect width="100%" height="100%" fill="#ffffff" />
+                            {matrix.map((row, r) =>
+                              row.map((cell, c) =>
+                                cell ? (
+                                  <rect
+                                    key={`${r}-${c}`}
+                                    x={c}
+                                    y={r}
+                                    width={1}
+                                    height={1}
+                                    fill="#0a0f0d"
+                                  />
+                                ) : null
+                              )
+                            )}
+                          </svg>
+                        );
+                      })()}
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
