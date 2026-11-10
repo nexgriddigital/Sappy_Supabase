@@ -385,22 +385,34 @@ class CrossDeviceSyncService {
 
           // 2. Customers Sync
           try {
+            const deletedCustIds = storageService.getDeletedCustomerIds();
+            if (deletedCustIds.length > 0) {
+              for (const delId of deletedCustIds) {
+                try {
+                  await client.from('customers').delete().eq('id', delId);
+                } catch {}
+              }
+            }
+
             const { data: remoteCustomers } = await client.from('customers').select('*');
             if (remoteCustomers && Array.isArray(remoteCustomers) && remoteCustomers.length > 0) {
-              const mappedCustomers = remoteCustomers.map((c: any) => ({
-                id: c.id,
-                name: c.name,
-                companyName: c.company_name || undefined,
-                phone: c.phone,
-                email: c.email || undefined,
-                address: c.address || undefined,
-                taxNumber: c.tax_number || undefined,
-                creditBalance: Number(c.credit_balance || 0),
-                creditLimit: Number(c.credit_limit || 500),
-                totalPurchased: Number(c.total_purchased || 0),
-                notes: c.notes || undefined,
-                createdAt: c.created_at || new Date().toISOString(),
-              }));
+              const delSet = new Set(deletedCustIds);
+              const mappedCustomers = remoteCustomers
+                .filter((c: any) => !delSet.has(c.id))
+                .map((c: any) => ({
+                  id: c.id,
+                  name: c.name,
+                  companyName: c.company_name || undefined,
+                  phone: c.phone,
+                  email: c.email || undefined,
+                  address: c.address || undefined,
+                  taxNumber: c.tax_number || undefined,
+                  creditBalance: Number(c.credit_balance || 0),
+                  creditLimit: Number(c.credit_limit || 500),
+                  totalPurchased: Number(c.total_purchased || 0),
+                  notes: c.notes || undefined,
+                  createdAt: c.created_at || new Date().toISOString(),
+                }));
               const localCust = storageService.getCustomers();
               const custMap = new Map(localCust.map((c) => [c.id, c]));
               for (const rc of mappedCustomers) {

@@ -284,6 +284,37 @@ export default function App() {
     });
   };
 
+  const handleDeleteCustomer = (customerId: string) => {
+    const cust = customers.find((c) => c.id === customerId);
+    if (!cust) return;
+
+    if (cust.creditBalance > 0) {
+      setCriticalChallenge({
+        actionName: 'Delete Customer with Debt',
+        actionDescription: `Permanently delete customer "${cust.name}" who has an active outstanding debt of ${config.currencySymbol}${cust.creditBalance.toFixed(2)}. This will remove their credit record.`,
+        onExecute: () => {
+          storageService.deleteCustomer(customerId);
+          reloadData();
+          crossDeviceSyncService.triggerActionSync(10);
+          showToast(
+            'Customer Deleted',
+            `Customer "${cust.name}" and credit record removed.`,
+            'info'
+          );
+        },
+      });
+    } else {
+      storageService.deleteCustomer(customerId);
+      reloadData();
+      crossDeviceSyncService.triggerActionSync(10);
+      showToast(
+        'Customer Deleted',
+        `Customer "${cust.name}" removed from accounts.`,
+        'info'
+      );
+    }
+  };
+
   // Product Management
   const handleSaveProduct = (product: Product) => {
     storageService.saveProduct(product);
@@ -447,6 +478,7 @@ export default function App() {
             onSaveCustomer={handleSaveCustomer}
             onRecordPayment={handleRecordPayment}
             onAdjustCredit={handleAdjustCredit}
+            onDeleteCustomer={handleDeleteCustomer}
           />
         )}
 

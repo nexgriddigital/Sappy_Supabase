@@ -32,6 +32,7 @@ const STORAGE_KEYS = {
   USERS: 'sappy_pos_users_v1',
   CURRENT_USER: 'sappy_pos_current_user_v1',
   DELETED_USER_IDS: 'sappy_pos_deleted_user_ids_v1',
+  DELETED_CUSTOMER_IDS: 'sappy_pos_deleted_customer_ids_v1',
 };
 
 export const DEFAULT_INITIAL_USERS: AppUser[] = [
@@ -244,11 +245,41 @@ class StorageService {
   }
 
   // --- Customers & Credit Accounts ---
+  getDeletedCustomerIds(): string[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_CUSTOMER_IDS);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  recordDeletedCustomerId(customerId: string): void {
+    if (!customerId) return;
+    const current = this.getDeletedCustomerIds();
+    if (!current.includes(customerId)) {
+      const updated = [...current, customerId];
+      this.set(STORAGE_KEYS.DELETED_CUSTOMER_IDS, updated, false);
+    }
+  }
+
+  clearDeletedCustomerId(customerId: string): void {
+    if (!customerId) return;
+    const current = this.getDeletedCustomerIds();
+    if (current.includes(customerId)) {
+      this.set(STORAGE_KEYS.DELETED_CUSTOMER_IDS, current.filter((id) => id !== customerId), false);
+    }
+  }
+
   getCustomers(): Customer[] {
     const raw = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
     if (raw !== null) {
       try {
-        return JSON.parse(raw) as Customer[];
+        const parsed = JSON.parse(raw) as Customer[];
+        const deletedIds = new Set(this.getDeletedCustomerIds());
+        return parsed.filter((c) => !deletedIds.has(c.id));
       } catch {
         return [];
       }
@@ -256,11 +287,14 @@ class StorageService {
     if (localStorage.getItem(STORAGE_KEYS.INITIALIZED) === 'true') {
       return [];
     }
-    this.set(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
-    return INITIAL_CUSTOMERS;
+    const deletedIds = new Set(this.getDeletedCustomerIds());
+    const initial = INITIAL_CUSTOMERS.filter((c) => !deletedIds.has(c.id));
+    this.set(STORAGE_KEYS.CUSTOMERS, initial);
+    return initial;
   }
 
   saveCustomer(customer: Customer): Customer[] {
+    this.clearDeletedCustomerId(customer.id);
     const customers = this.getCustomers();
     const index = customers.findIndex((c) => c.id === customer.id);
     let updated: Customer[];
@@ -272,6 +306,13 @@ class StorageService {
     }
     this.set(STORAGE_KEYS.CUSTOMERS, updated);
     return updated;
+  }
+
+  deleteCustomer(customerId: string): Customer[] {
+    const customers = this.getCustomers().filter((c) => c.id !== customerId);
+    this.set(STORAGE_KEYS.CUSTOMERS, customers);
+    this.recordDeletedCustomerId(customerId);
+    return customers;
   }
 
   recordCreditPayment(
@@ -671,6 +712,8 @@ class StorageService {
     this.set(STORAGE_KEYS.PAYMENTS, []);
     this.set(STORAGE_KEYS.USERS, []);
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    localStorage.removeItem(STORAGE_KEYS.DELETED_USER_IDS);
+    localStorage.removeItem(STORAGE_KEYS.DELETED_CUSTOMER_IDS);
   }
 
   // --- User Authentication & Session Management ---
@@ -934,6 +977,7 @@ class StorageService {
       config: this.getStoreConfig(),
       users: this.getUsers(),
       deletedUserIds: this.getDeletedUserIds(),
+      deletedCustomerIds: this.getDeletedCustomerIds(),
     };
   }
 
@@ -946,12 +990,15 @@ class StorageService {
     config?: StoreConfig;
     users?: AppUser[];
     deletedUserIds?: string[];
+    deletedCustomerIds?: string[];
   }): void {
     if (state.products && Array.isArray(state.products)) {
       this.set(STORAGE_KEYS.PRODUCTS, state.products, false);
     }
     if (state.customers && Array.isArray(state.customers)) {
-      this.set(STORAGE_KEYS.CUSTOMERS, state.customers, false);
+      const localDeleted = new Set(this.getDeletedCustomerIds());
+      const filtered = state.customers.filter((c) => !localDeleted.has(c.id));
+      this.set(STORAGE_KEYS.CUSTOMERS, filtered, false);
     }
     if (state.sales && Array.isArray(state.sales)) {
       this.set(STORAGE_KEYS.SALES, state.sales, false);

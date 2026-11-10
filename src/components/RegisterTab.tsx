@@ -9,6 +9,8 @@ import {
   Smartphone,
   BookOpen,
   Barcode,
+  Camera,
+  QrCode,
   ShoppingBag,
   AlertTriangle,
   Receipt,
@@ -29,6 +31,7 @@ import {
   StoreConfig,
 } from '../types/pos.ts';
 import { PaymentProcessingLoader } from './LoadingAnimation.tsx';
+import { BarcodeScannerModal } from './BarcodeScannerModal.tsx';
 import { soundEffects } from '../utils/soundEffects.ts';
 
 interface RegisterTabProps {
@@ -79,6 +82,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   const [discountAmountInput, setDiscountAmountInput] = useState<string>('');
   const [applyTax, setApplyTax] = useState<boolean>(false); // All sales are Tax Exempt by default unless specially ticked
   const [mobileTab, setMobileTab] = useState<'catalog' | 'cart'>('catalog');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Checkout Tender Modal State
   const [isTenderOpen, setIsTenderOpen] = useState(false);
@@ -219,11 +223,68 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
     setIsTenderOpen(true);
   };
 
-  // Quick Barcode Scan Simulation
-  const handleScanSample = () => {
-    const randomProduct = products[Math.floor(Math.random() * products.length)];
-    if (randomProduct) {
-      handleAddToCart(randomProduct);
+  // Hardware USB/Bluetooth barcode scanner & Enter key listener
+  useEffect(() => {
+    let buffer = '';
+    let lastKeyTime = 0;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Do not capture if user is actively typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastKeyTime > 120) {
+        buffer = '';
+      }
+      lastKeyTime = now;
+
+      if (e.key === 'Enter') {
+        if (buffer.length >= 2) {
+          const candidate = buffer.trim();
+          buffer = '';
+          const matched = products.find(
+            (p) =>
+              (p.barcode && p.barcode.trim() === candidate) ||
+              (p.sku && p.sku.trim() === candidate) ||
+              (p.barcode && p.barcode.trim().toLowerCase() === candidate.toLowerCase()) ||
+              (p.sku && p.sku.trim().toLowerCase() === candidate.toLowerCase())
+          );
+          if (matched) {
+            handleAddToCart(matched);
+          }
+        }
+      } else if (e.key.length === 1) {
+        buffer += e.key;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [products]);
+
+  // Handle Enter key in Search Box to immediately add exact barcode/SKU to cart
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      const q = searchQuery.trim();
+      const exact = products.find(
+        (p) =>
+          (p.barcode && p.barcode.trim() === q) ||
+          (p.sku && p.sku.trim() === q) ||
+          (p.barcode && p.barcode.trim().toLowerCase() === q.toLowerCase()) ||
+          (p.sku && p.sku.trim().toLowerCase() === q.toLowerCase())
+      );
+      if (exact) {
+        handleAddToCart(exact);
+        setSearchQuery('');
+      }
     }
   };
 
@@ -363,15 +424,17 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
             <Search className="w-4 h-4 text-charcoal-400 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search stationery by name, SKU, or scan barcode..."
+              placeholder="Search stationery by name, SKU, or scan barcode (Enter to add)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-charcoal-900 border border-charcoal-800 rounded-xl text-sm text-charcoal-100 placeholder-charcoal-500 focus:outline-hidden focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 shadow-2xs"
+              onKeyDown={handleSearchKeyDown}
+              className="w-full pl-10 pr-16 py-2.5 bg-charcoal-900 border border-charcoal-800 rounded-xl text-sm text-charcoal-100 placeholder-charcoal-500 focus:outline-hidden focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 shadow-2xs font-sans"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-charcoal-400 hover:text-white text-xs cursor-pointer"
+                className="absolute right-3 top-2.5 text-charcoal-400 hover:text-white text-xs cursor-pointer px-1 py-0.5"
               >
                 Clear
               </button>
@@ -379,12 +442,14 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
           </div>
 
           <button
-            onClick={handleScanSample}
-            className="px-4 py-2.5 bg-forest-800 hover:bg-forest-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer shrink-0 active:scale-95 shadow-2xs border border-forest-700/50"
-            title="Simulate barcode scanner scan"
+            type="button"
+            onClick={() => setIsScannerOpen(true)}
+            className="px-4 py-2.5 bg-forest-700 hover:bg-forest-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 active:scale-95 shadow-md shadow-forest-950/60 border border-forest-500/80 group"
+            title="Open Live Camera QR & Barcode Scanner"
           >
-            <Barcode className="w-4 h-4 text-forest-300" />
-            <span>Quick Scan Barcode</span>
+            <Camera className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
+            <Barcode className="w-4 h-4 text-forest-200" />
+            <span>Scan QR / Barcode</span>
           </button>
         </div>
 
@@ -1104,6 +1169,15 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
           </form>
         </div>
       )}
+
+      {/* Live Camera QR code & Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        products={products}
+        onAddToCart={handleAddToCart}
+        config={config}
+      />
 
     </div>
   );

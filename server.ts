@@ -359,12 +359,24 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
     }
 
     // 2. Merge Customers
+    const deletedCustIds: string[] = Array.isArray(payload.deletedCustomerIds) ? payload.deletedCustomerIds : [];
+    if (deletedCustIds.length > 0) {
+      const delSet = new Set(deletedCustIds);
+      serverState.customers = serverState.customers.filter((c: any) => !delSet.has(c.id));
+    }
+
     if (serverState.customers.length === 0 && payload.customers && payload.customers.length > 0) {
-      serverState.customers = payload.customers;
+      const delSet = new Set(deletedCustIds);
+      serverState.customers = payload.customers.filter((c: any) => !delSet.has(c.id));
     } else if (payload.customers && Array.isArray(payload.customers) && payload.customers.length > 0) {
-      const custMap = new Map(serverState.customers.map((c) => [c.id, c]));
+      const delSet = new Set(deletedCustIds);
+      const custMap = new Map(
+        serverState.customers.filter((c: any) => !delSet.has(c.id)).map((c: any) => [c.id, c])
+      );
       for (const c of payload.customers) {
-        custMap.set(c.id, c);
+        if (!delSet.has(c.id)) {
+          custMap.set(c.id, c);
+        }
       }
       serverState.customers = Array.from(custMap.values());
     }

@@ -17,6 +17,7 @@ import {
   Building2,
   Calendar,
   BadgeCheck,
+  Trash2,
 } from 'lucide-react';
 import { CreditPayment, Customer, Sale, StoreConfig } from '../types/pos.ts';
 
@@ -30,6 +31,7 @@ interface CreditDebtTabProps {
     payment: Omit<CreditPayment, 'id' | 'timestamp' | 'receiptNumber'> & { timestamp?: string }
   ) => void;
   onAdjustCredit?: (customerId: string, amountDelta: number, reason: string) => void;
+  onDeleteCustomer?: (customerId: string) => void;
 }
 
 export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
@@ -40,6 +42,7 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
   onSaveCustomer,
   onRecordPayment,
   onAdjustCredit,
+  onDeleteCustomer,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'debtors' | 'settled'>('debtors');
@@ -50,6 +53,7 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
   const [isStatementModalOpen, setIsStatementModalOpen] = useState(false);
   const [isManualCreditModalOpen, setIsManualCreditModalOpen] = useState(false);
   const [activeCustomer, setActiveCustomer] = useState<Customer | null>(null);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
   // Manual Credit Entry Form State
   const [manualEntryMode, setManualEntryMode] = useState<'external_payment' | 'manual_debt'>('external_payment');
@@ -505,6 +509,14 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
                         >
                           <FileText className="w-3.5 h-3.5 text-charcoal-400" />
                           <span>Statement</span>
+                        </button>
+                        <button
+                          onClick={() => setCustomerToDelete(cust)}
+                          className="px-2 py-1.5 bg-rose-950/40 hover:bg-rose-900/80 text-rose-300 hover:text-white border border-rose-800/40 hover:border-rose-700 text-[11px] font-semibold rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer active:scale-95 shadow-2xs"
+                          title={`Delete account for ${cust.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Delete</span>
                         </button>
                       </div>
                     </td>
@@ -1240,6 +1252,90 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* DELETE CUSTOMER CONFIRMATION MODAL */}
+      {customerToDelete && (
+        <div className="fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-charcoal-900 rounded-2xl shadow-2xl max-w-md w-full border border-charcoal-800 overflow-hidden text-charcoal-100 flex flex-col my-auto">
+            <div className="bg-charcoal-950 text-white px-6 py-4 flex items-center justify-between border-b border-charcoal-800">
+              <div className="flex items-center gap-2.5 text-rose-400">
+                <div className="w-8 h-8 rounded-lg bg-rose-950/80 border border-rose-800/80 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Delete Customer Account</h3>
+                  <p className="text-[11px] text-charcoal-400">Remove from credit ledger & database</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCustomerToDelete(null)}
+                className="text-charcoal-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-charcoal-200 text-sm">
+                Are you sure you want to permanently delete{' '}
+                <strong className="text-white font-bold">"{customerToDelete.name}"</strong>?
+              </p>
+
+              {customerToDelete.companyName && (
+                <p className="text-xs text-charcoal-400 -mt-2">
+                  Company / School: <span className="text-charcoal-300 font-medium">{customerToDelete.companyName}</span>
+                </p>
+              )}
+
+              {customerToDelete.creditBalance > 0 ? (
+                <div className="p-3 bg-amber-950/60 border border-amber-800/80 rounded-xl flex items-start gap-2.5 text-amber-200">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-[11px] leading-relaxed">
+                    <span className="font-bold text-amber-300">Outstanding Debt Warning:</span> This account currently has{' '}
+                    <span className="font-bold font-mono text-white bg-amber-900/60 px-1.5 py-0.5 rounded">
+                      {config.currencySymbol}{customerToDelete.creditBalance.toFixed(2)}
+                    </span>{' '}
+                    unsettled balance. Deleting will permanently remove their debt record.
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-charcoal-950 border border-charcoal-800 rounded-xl flex items-center gap-2 text-charcoal-300 text-[11px]">
+                  <CheckCircle className="w-4 h-4 text-forest-400 shrink-0" />
+                  <span>Account is fully settled (zero balance). Safe to remove.</span>
+                </div>
+              )}
+
+              <p className="text-[11px] text-charcoal-400">
+                This deletion will immediately synchronize across all connected devices and Supabase database.
+              </p>
+            </div>
+
+            <div className="px-6 py-4 bg-charcoal-950 border-t border-charcoal-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setCustomerToDelete(null)}
+                className="px-4 py-2 font-semibold text-charcoal-400 hover:text-white cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteCustomer && customerToDelete) {
+                    onDeleteCustomer(customerToDelete.id);
+                  }
+                  setCustomerToDelete(null);
+                }}
+                className="px-5 py-2.5 bg-rose-700 hover:bg-rose-600 text-white font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-sm active:scale-95 transition-colors border border-rose-600/50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Account</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
