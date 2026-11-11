@@ -20,9 +20,15 @@ import {
   ChevronRight,
   Maximize2,
   Scan,
+  Loader2,
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { Product, StoreConfig } from '../types/pos.ts';
-import { generateBarcodeSvgPath, generateQrMatrix } from '../utils/barcodeGenerator.ts';
+import {
+  encodeCode128,
+  generateBarcodeSvgPath,
+  generateQrMatrix,
+} from '../utils/barcodeGenerator.ts';
 
 interface QRBarcodeStudioTabProps {
   products: Product[];
@@ -334,9 +340,234 @@ export const QRBarcodeStudioTab: React.FC<QRBarcodeStudioTabProps> = ({
     window.print();
   };
 
-  // Export PDF (Trigger browser Print to PDF with pre-calibrated stylesheet)
+  // Export PDF State
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [pdfSuccessMessage, setPdfSuccessMessage] = useState<string | null>(null);
+
+  // Helper: Vector Sticker Renderer directly into jsPDF document
+  const renderStickerToPdf = (
+    doc: jsPDF,
+    sticker: LabelItem,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) => {
+    // 1. Draw light cutting boundary guideline (dashed rectangle)
+    doc.setDrawColor(215, 215, 215);
+    doc.setLineWidth(0.15);
+    doc.setLineDashPattern([0.8, 0.8], 0);
+    doc.rect(x, y, w, h, 'S');
+    doc.setLineDashPattern([], 0);
+
+    const centerX = x + w / 2;
+    const padX = 2;
+    const contentW = w - padX * 2;
+    let curY = y + 2.2;
+
+    // 2. Store Name
+    if (includeStoreName) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(60, 60, 60);
+      const storeShort = (config.storeName || 'SAPPY STATIONARY').toUpperCase();
+      doc.text(storeShort.length > 28 ? storeShort.slice(0, 27) + '…' : storeShort, centerX, curY, {
+        align: 'center',
+      });
+      curY += 2.8;
+    }
+
+    // 3. Product Title
+    if (includeProductName) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(0, 0, 0);
+      const maxChars = Math.floor(contentW / 1.7);
+      const prodName =
+        sticker.name.length > maxChars ? sticker.name.slice(0, maxChars - 1) + '…' : sticker.name;
+      doc.text(prodName, centerX, curY, { align: 'center' });
+      curY += 3.2;
+    }
+
+    // Space calculation for barcode / QR
+    const priceH = includePrice && sticker.price > 0 ? 3.0 : 0;
+    const skuH = includeSkuCode ? 2.4 : 0;
+    const reservedBottom = priceH + skuH + 1.8;
+    const availableCodeH = Math.max(6, y + h - curY - reservedBottom);
+
+    // 4. Barcode / QR Elements
+    if (sticker.format === 'barcode') {
+      const targetW = Math.min(contentW - 2, 54);
+      const targetH = Math.min(availableCodeH, 9.8);
+      const startBarcodeY = curY + (availableCodeH - targetH) / 2;
+      const { bars, totalWidth } = encodeCode128(sticker.barcode);
+      const unitBarW = targetW / totalWidth;
+      const barcodeStartX = x + (w - targetW) / 2;
+
+      doc.setFillColor(0, 0, 0);
+      for (let b = 0; b < bars.length; b++) {
+        if (bars[b] === 1) {
+          doc.rect(barcodeStartX + b * unitBarW, startBarcodeY, unitBarW + 0.04, targetH, 'F');
+        }
+      }
+      curY = startBarcodeY + targetH + 1.2;
+    } else if (sticker.format === 'qr') {
+      const matrix = generateQrMatrix(sticker.barcode, 2);
+      const dim = matrix.length || 25;
+      const qrSize = Math.min(contentW * 0.75, availableCodeH, 13);
+      const moduleSize = qrSize / dim;
+      const qrStartX = x + (w - qrSize) / 2;
+      const qrStartY = curY + (availableCodeH - qrSize) / 2;
+
+      doc.setFillColor(255, 255, 255);
+      doc.rect(qrStartX, qrStartY, qrSize, qrSize, 'F');
+      doc.setFillColor(0, 0, 0);
+      for (let r = 0; r < dim; r++) {
+        for (let c = 0; c < dim; c++) {
+          if (matrix[r][c]) {
+            doc.rect(
+              qrStartX + c * moduleSize,
+              qrStartY + r * moduleSize,
+              moduleSize + 0.04,
+              moduleSize + 0.04,
+              'F'
+            );
+          }
+        }
+      }
+      curY = qrStartY + qrSize + 1.2;
+    } else if (sticker.format === 'both') {
+      const qrSize = Math.min(availableCodeH, 10.5);
+      const qrStartX = x + padX + 1;
+      const qrStartY = curY + (availableCodeH - qrSize) / 2;
+      const matrix = generateQrMatrix(sticker.barcode, 1);
+      const dim = matrix.length || 25;
+      const moduleSize = qrSize / dim;
+
+      doc.setFillColor(0, 0, 0);
+      for (let r = 0; r < dim; r++) {
+        for (let c = 0; c < dim; c++) {
+          if (matrix[r][c]) {
+            doc.rect(
+              qrStartX + c * moduleSize,
+              qrStartY + r * moduleSize,
+              moduleSize + 0.04,
+              moduleSize + 0.04,
+              'F'
+            );
+          }
+        }
+      }
+
+      const barcodeStartX = qrStartX + qrSize + 2;
+      const barcodeW = x + w - padX - barcodeStartX - 1;
+      const barcodeH = Math.min(availableCodeH * 0.85, 8.5);
+      const barcodeY = curY + (availableCodeH - barcodeH) / 2;
+      const { bars, totalWidth } = encodeCode128(sticker.barcode);
+      const unitBarW = barcodeW / totalWidth;
+
+      for (let b = 0; b < bars.length; b++) {
+        if (bars[b] === 1) {
+          doc.rect(barcodeStartX + b * unitBarW, barcodeY, unitBarW + 0.04, barcodeH, 'F');
+        }
+      }
+      curY = curY + availableCodeH + 1.0;
+    }
+
+    // 5. Numeric Barcode / SKU
+    if (includeSkuCode) {
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(50, 50, 50);
+      doc.text(sticker.barcode, centerX, curY, { align: 'center' });
+      curY += 2.5;
+    }
+
+    // 6. Retail Price
+    if (includePrice && sticker.price > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      doc.setTextColor(0, 0, 0);
+      const currency = config.currencySymbol || 'Br ';
+      doc.text(`${currency}${sticker.price.toFixed(2)}`, centerX, curY, { align: 'center' });
+    }
+  };
+
+  // Export PDF (Direct PDF generation and download without opening print dialog)
   const handleExportPdf = () => {
-    window.print();
+    if (expandedStickers.length === 0) {
+      return;
+    }
+
+    setIsExportingPdf(true);
+
+    setTimeout(() => {
+      try {
+        const isSheet = currentTemplate.isSheet;
+
+        if (isSheet) {
+          const doc = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4',
+          });
+
+          const cols = currentTemplate.cols;
+          const rows = currentTemplate.rows;
+          const labelW = currentTemplate.labelWidthMm;
+          const labelH = currentTemplate.labelHeightMm;
+          const labelsPerSheet = cols * rows;
+          const sheetCount = Math.max(1, Math.ceil(expandedStickers.length / labelsPerSheet));
+
+          for (let p = 0; p < sheetCount; p++) {
+            if (p > 0) {
+              doc.addPage('a4', 'portrait');
+            }
+
+            for (let i = 0; i < labelsPerSheet; i++) {
+              const stickerIndex = p * labelsPerSheet + i;
+              if (stickerIndex >= expandedStickers.length) break;
+              const sticker = expandedStickers[stickerIndex];
+
+              const c = i % cols;
+              const r = Math.floor(i / cols);
+              const cellX = c * labelW;
+              const cellY = r * labelH;
+
+              renderStickerToPdf(doc, sticker, cellX, cellY, labelW, labelH);
+            }
+          }
+
+          doc.save(`Sappy_Barcodes_${currentTemplate.id}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        } else {
+          // Continuous Thermal Roll: 1 label per page
+          const labelW = currentTemplate.labelWidthMm;
+          const labelH = currentTemplate.labelHeightMm;
+
+          const doc = new jsPDF({
+            orientation: labelW >= labelH ? 'landscape' : 'portrait',
+            unit: 'mm',
+            format: [labelW, labelH],
+          });
+
+          for (let i = 0; i < expandedStickers.length; i++) {
+            if (i > 0) {
+              doc.addPage([labelW, labelH], labelW >= labelH ? 'landscape' : 'portrait');
+            }
+            renderStickerToPdf(doc, expandedStickers[i], 0, 0, labelW, labelH);
+          }
+
+          doc.save(`Sappy_Thermal_Labels_${currentTemplate.id}_${new Date().toISOString().slice(0, 10)}.pdf`);
+        }
+
+        setPdfSuccessMessage('PDF file generated and downloaded!');
+        setTimeout(() => setPdfSuccessMessage(null), 3500);
+      } catch (err) {
+        console.error('Failed to export PDF:', err);
+      } finally {
+        setIsExportingPdf(false);
+      }
+    }, 50);
   };
 
   return (
@@ -376,21 +607,41 @@ export const QRBarcodeStudioTab: React.FC<QRBarcodeStudioTabProps> = ({
 
           <button
             onClick={handleExportPdf}
-            className="px-3.5 py-1.5 bg-charcoal-800 hover:bg-charcoal-700 text-forest-300 hover:text-forest-200 text-xs font-bold rounded-lg flex items-center gap-1.5 border border-forest-700/60 transition-colors cursor-pointer"
+            disabled={isExportingPdf}
+            className="px-3.5 py-1.5 bg-charcoal-800 hover:bg-charcoal-700 disabled:opacity-60 text-forest-300 hover:text-forest-200 text-xs font-bold rounded-lg flex items-center gap-1.5 border border-forest-700/60 transition-colors cursor-pointer"
+            title="Download PDF document directly to your device"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export PDF</span>
+            {isExportingPdf ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-forest-400" />
+                <span>Generating PDF...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5" />
+                <span>Export PDF</span>
+              </>
+            )}
           </button>
 
           <button
             onClick={handlePrint}
             className="px-4 py-1.5 bg-forest-700 hover:bg-forest-600 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-forest-600/50 active:scale-95"
+            title="Send directly to local physical printer"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print Sheet</span>
           </button>
         </div>
       </header>
+
+      {/* Direct PDF Export Success Toast */}
+      {pdfSuccessMessage && (
+        <div className="fixed top-18 right-6 z-50 bg-forest-900 border border-forest-600 text-white px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-2">
+          <Check className="w-4 h-4 text-forest-300" />
+          <span>{pdfSuccessMessage}</span>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* WORKSPACE: LEFT CONFIG PANEL + RIGHT INTERACTIVE SHEET CANVAS */}

@@ -20,7 +20,10 @@ import {
   ArrowRight,
   ArrowLeft,
   Boxes,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner.ts';
 import {
   CartItem,
   Customer,
@@ -223,52 +226,59 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
     setIsTenderOpen(true);
   };
 
-  // Hardware USB/Bluetooth barcode scanner & Enter key listener
-  useEffect(() => {
-    let buffer = '';
-    let lastKeyTime = 0;
+  // Toast notification for external hardware barcode scans
+  const [scannerNotification, setScannerNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+    barcode: string;
+  } | null>(null);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Do not capture if user is actively typing in an input or textarea
-      const target = e.target as HTMLElement;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
+  // Hook listening for external USB/Bluetooth barcode scanner input sequences
+  const { isScanning, lastScannedBarcode, scannerConnected } = useBarcodeScanner({
+    enabled: !isTenderOpen && !showNewCustModal && !isScannerOpen,
+    onScan: (scannedCode) => {
+      const candidate = scannedCode.trim();
+      if (!candidate) return;
 
-      const now = Date.now();
-      if (now - lastKeyTime > 120) {
-        buffer = '';
-      }
-      lastKeyTime = now;
+      const matched = products.find(
+        (p) =>
+          (p.barcode && p.barcode.trim() === candidate) ||
+          (p.sku && p.sku.trim() === candidate) ||
+          (p.barcode && p.barcode.trim().toLowerCase() === candidate.toLowerCase()) ||
+          (p.sku && p.sku.trim().toLowerCase() === candidate.toLowerCase()) ||
+          p.id === candidate
+      );
 
-      if (e.key === 'Enter') {
-        if (buffer.length >= 2) {
-          const candidate = buffer.trim();
-          buffer = '';
-          const matched = products.find(
-            (p) =>
-              (p.barcode && p.barcode.trim() === candidate) ||
-              (p.sku && p.sku.trim() === candidate) ||
-              (p.barcode && p.barcode.trim().toLowerCase() === candidate.toLowerCase()) ||
-              (p.sku && p.sku.trim().toLowerCase() === candidate.toLowerCase())
-          );
-          if (matched) {
-            handleAddToCart(matched);
-          }
+      if (matched) {
+        if (matched.stockLevel <= 0) {
+          soundEffects.playError();
+          setScannerNotification({
+            type: 'error',
+            message: `"${matched.name}" is out of stock!`,
+            barcode: candidate,
+          });
+        } else {
+          handleAddToCart(matched);
+          setScannerNotification({
+            type: 'success',
+            message: `Scanned: "${matched.name}" (${config.currencySymbol}${matched.sellingPrice.toFixed(2)}) added to cart`,
+            barcode: candidate,
+          });
         }
-      } else if (e.key.length === 1) {
-        buffer += e.key;
+      } else {
+        soundEffects.playError();
+        setScannerNotification({
+          type: 'error',
+          message: `Unrecognized barcode: "${candidate}" not found in inventory`,
+          barcode: candidate,
+        });
       }
-    };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [products]);
+      setTimeout(() => {
+        setScannerNotification((prev) => (prev?.barcode === candidate ? null : prev));
+      }, 4000);
+    },
+  });
 
   // Handle Enter key in Search Box to immediately add exact barcode/SKU to cart
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -445,13 +455,70 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
             type="button"
             onClick={() => setIsScannerOpen(true)}
             className="px-4 py-2.5 bg-forest-700 hover:bg-forest-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 active:scale-95 shadow-md shadow-forest-950/60 border border-forest-500/80 group"
-            title="Open Live Camera QR & Barcode Scanner"
+            title="Choose Camera Scanner (Select front, rear, or USB webcam)"
           >
             <Camera className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
-            <Barcode className="w-4 h-4 text-forest-200" />
-            <span>Scan QR / Barcode</span>
+            <span>Use Camera</span>
           </button>
         </div>
+
+        {/* Scanner Control Bar: Hardware USB/Bluetooth & Camera Scanner Option */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs -mt-1">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  isScanning ? 'bg-amber-400' : 'bg-emerald-400'
+                }`}
+              ></span>
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isScanning ? 'bg-amber-500' : 'bg-emerald-500'
+                }`}
+              ></span>
+            </span>
+            <span className="text-[11px] font-medium text-charcoal-400 flex items-center gap-1.5">
+              <Barcode className="w-3.5 h-3.5 text-forest-400" />
+              <span>USB / Bluetooth Scanner:</span>
+              <strong className="text-emerald-400 font-semibold">
+                {isScanning ? 'Scanning...' : 'Active & Listening'}
+              </strong>
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsScannerOpen(true)}
+            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1.5 bg-charcoal-900 hover:bg-charcoal-800 border border-charcoal-800 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
+            title="Choose Camera Scanner option (Select front, rear, or USB webcam)"
+          >
+            <Camera className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Option: Choose Camera Scanner</span>
+          </button>
+        </div>
+
+        {/* Real-time Hardware Scanner Notification Toast */}
+        {scannerNotification && (
+          <div
+            className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-md animate-in fade-in slide-in-from-top-1 ${
+              scannerNotification.type === 'success'
+                ? 'bg-emerald-950/90 border-emerald-700 text-emerald-200'
+                : 'bg-rose-950/90 border-rose-700 text-rose-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {scannerNotification.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              )}
+              <span>{scannerNotification.message}</span>
+            </div>
+            <span className="font-mono text-[10px] bg-charcoal-900/80 px-2 py-0.5 rounded border border-charcoal-700">
+              #{scannerNotification.barcode}
+            </span>
+          </div>
+        )}
 
         {/* Category Horizontal Filter Buttons */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">

@@ -38,7 +38,9 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [availableCameras, setAvailableCameras] = useState<{ id: string; label: string }[]>([]);
-  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+  const [selectedCameraId, setSelectedCameraId] = useState<string>(
+    () => (typeof window !== 'undefined' ? localStorage.getItem('sappy_preferred_camera_id') || '' : '')
+  );
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
   const [isContinuous, setIsContinuous] = useState(true);
@@ -262,7 +264,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     if (availableCameras.length < 2) return;
     const currentIndex = availableCameras.findIndex((c) => c.id === selectedCameraId);
     const nextIndex = (currentIndex + 1) % availableCameras.length;
-    setSelectedCameraId(availableCameras[nextIndex].id);
+    const nextId = availableCameras[nextIndex].id;
+    setSelectedCameraId(nextId);
+    try {
+      localStorage.setItem('sappy_preferred_camera_id', nextId);
+    } catch {}
   };
 
   // Scan from uploaded file / photo
@@ -517,17 +523,43 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                 )}
               </div>
 
-              {/* Camera Controls Bar: Switch Camera & Torch */}
-              <div className="flex items-center justify-between text-xs text-charcoal-400">
-                <div className="flex items-center gap-2">
+              {/* Camera Controls Bar: Camera Selector, Switch Camera & Torch */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-charcoal-400 bg-charcoal-950/70 p-2.5 rounded-xl border border-charcoal-800">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Camera Selection Dropdown */}
+                  {availableCameras.length > 0 && (
+                    <div className="flex items-center gap-1.5 bg-charcoal-900 border border-charcoal-700/80 rounded-lg px-2 py-1 text-xs text-charcoal-200">
+                      <Camera className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <select
+                        value={selectedCameraId}
+                        onChange={(e) => {
+                          const newId = e.target.value;
+                          setSelectedCameraId(newId);
+                          try {
+                            localStorage.setItem('sappy_preferred_camera_id', newId);
+                          } catch {}
+                        }}
+                        className="bg-transparent text-xs text-white focus:outline-hidden cursor-pointer py-0.5 max-w-[180px] sm:max-w-[220px] truncate"
+                        title="Choose camera device"
+                      >
+                        {availableCameras.map((cam, idx) => (
+                          <option key={cam.id} value={cam.id} className="bg-charcoal-900 text-white">
+                            {cam.label || `Camera ${idx + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {availableCameras.length > 1 && (
                     <button
                       type="button"
                       onClick={handleSwitchCamera}
-                      className="px-2.5 py-1 rounded-lg bg-charcoal-950 border border-charcoal-800 hover:text-white hover:bg-charcoal-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="px-2.5 py-1 rounded-lg bg-charcoal-900 border border-charcoal-700 hover:text-white hover:bg-charcoal-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                      title="Cycle to next camera"
                     >
                       <FlipHorizontal className="w-3.5 h-3.5 text-forest-400" />
-                      <span>Switch Camera ({availableCameras.length})</span>
+                      <span>Switch</span>
                     </button>
                   )}
 
@@ -538,7 +570,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                       className={`px-2.5 py-1 rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 ${
                         torchOn
                           ? 'bg-amber-950/80 border-amber-800 text-amber-300'
-                          : 'bg-charcoal-950 border-charcoal-800 text-charcoal-400 hover:text-white'
+                          : 'bg-charcoal-900 border-charcoal-700 text-charcoal-400 hover:text-white'
                       }`}
                     >
                       {torchOn ? <Zap className="w-3.5 h-3.5 text-amber-400" /> : <ZapOff className="w-3.5 h-3.5" />}
@@ -547,8 +579,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                   )}
                 </div>
 
-                <span className="text-[11px] font-mono text-charcoal-500">
-                  {products.length} products loaded
+                <span className="text-[11px] font-mono text-charcoal-400">
+                  {availableCameras.length > 0 ? `${availableCameras.length} Camera(s) Detected` : `${products.length} products loaded`}
                 </span>
               </div>
             </div>
