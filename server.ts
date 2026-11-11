@@ -217,6 +217,18 @@ const DEFAULT_SERVER_USERS = [
     createdAt: '2026-01-01T08:00:00Z',
     notes: 'Store Owner & Commercial Administrator',
   },
+  {
+    id: 'usr-owner-yohannes',
+    email: 'yohannesleulseged802@gmail.com',
+    fullName: 'Yohannes Leulseged',
+    role: 'owner',
+    storeName: 'Sappy Stationary',
+    phone: '+251 91 222 3344',
+    pinCode: '1313',
+    status: 'active',
+    createdAt: '2026-01-02T08:00:00Z',
+    notes: 'Store Owner & Commercial Administrator',
+  },
 ];
 
 function loadServerState(): PosState {
@@ -266,9 +278,15 @@ function loadServerState(): PosState {
       if (!parsed.users || parsed.users.length === 0) {
         parsed.users = DEFAULT_SERVER_USERS;
         changed = true;
-      } else if (!parsed.users.some((u: any) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com')) {
-        parsed.users.unshift(DEFAULT_SERVER_USERS[0]);
-        changed = true;
+      } else {
+        if (!parsed.users.some((u: any) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com')) {
+          parsed.users.unshift(DEFAULT_SERVER_USERS[0]);
+          changed = true;
+        }
+        if (!parsed.users.some((u: any) => u.email.toLowerCase() === 'yohannesleulseged802@gmail.com')) {
+          parsed.users.push(DEFAULT_SERVER_USERS[1]);
+          changed = true;
+        }
       }
 
       if (changed) {

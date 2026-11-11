@@ -83,23 +83,44 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setStaffUsers(currentUsers);
     if (currentUsers.length > 0) {
       const ownerUser = currentUsers.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || currentUsers[0];
-      setSelectedStaffUser(ownerUser);
-      setEmail(ownerUser.email);
+      setSelectedStaffUser((prev) => prev || ownerUser);
+      setEmail((prev) => prev || ownerUser.email);
     }
   }, [initialMode]);
 
-  // Listen to cross-device sync updates
+  // Listen to cross-device sync and local storage changes, and perform auto-pull on mount
   useEffect(() => {
-    const unsubscribe = crossDeviceSyncService.subscribe(() => {
+    const refreshProfiles = () => {
       const users = storageService.getUsers();
       setStaffUsers(users);
       if (users.length > 0) {
-        const ownerUser = users.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || users[0];
-        setSelectedStaffUser((prev) => prev || ownerUser);
-        setEmail((prev) => prev || ownerUser.email);
+        setSelectedStaffUser((prev) => {
+          if (!prev) {
+            return users.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || users[0];
+          }
+          const match = users.find((u) => u.id === prev.id || u.email.toLowerCase() === prev.email.toLowerCase());
+          return match || prev;
+        });
       }
+    };
+
+    const unsubSync = crossDeviceSyncService.subscribe(() => {
+      refreshProfiles();
     });
-    return () => unsubscribe();
+
+    const unsubStorage = storageService.subscribeToChanges(() => {
+      refreshProfiles();
+    });
+
+    // Auto-sync immediately from cloud backend/Supabase so newly registered staff appear on all terminals
+    crossDeviceSyncService.initialSync().then(() => {
+      refreshProfiles();
+    }).catch(() => {});
+
+    return () => {
+      unsubSync();
+      unsubStorage();
+    };
   }, []);
 
   // Handle First-Time Store Owner Setup
@@ -652,10 +673,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       type="button"
                       onClick={async () => {
                         setLoading(true);
-                        await crossDeviceSyncService.initialSync();
+                        setError(null);
+                        await crossDeviceSyncService.syncNow();
                         const users = storageService.getUsers();
                         setStaffUsers(users);
-                        setSuccessMsg('Terminals synchronized with server!');
+                        setSuccessMsg(`Terminals synchronized! (${users.length} staff profile${users.length === 1 ? '' : 's'} available)`);
                         setLoading(false);
                       }}
                       className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer font-mono"
@@ -804,10 +826,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   type="button"
                   onClick={async () => {
                     setLoading(true);
-                    await crossDeviceSyncService.initialSync();
+                    setError(null);
+                    await crossDeviceSyncService.syncNow();
                     const users = storageService.getUsers();
                     setStaffUsers(users);
-                    setSuccessMsg('Terminals synchronized with server!');
+                    setSuccessMsg(`Cloud terminals synchronized! (${users.length} staff profile${users.length === 1 ? '' : 's'} available)`);
                     setLoading(false);
                   }}
                   className="hover:text-white flex items-center gap-1 text-[11px] cursor-pointer font-mono"

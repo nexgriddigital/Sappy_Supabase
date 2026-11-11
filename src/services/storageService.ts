@@ -50,6 +50,18 @@ export const DEFAULT_INITIAL_USERS: AppUser[] = [
     createdAt: '2026-01-01T08:00:00Z',
     notes: 'Store Owner & Commercial Administrator',
   },
+  {
+    id: 'usr-owner-yohannes',
+    email: 'yohannesleulseged802@gmail.com',
+    fullName: 'Yohannes Leulseged',
+    role: 'owner',
+    storeName: 'Sappy Stationary',
+    phone: '+251 91 222 3344',
+    pinCode: '1313',
+    status: 'active',
+    createdAt: '2026-01-02T08:00:00Z',
+    notes: 'Store Owner & Commercial Administrator',
+  },
 ];
 
 const INITIAL_USERS: AppUser[] = DEFAULT_INITIAL_USERS;
@@ -281,7 +293,7 @@ class StorageService {
       try {
         const parsed = JSON.parse(raw) as Customer[];
         const deletedIds = new Set(this.getDeletedCustomerIds());
-        return parsed.filter((c) => !deletedIds.has(c.id));
+        return parsed.filter((c) => !deletedIds.has(c.id) && !c.id.startsWith('__system_'));
       } catch {
         return [];
       }
@@ -290,7 +302,7 @@ class StorageService {
       return [];
     }
     const deletedIds = new Set(this.getDeletedCustomerIds());
-    const initial = INITIAL_CUSTOMERS.filter((c) => !deletedIds.has(c.id));
+    const initial = INITIAL_CUSTOMERS.filter((c) => !deletedIds.has(c.id) && !c.id.startsWith('__system_'));
     this.set(STORAGE_KEYS.CUSTOMERS, initial);
     return initial;
   }
@@ -847,8 +859,14 @@ class StorageService {
             filtered = [DEFAULT_INITIAL_USERS[0], ...filtered];
           }
 
-          if (filtered.length !== parsed.length || !hasAmanuel) {
-            this.set(STORAGE_KEYS.USERS, filtered);
+          // Ensure Yohannes Leulseged (store owner) exists in the accounts list
+          const hasYohannes = filtered.some((u) => u.email.toLowerCase() === 'yohannesleulseged802@gmail.com');
+          if (!hasYohannes && DEFAULT_INITIAL_USERS[1]) {
+            filtered = [...filtered, DEFAULT_INITIAL_USERS[1]];
+          }
+
+          if (filtered.length !== parsed.length || !hasAmanuel || !hasYohannes) {
+            this.set(STORAGE_KEYS.USERS, filtered, false);
           }
           return filtered;
         }
@@ -856,7 +874,7 @@ class StorageService {
         // Fallback to defaults
       }
     }
-    this.set(STORAGE_KEYS.USERS, DEFAULT_INITIAL_USERS);
+    this.set(STORAGE_KEYS.USERS, DEFAULT_INITIAL_USERS, false);
     return DEFAULT_INITIAL_USERS;
   }
 
@@ -1123,6 +1141,57 @@ class StorageService {
     };
   }
 
+  mergeUserArrays(localList: AppUser[], incomingList: AppUser[]): AppUser[] {
+    const deletedIds = new Set(this.getDeletedUserIds());
+    const userMap = new Map<string, AppUser>();
+
+    const getKey = (u: AppUser) => (u.email ? u.email.toLowerCase().trim() : u.id);
+
+    // 1. Seed with local users (ignoring deleted)
+    for (const u of localList) {
+      if (!deletedIds.has(u.id)) {
+        userMap.set(getKey(u), u);
+      }
+    }
+
+    // 2. Merge with incoming remote users
+    for (const inc of incomingList) {
+      if (deletedIds.has(inc.id)) continue;
+      const key = getKey(inc);
+      const existing = userMap.get(key);
+      if (!existing) {
+        userMap.set(key, inc);
+      } else {
+        const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        const incomingTime = inc.updatedAt ? new Date(inc.updatedAt).getTime() : 0;
+        const mergedPin = inc.pinCode || existing.pinCode;
+        if (incomingTime >= existingTime) {
+          userMap.set(key, { ...existing, ...inc, pinCode: mergedPin });
+        } else {
+          userMap.set(key, { ...inc, ...existing, pinCode: mergedPin });
+        }
+      }
+    }
+
+    // 3. Ensure default initial owners (Amanuel and Yohannes) are preserved
+    for (const def of DEFAULT_INITIAL_USERS) {
+      const defKey = getKey(def);
+      if (!userMap.has(defKey) && !deletedIds.has(def.id)) {
+        userMap.set(defKey, def);
+      }
+    }
+
+    // 4. Purge mock demo accounts
+    return Array.from(userMap.values()).filter((u) => {
+      const email = (u?.email || '').toLowerCase().trim();
+      return (
+        email !== 'owner@sappystationery.et' &&
+        email !== 'cashier@sappystationery.et' &&
+        email !== 'manager@sappystationery.et'
+      );
+    });
+  }
+
   hydrateFromServer(state: {
     products?: Product[];
     customers?: Customer[];
@@ -1139,7 +1208,9 @@ class StorageService {
     }
     if (state.customers && Array.isArray(state.customers)) {
       const localDeleted = new Set(this.getDeletedCustomerIds());
-      const filtered = state.customers.filter((c) => !localDeleted.has(c.id));
+      const filtered = state.customers.filter(
+        (c) => !localDeleted.has(c.id) && !c.id.startsWith('__system_')
+      );
       this.set(STORAGE_KEYS.CUSTOMERS, filtered, false);
     }
     if (state.sales && Array.isArray(state.sales)) {
@@ -1169,9 +1240,9 @@ class StorageService {
       }
     }
     if (state.users && Array.isArray(state.users)) {
-      const localDeleted = new Set(this.getDeletedUserIds());
-      const filtered = state.users.filter((u) => !localDeleted.has(u.id));
-      this.set(STORAGE_KEYS.USERS, filtered, false);
+      const localUsers = this.getUsers();
+      const merged = this.mergeUserArrays(localUsers, state.users);
+      this.set(STORAGE_KEYS.USERS, merged, true);
     }
   }
 }

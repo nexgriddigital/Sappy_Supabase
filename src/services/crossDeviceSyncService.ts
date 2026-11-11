@@ -388,6 +388,7 @@ class CrossDeviceSyncService {
             const deletedCustIds = storageService.getDeletedCustomerIds();
             if (deletedCustIds.length > 0) {
               for (const delId of deletedCustIds) {
+                if (delId.startsWith('__system_')) continue;
                 try {
                   await client.from('customers').delete().eq('id', delId);
                 } catch {}
@@ -397,8 +398,20 @@ class CrossDeviceSyncService {
             const { data: remoteCustomers } = await client.from('customers').select('*');
             if (remoteCustomers && Array.isArray(remoteCustomers) && remoteCustomers.length > 0) {
               const delSet = new Set(deletedCustIds);
+
+              // Check if resilient staff registry record is in customers table
+              const staffRegRecord = remoteCustomers.find((c: any) => c.id === '__system_staff_registry__');
+              if (staffRegRecord && staffRegRecord.notes) {
+                try {
+                  const parsedStaff = JSON.parse(staffRegRecord.notes);
+                  if (Array.isArray(parsedStaff) && parsedStaff.length > 0) {
+                    storageService.hydrateFromServer({ users: parsedStaff });
+                  }
+                } catch {}
+              }
+
               const mappedCustomers = remoteCustomers
-                .filter((c: any) => !delSet.has(c.id))
+                .filter((c: any) => !delSet.has(c.id) && !c.id.startsWith('__system_'))
                 .map((c: any) => ({
                   id: c.id,
                   name: c.name,
@@ -413,7 +426,7 @@ class CrossDeviceSyncService {
                   notes: c.notes || undefined,
                   createdAt: c.created_at || new Date().toISOString(),
                 }));
-              const localCust = storageService.getCustomers();
+              const localCust = storageService.getCustomers().filter((c) => !c.id.startsWith('__system_'));
               const custMap = new Map(localCust.map((c) => [c.id, c]));
               for (const rc of mappedCustomers) {
                 custMap.set(rc.id, rc);
@@ -421,7 +434,7 @@ class CrossDeviceSyncService {
               storageService.hydrateFromServer({ customers: Array.from(custMap.values()) });
             }
 
-            const currentCustomers = storageService.getCustomers();
+            const currentCustomers = storageService.getCustomers().filter((c) => !c.id.startsWith('__system_'));
             if (currentCustomers.length > 0) {
               const { error: custErr } = await client.from('customers').upsert(
                 currentCustomers.map((c) => ({
@@ -611,6 +624,100 @@ class CrossDeviceSyncService {
             }
           } catch (eErr) {
             console.warn('Supabase expenses sync notice:', eErr);
+          }
+
+          // 6. Users & Staff Profiles Sync (Dual-Channel: Dedicated Table + Resilient System Cloud Registry)
+          try {
+            let remoteUsersFound: any[] = [];
+            let tableSyncSucceeded = false;
+
+            // Strategy A: Check dedicated 'app_users' or 'users' table
+            try {
+              const { data: remoteAppUsers, error: usersErr } = await client.from('app_users').select('*');
+              if (!usersErr && remoteAppUsers && Array.isArray(remoteAppUsers)) {
+                tableSyncSucceeded = true;
+                remoteUsersFound = remoteAppUsers.map((u: any) => ({
+                  id: u.id,
+                  email: u.email,
+                  fullName: u.full_name || u.fullName || u.email.split('@')[0],
+                  role: u.role || 'owner',
+                  storeName: u.store_name || u.storeName || 'Sappy Stationary',
+                  phone: u.phone || undefined,
+                  pinCode: u.pin_code || u.pinCode || undefined,
+                  status: u.status || 'active',
+                  createdAt: u.created_at || u.createdAt || new Date().toISOString(),
+                  updatedAt: u.updated_at || u.updatedAt || undefined,
+                  lastLoginAt: u.last_login_at || u.lastLoginAt || undefined,
+                  notes: u.notes || undefined,
+                }));
+              }
+            } catch {}
+
+            // Strategy B: If table not yet created, fetch from resilient staff registry record in Supabase
+            if (!tableSyncSucceeded) {
+              try {
+                const { data: regData } = await client
+                  .from('customers')
+                  .select('notes')
+                  .eq('id', '__system_staff_registry__')
+                  .maybeSingle();
+
+                if (regData && regData.notes) {
+                  const parsed = JSON.parse(regData.notes);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    remoteUsersFound = parsed;
+                  }
+                }
+              } catch (regFetchErr) {
+                console.warn('System staff registry fetch notice:', regFetchErr);
+              }
+            }
+
+            // Hydrate and merge remote users with local users
+            if (remoteUsersFound.length > 0) {
+              storageService.hydrateFromServer({ users: remoteUsersFound });
+            }
+
+            // Push current local users to Supabase so both devices have identical staff list
+            const currentUsers = storageService.getUsers();
+            if (currentUsers.length > 0) {
+              // 1. Write to app_users if table is available
+              if (tableSyncSucceeded) {
+                try {
+                  await client.from('app_users').upsert(
+                    currentUsers.map((u) => ({
+                      id: u.id,
+                      email: u.email,
+                      full_name: u.fullName,
+                      role: u.role,
+                      store_name: u.storeName,
+                      phone: u.phone || null,
+                      pin_code: u.pinCode || null,
+                      status: u.status,
+                      notes: u.notes || null,
+                      updated_at: u.updatedAt || new Date().toISOString(),
+                    }))
+                  );
+                } catch {}
+              }
+
+              // 2. Always maintain backup in system staff registry so devices without the new SQL table sync instantly
+              try {
+                await client.from('customers').upsert({
+                  id: '__system_staff_registry__',
+                  name: '__SYSTEM_STAFF_REGISTRY__',
+                  phone: '+251 00 000 0000',
+                  credit_balance: 0,
+                  credit_limit: 0,
+                  total_purchased: 0,
+                  notes: JSON.stringify(currentUsers),
+                });
+              } catch (regSaveErr) {
+                console.warn('System staff registry save notice:', regSaveErr);
+              }
+            }
+          } catch (uErr) {
+            console.warn('Supabase users sync notice:', uErr);
           }
 
           if (hasRlsError) {

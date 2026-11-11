@@ -67,12 +67,13 @@ export const SupabaseSyncTab: React.FC<SupabaseSyncTabProps> = ({
 -- and enables secure, unblocked read/write access for POS terminals.
 -- ============================================================================
 
--- 1. Enable Row-Level Security on all 5 POS tables
+-- 1. Enable Row-Level Security on all POS tables
 ALTER TABLE IF EXISTS public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.credit_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.app_users ENABLE ROW LEVEL SECURITY;
 
 -- 2. Drop legacy or conflicting policies
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.products;
@@ -80,6 +81,7 @@ DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.custom
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.sales;
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.credit_payments;
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.expenses;
+DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.app_users;
 
 -- 3. Create permissive policies for anon & authenticated roles
 CREATE POLICY "Enable all operations for POS terminals" ON public.products
@@ -112,12 +114,19 @@ CREATE POLICY "Enable all operations for POS terminals" ON public.expenses
     USING (true)
     WITH CHECK (true);
 
+CREATE POLICY "Enable all operations for POS terminals" ON public.app_users
+    FOR ALL
+    TO anon, authenticated, service_role
+    USING (true)
+    WITH CHECK (true);
+
 -- 4. Grant table permissions
 GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.customers TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.sales TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.credit_payments TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.expenses TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
 `;
 
   const handleCopyRlsFix = () => {
@@ -248,24 +257,42 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 6. Enable Row Level Security (RLS) & Add Permissions (Zero Supabase Advisor Warnings)
+-- 6. Staff Users & Terminal Profiles Table
+CREATE TABLE IF NOT EXISTS public.app_users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'owner',
+    store_name TEXT NOT NULL DEFAULT 'Sappy Stationary',
+    phone TEXT,
+    pin_code TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 7. Enable Row Level Security (RLS) & Add Permissions (Zero Supabase Advisor Warnings)
 ALTER TABLE IF EXISTS public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.credit_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.app_users ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.products;
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.customers;
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.sales;
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.credit_payments;
 DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.expenses;
+DROP POLICY IF EXISTS "Enable all operations for POS terminals" ON public.app_users;
 
 CREATE POLICY "Enable all operations for POS terminals" ON public.products FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all operations for POS terminals" ON public.customers FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all operations for POS terminals" ON public.sales FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all operations for POS terminals" ON public.credit_payments FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all operations for POS terminals" ON public.expenses FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all operations for POS terminals" ON public.app_users FOR ALL TO anon, authenticated, service_role USING (true) WITH CHECK (true);
 
 -- Grant permissions to public/anon and authenticated roles
 GRANT ALL ON TABLE public.products TO anon, authenticated, service_role;
@@ -273,6 +300,7 @@ GRANT ALL ON TABLE public.customers TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.sales TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.credit_payments TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.expenses TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
 `;
 
   // Test Connection & Synchronize Across Devices

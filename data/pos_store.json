@@ -3776,7 +3776,7 @@
       "creditBalance": 0,
       "creditLimit": 5000,
       "totalPurchased": 2400,
-      "createdAt": "2026-11-10T16:03:24.798419+00:00"
+      "createdAt": "2026-11-11T11:52:59.131592+00:00"
     },
     {
       "id": "cust-init-002",
@@ -3787,7 +3787,17 @@
       "creditBalance": 0,
       "creditLimit": 10000,
       "totalPurchased": 5800,
-      "createdAt": "2026-11-10T16:03:24.798419+00:00"
+      "createdAt": "2026-11-11T11:52:59.131592+00:00"
+    },
+    {
+      "id": "__system_staff_registry__",
+      "name": "__SYSTEM_STAFF_REGISTRY__",
+      "phone": "+251 00 000 0000",
+      "creditBalance": 0,
+      "creditLimit": 500,
+      "totalPurchased": 0,
+      "notes": "[{\"id\":\"usr-owner-amanuel\",\"email\":\"amanuealhailu007@gmail.com\",\"fullName\":\"Amanuel Hailu\",\"role\":\"owner\",\"storeName\":\"Sappy Stationary\",\"phone\":\"+251 91 123 4567\",\"pinCode\":\"1313\",\"status\":\"active\",\"createdAt\":\"2026-01-01T08:00:00Z\",\"notes\":\"Store Owner & Commercial Administrator\"},{\"id\":\"usr-owner-yohannes\",\"email\":\"yohannesleulseged802@gmail.com\",\"fullName\":\"Yohannes Leulseged\",\"role\":\"owner\",\"storeName\":\"Sappy Stationary\",\"phone\":\"+251 91 222 3344\",\"pinCode\":\"1313\",\"status\":\"active\",\"createdAt\":\"2026-01-02T08:00:00Z\",\"notes\":\"Store Owner & Commercial Administrator\"}]",
+      "createdAt": "2026-11-11T11:46:56.372475+00:00"
     }
   ],
   "sales": [
@@ -3869,8 +3879,20 @@
       "createdAt": "2026-01-01T08:00:00Z",
       "notes": "Store Owner & Commercial Administrator",
       "updatedAt": "2026-11-08T09:42:00Z"
+    },
+    {
+      "id": "usr-owner-yohannes",
+      "email": "yohannesleulseged802@gmail.com",
+      "fullName": "Yohannes Leulseged",
+      "role": "owner",
+      "storeName": "Sappy Stationary",
+      "phone": "+251 91 222 3344",
+      "pinCode": "1313",
+      "status": "active",
+      "createdAt": "2026-01-02T08:00:00Z",
+      "notes": "Store Owner & Commercial Administrator"
     }
   ],
-  "lastSyncedAt": "2026-11-11T10:16:04.748Z",
-  "version": 15704
+  "lastSyncedAt": "2026-11-11T11:53:11.438Z",
+  "version": 30220
 }
