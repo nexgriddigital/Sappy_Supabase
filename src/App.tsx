@@ -23,6 +23,7 @@ import { STARTER_STATIONERY_PRODUCTS } from './data/starterCatalog.ts';
 import { storageService } from './services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
 import { LoadingScreen } from './components/LoadingAnimation.tsx';
+import { WelcomeAnimationModal } from './components/WelcomeAnimationModal.tsx';
 import { isSupabaseConfigured } from './lib/supabase.ts';
 import { checkAndApplyUrlPairing } from './services/pairingService.ts';
 import {
@@ -39,6 +40,7 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => storageService.getCurrentUser());
+  const [welcomeUser, setWelcomeUser] = useState<AppUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState<boolean>(false);
   const [criticalChallenge, setCriticalChallenge] = useState<{
@@ -235,6 +237,9 @@ export default function App() {
         const activeUser = storageService.getCurrentUser();
         if (activeUser) {
           setCurrentUser(activeUser);
+          if (!storageService.hasUserCompletedWelcome(activeUser.id)) {
+            setWelcomeUser(activeUser);
+          }
         }
         setIsInitialLoading(false);
       }
@@ -254,6 +259,41 @@ export default function App() {
     reloadData();
     crossDeviceSyncService.triggerActionSync(10);
     return newSale;
+  };
+
+  // Return & Reverse Sale
+  const handleReturnSale = (
+    sale: Sale,
+    reason: string,
+    refundMethod: string
+  ) => {
+    const totalItemsCount = sale.items.reduce((acc, i) => acc + i.quantity, 0);
+    setCriticalChallenge({
+      actionName: 'Reverse Sale & Return Stock',
+      actionDescription: `Reverse invoice "${sale.invoiceNumber}" (${config.currencySymbol}${sale.totalAmount.toFixed(2)}), restore ${totalItemsCount} item(s) back into inventory stock, and reverse realized revenue. Reason: ${reason}`,
+      onExecute: () => {
+        const result = storageService.returnSale(sale.id, {
+          reason,
+          refundMethod: refundMethod as any,
+          returnedBy: currentUser ? currentUser.fullName : 'Store Staff',
+        });
+        if (result.success) {
+          reloadData();
+          crossDeviceSyncService.triggerActionSync(10);
+          showToast(
+            'Sale Reversed & Stock Restored',
+            `Invoice ${sale.invoiceNumber} reversed. ${totalItemsCount} item(s) returned to inventory stock.`,
+            'success'
+          );
+        } else {
+          showToast(
+            'Return Failed',
+            result.error || 'Failed to process sale return.',
+            'error'
+          );
+        }
+      },
+    });
   };
 
   // Customer Management
@@ -374,6 +414,9 @@ export default function App() {
     setCurrentUser(user);
     setIsAuthModalOpen(false);
     crossDeviceSyncService.triggerActionSync(10);
+    if (!storageService.hasUserCompletedWelcome(user.id)) {
+      setWelcomeUser(user);
+    }
   };
 
   const handleSignOut = () => {
@@ -466,6 +509,7 @@ export default function App() {
             sales={sales}
             config={config}
             onOpenInvoice={(sale) => setActiveInvoice(sale)}
+            onReturnSale={handleReturnSale}
           />
         )}
 
@@ -537,6 +581,7 @@ export default function App() {
               reloadData();
               return res;
             }}
+            onPlayWelcome={(u) => setWelcomeUser(u)}
           />
         )}
 
@@ -551,6 +596,7 @@ export default function App() {
             customers={customers}
             onNavigate={(tab) => setActiveTab(tab)}
             currentUser={currentUser}
+            onPlayWelcome={(u) => setWelcomeUser(u)}
           />
         )}
 
@@ -636,6 +682,19 @@ export default function App() {
         onLoadStarterPack={handleLoadStarterPack}
         currentUser={currentUser}
       />
+
+      {/* First Login Welcome Animation Modal */}
+      {welcomeUser && (
+        <WelcomeAnimationModal
+          user={welcomeUser}
+          config={config}
+          isFirstLogin={!storageService.hasUserCompletedWelcome(welcomeUser.id)}
+          onComplete={() => {
+            storageService.setUserCompletedWelcome(welcomeUser.id);
+            setWelcomeUser(null);
+          }}
+        />
+      )}
 
       {/* Floating System Feedback Toasts */}
       <ToastNotification toasts={toasts} onDismiss={dismissToast} />

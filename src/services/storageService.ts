@@ -7,6 +7,7 @@ import {
   StoreConfig,
   DailyProfitLossReport,
   AppUser,
+  PaymentMethod,
 } from '../types/pos.ts';
 import {
   INITIAL_CUSTOMERS,
@@ -33,6 +34,7 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'sappy_pos_current_user_v1',
   DELETED_USER_IDS: 'sappy_pos_deleted_user_ids_v1',
   DELETED_CUSTOMER_IDS: 'sappy_pos_deleted_customer_ids_v1',
+  WELCOMED_USER_IDS: 'sappy_pos_welcomed_user_ids_v1',
 };
 
 export const DEFAULT_INITIAL_USERS: AppUser[] = [
@@ -451,6 +453,92 @@ class StorageService {
     return newSale;
   }
 
+  // --- Sales Reversals & Returns ---
+  returnSale(
+    saleId: string,
+    returnData: {
+      reason: string;
+      refundMethod?: PaymentMethod | 'credit_reversal' | 'store_credit';
+      returnedBy?: string;
+    }
+  ): { success: boolean; sale?: Sale; error?: string } {
+    const sales = this.getSales();
+    const saleIndex = sales.findIndex((s) => s.id === saleId);
+    if (saleIndex < 0) {
+      return { success: false, error: 'Sale transaction not found.' };
+    }
+
+    const targetSale = sales[saleIndex];
+    if (targetSale.isReturned) {
+      return { success: false, error: 'This sale has already been returned / reversed.' };
+    }
+
+    const nowIso = new Date().toISOString();
+    const refundMethod =
+      returnData.refundMethod ||
+      (targetSale.paymentMethod === 'credit' ? 'credit_reversal' : targetSale.paymentMethod);
+
+    // 1. Mark sale as returned
+    const updatedSale: Sale = {
+      ...targetSale,
+      isReturned: true,
+      status: 'returned',
+      returnedAt: nowIso,
+      returnReason: returnData.reason || 'Customer Return',
+      refundMethod,
+      returnedBy: returnData.returnedBy || 'Store Staff',
+    };
+
+    sales[saleIndex] = updatedSale;
+    this.set(STORAGE_KEYS.SALES, sales);
+
+    // 2. Automatically increment product stock back into inventory
+    const products = this.getProducts();
+    let productsModified = false;
+    targetSale.items.forEach((item) => {
+      const pIndex = products.findIndex((p) => p.id === item.productId);
+      if (pIndex >= 0) {
+        products[pIndex] = {
+          ...products[pIndex],
+          stockLevel: products[pIndex].stockLevel + item.quantity,
+          updatedAt: nowIso,
+        };
+        productsModified = true;
+      }
+    });
+    if (productsModified) {
+      this.set(STORAGE_KEYS.PRODUCTS, products);
+    }
+
+    // 3. Reverse customer debt if credit sale or adjust customer spend
+    if (targetSale.customerId) {
+      const customers = this.getCustomers();
+      const cIndex = customers.findIndex((c) => c.id === targetSale.customerId);
+      if (cIndex >= 0) {
+        const cust = customers[cIndex];
+        const newTotalPurchased = Math.max(0, cust.totalPurchased - targetSale.totalAmount);
+        let newCreditBalance = cust.creditBalance;
+
+        if (targetSale.paymentMethod === 'credit') {
+          const unpaidOnThisSale = targetSale.totalAmount - (targetSale.paidAmount || 0);
+          newCreditBalance = Math.max(0, cust.creditBalance - unpaidOnThisSale);
+        }
+
+        customers[cIndex] = {
+          ...cust,
+          creditBalance: newCreditBalance,
+          totalPurchased: newTotalPurchased,
+          notes: cust.notes
+            ? `${cust.notes} • [Return: Reversed ${targetSale.invoiceNumber}]`
+            : `[Return: Reversed ${targetSale.invoiceNumber}]`,
+        };
+        this.set(STORAGE_KEYS.CUSTOMERS, customers);
+      }
+    }
+
+    return { success: true, sale: updatedSale };
+  }
+
   // --- Expenses ---
   getExpenses(): Expense[] {
     const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
@@ -494,13 +582,16 @@ class StorageService {
     const allPayments = this.getCreditPayments();
 
     const daySales = allSales.filter((s) => s.timestamp.startsWith(dateStr));
+    const activeDaySales = daySales.filter((s) => !s.isReturned);
+    const returnedDaySales = daySales.filter((s) => s.isReturned);
+
     const dayExpenses = allExpenses.filter((e) => e.date === dateStr);
     const dayCreditPayments = allPayments.filter((p) => p.timestamp.startsWith(dateStr));
 
-    const grossSales = daySales.reduce((acc, s) => acc + s.totalAmount, 0);
-    const taxCollected = daySales.reduce((acc, s) => acc + s.taxAmount, 0);
+    const grossSales = activeDaySales.reduce((acc, s) => acc + s.totalAmount, 0);
+    const taxCollected = activeDaySales.reduce((acc, s) => acc + s.taxAmount, 0);
     const netSales = grossSales - taxCollected;
-    const cogs = daySales.reduce((acc, s) => acc + s.totalCost, 0);
+    const cogs = activeDaySales.reduce((acc, s) => acc + s.totalCost, 0);
     const grossProfit = netSales - cogs;
     const grossMarginPercent = netSales > 0 ? (grossProfit / netSales) * 100 : 0;
 
@@ -508,11 +599,13 @@ class StorageService {
     const netProfit = grossProfit - totalExpenses;
     const netMarginPercent = netSales > 0 ? (netProfit / netSales) * 100 : 0;
 
-    const creditSalesTotal = daySales
+    const creditSalesTotal = activeDaySales
       .filter((s) => s.paymentMethod === 'credit')
       .reduce((acc, s) => acc + s.totalAmount, 0);
 
     const creditCollectedTotal = dayCreditPayments.reduce((acc, p) => acc + p.amount, 0);
+    const returnsTotal = returnedDaySales.reduce((acc, s) => acc + s.totalAmount, 0);
+    const returnedCount = returnedDaySales.length;
 
     return {
       date: dateStr,
@@ -525,9 +618,11 @@ class StorageService {
       totalExpenses,
       netProfit,
       netMarginPercent,
-      transactionCount: daySales.length,
+      transactionCount: activeDaySales.length,
       creditSalesTotal,
       creditCollectedTotal,
+      returnsTotal,
+      returnedCount,
     };
   }
 
@@ -543,6 +638,8 @@ class StorageService {
     netProfit: number;
     netMarginPercent: number;
     totalTransactions: number;
+    returnsTotal: number;
+    returnedCount: number;
     dailyBreakdown: DailyProfitLossReport[];
   } {
     const allSales = this.getSales();
@@ -554,20 +651,25 @@ class StorageService {
       return d >= startDateStr && d <= endDateStr;
     });
 
+    const activeSales = filteredSales.filter((s) => !s.isReturned);
+    const returnedSales = filteredSales.filter((s) => s.isReturned);
+
     const filteredExpenses = allExpenses.filter((e) => {
       return e.date >= startDateStr && e.date <= endDateStr;
     });
 
-    const grossSales = filteredSales.reduce((acc, s) => acc + s.totalAmount, 0);
-    const taxCollected = filteredSales.reduce((acc, s) => acc + s.taxAmount, 0);
+    const grossSales = activeSales.reduce((acc, s) => acc + s.totalAmount, 0);
+    const taxCollected = activeSales.reduce((acc, s) => acc + s.taxAmount, 0);
     const netSales = grossSales - taxCollected;
-    const cogs = filteredSales.reduce((acc, s) => acc + s.totalCost, 0);
+    const cogs = activeSales.reduce((acc, s) => acc + s.totalCost, 0);
     const grossProfit = netSales - cogs;
     const grossMarginPercent = netSales > 0 ? (grossProfit / netSales) * 100 : 0;
 
     const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
     const netProfit = grossProfit - totalExpenses;
     const netMarginPercent = netSales > 0 ? (netProfit / netSales) * 100 : 0;
+    const returnsTotal = returnedSales.reduce((acc, s) => acc + s.totalAmount, 0);
+    const returnedCount = returnedSales.length;
 
     // Collect all unique dates in the range
     const datesSet = new Set<string>();
@@ -588,7 +690,9 @@ class StorageService {
       totalExpenses,
       netProfit,
       netMarginPercent,
-      totalTransactions: filteredSales.length,
+      totalTransactions: activeSales.length,
+      returnsTotal,
+      returnedCount,
       dailyBreakdown,
     };
   }
@@ -793,6 +897,44 @@ class StorageService {
     } catch (e) {
       console.warn('Session write error:', e);
     }
+  }
+
+  // --- First-Login Welcome Animation Tracking ---
+  hasUserCompletedWelcome(userId: string): boolean {
+    if (typeof window === 'undefined' || !userId) return true;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.WELCOMED_USER_IDS);
+      if (!raw) return false;
+      const ids = JSON.parse(raw) as string[];
+      return ids.includes(userId);
+    } catch {
+      return false;
+    }
+  }
+
+  setUserCompletedWelcome(userId: string): void {
+    if (typeof window === 'undefined' || !userId) return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.WELCOMED_USER_IDS);
+      const ids: string[] = raw ? JSON.parse(raw) : [];
+      if (!ids.includes(userId)) {
+        ids.push(userId);
+        localStorage.setItem(STORAGE_KEYS.WELCOMED_USER_IDS, JSON.stringify(ids));
+      }
+    } catch (e) {
+      console.warn('Failed to save welcomed user status:', e);
+    }
+  }
+
+  resetUserWelcome(userId: string): void {
+    if (typeof window === 'undefined' || !userId) return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.WELCOMED_USER_IDS);
+      if (!raw) return;
+      const ids: string[] = JSON.parse(raw);
+      const updated = ids.filter((id) => id !== userId);
+      localStorage.setItem(STORAGE_KEYS.WELCOMED_USER_IDS, JSON.stringify(updated));
+    } catch {}
   }
 
   registerUser(userData: Omit<AppUser, 'id' | 'createdAt'>): AppUser {

@@ -19,6 +19,7 @@ import {
   UserCog,
   KeyRound,
   Lock,
+  Sparkles,
 } from 'lucide-react';
 import { StoreConfig, Sale, Expense, Product, Customer, AppUser } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
@@ -36,6 +37,7 @@ interface SettingsTabProps {
   customers: Customer[];
   onNavigate?: (tab: any) => void;
   currentUser?: AppUser | null;
+  onPlayWelcome?: (user: AppUser) => void;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -48,6 +50,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   customers,
   onNavigate,
   currentUser = null,
+  onPlayWelcome,
 }) => {
   // Master Passcode Security State
   const [criticalChallenge, setCriticalChallenge] = useState<{
@@ -497,7 +500,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               Manage cashier accounts, store manager permissions, 4-digit quick register PINs, and shift assignments for your stationery counter terminals.
             </p>
 
-            <div className="flex items-center gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               {onNavigate && (
                 <button
                   type="button"
@@ -506,6 +509,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 >
                   <UserCog className="w-4 h-4 text-forest-200" />
                   <span>Open Users & Staff Directory</span>
+                </button>
+              )}
+
+              {onPlayWelcome && currentUser && (
+                <button
+                  type="button"
+                  onClick={() => onPlayWelcome(currentUser)}
+                  className="px-4 py-2.5 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-amber-400 hover:text-amber-300 font-bold text-xs flex items-center gap-2 border border-charcoal-700 transition-all cursor-pointer active:scale-95"
+                  title="Replay the Welcome Animation for the active user"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Replay Welcome Experience</span>
                 </button>
               )}
             </div>

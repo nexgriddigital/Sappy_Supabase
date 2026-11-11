@@ -3751,6 +3751,19 @@
       "lowStockThreshold": 5,
       "unit": "pcs",
       "description": ""
+    },
+    {
+      "id": "prod-1794339671174",
+      "sku": "STN-0281",
+      "barcode": "890123000281",
+      "name": "Parker Jotter Stainless Steel Ballpoint Pen",
+      "category": "Writing & Pens",
+      "costPrice": 2,
+      "sellingPrice": 4.5,
+      "stockLevel": 25,
+      "lowStockThreshold": 5,
+      "unit": "pcs",
+      "description": ""
     }
   ],
   "customers": [
@@ -3777,7 +3790,54 @@
       "createdAt": "2026-11-10T16:03:24.798419+00:00"
     }
   ],
-  "sales": [],
+  "sales": [
+    {
+      "id": "sale-1794339434165",
+      "invoiceNumber": "INV-2026-0001",
+      "timestamp": "2026-11-10T19:37:14.165+00:00",
+      "customerName": "Walk-in Retail Customer",
+      "subtotal": 240,
+      "taxRate": 0,
+      "taxAmount": 0,
+      "discountAmount": 0,
+      "totalAmount": 240,
+      "totalCost": 0,
+      "grossProfit": 240,
+      "paymentMethod": "cash",
+      "amountTendered": 240,
+      "changeGiven": 0,
+      "isCreditPaid": true,
+      "paidAmount": 240,
+      "items": [
+        {
+          "sku": "STN-0208",
+          "name": "Radius Sharpener",
+          "unit": "pcs",
+          "category": "Writing & Pens",
+          "quantity": 1,
+          "unitCost": 0,
+          "lineTotal": 40,
+          "productId": "prod-import-1794085785284-207-2r9l",
+          "unitPrice": 40,
+          "lineCostTotal": 0,
+          "discountPercent": 0
+        },
+        {
+          "sku": "STN-0201",
+          "name": "Radical Tape Stationery",
+          "unit": "pcs",
+          "category": "General",
+          "quantity": 1,
+          "unitCost": 0,
+          "lineTotal": 200,
+          "productId": "prod-import-1794085785284-200-7aks",
+          "unitPrice": 200,
+          "lineCostTotal": 0,
+          "discountPercent": 0
+        }
+      ]
+    }
+  ],
   "expenses": [],
   "creditPayments": [],
   "config": {
@@ -3811,6 +3871,6 @@
       "updatedAt": "2026-11-08T09:42:00Z"
     }
   ],
-  "lastSyncedAt": "2026-11-10T17:22:49.501Z",
-  "version": 15422
+  "lastSyncedAt": "2026-11-11T10:16:04.748Z",
+  "version": 15704
 }

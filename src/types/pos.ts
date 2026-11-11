@@ -73,6 +73,12 @@ export interface Sale {
   creditDueDate?: string;
   paidAmount: number;     // For partial payments on credit
   notes?: string;
+  status?: 'completed' | 'returned';
+  isReturned?: boolean;
+  returnedAt?: string;
+  returnReason?: string;
+  refundMethod?: PaymentMethod | 'credit_reversal' | 'store_credit';
+  returnedBy?: string;
 }
 
 export interface Customer {
@@ -172,6 +178,8 @@ export interface DailyProfitLossReport {
   transactionCount: number;
   creditSalesTotal: number;
   creditCollectedTotal: number;
+  returnsTotal?: number;
+  returnedCount?: number;
 }
 
 export type UserRole = 'owner' | 'manager' | 'cashier';

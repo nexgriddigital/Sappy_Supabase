@@ -128,13 +128,25 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     });
   }, [creditPayments, startDate, endDate]);
 
+  const activeRangeSales = useMemo(() => {
+    return rangeSales.filter((s) => !s.isReturned);
+  }, [rangeSales]);
+
+  const returnedRangeSales = useMemo(() => {
+    return rangeSales.filter((s) => s.isReturned);
+  }, [rangeSales]);
+
+  const returnsTotalAmount = useMemo(() => {
+    return returnedRangeSales.reduce((acc, s) => acc + s.totalAmount, 0);
+  }, [returnedRangeSales]);
+
   // ----------------------------------------------------
-  // 1. P&L & Core Financial Metrics
+  // 1. P&L & Core Financial Metrics (Net of returns)
   // ----------------------------------------------------
-  const grossSales = rangeSales.reduce((acc, s) => acc + s.totalAmount, 0);
-  const taxCollected = rangeSales.reduce((acc, s) => acc + s.taxAmount, 0);
+  const grossSales = activeRangeSales.reduce((acc, s) => acc + s.totalAmount, 0);
+  const taxCollected = activeRangeSales.reduce((acc, s) => acc + s.taxAmount, 0);
   const netSales = grossSales - taxCollected;
-  const cogs = rangeSales.reduce((acc, s) => acc + s.totalCost, 0);
+  const cogs = activeRangeSales.reduce((acc, s) => acc + s.totalCost, 0);
   const grossProfit = netSales - cogs;
   const grossMarginPct = netSales > 0 ? (grossProfit / netSales) * 100 : 0;
   const totalExpenses = rangeExpenses.reduce((acc, e) => acc + e.amount, 0);
@@ -150,7 +162,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     const sortedDates = Array.from(datesSet).sort().reverse();
 
     return sortedDates.map((dStr) => {
-      const daySales = rangeSales.filter((s) => s.timestamp.startsWith(dStr));
+      const daySales = activeRangeSales.filter((s) => s.timestamp.startsWith(dStr));
+      const dayReturns = returnedRangeSales.filter((s) => s.timestamp.startsWith(dStr));
       const dayExpenses = rangeExpenses.filter((e) => e.date === dStr);
 
       const dGross = daySales.reduce((acc, s) => acc + s.totalAmount, 0);
@@ -161,10 +174,13 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       const dExpenses = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
       const dNetProfit = dGrossProfit - dExpenses;
       const dNetMargin = dNetSales > 0 ? (dNetProfit / dNetSales) * 100 : 0;
+      const dReturns = dayReturns.reduce((acc, s) => acc + s.totalAmount, 0);
 
       return {
         date: dStr,
         orderCount: daySales.length,
+        returnedCount: dayReturns.length,
+        returnsTotal: dReturns,
         grossSales: dGross,
         cogs: dCogs,
         grossProfit: dGrossProfit,
@@ -173,7 +189,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
         netMargin: dNetMargin,
       };
     });
-  }, [rangeSales, rangeExpenses]);
+  }, [rangeSales, activeRangeSales, returnedRangeSales, rangeExpenses]);
 
   // ----------------------------------------------------
   // 2. Sales by Payment Channel
@@ -188,7 +204,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     let digitalCount = 0;
     let creditCount = 0;
 
-    rangeSales.forEach((s) => {
+    activeRangeSales.forEach((s) => {
       if (s.paymentMethod === 'cash') {
         cashSum += s.totalAmount;
         cashCount++;
@@ -211,7 +227,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       { channel: 'Customer Credit (Debt Ledger)', amount: creditSum, count: creditCount, pct: (creditSum / total) * 100, color: 'text-amber-400', bg: 'bg-amber-500' },
       { channel: 'Debit / Credit Card POS', amount: cardSum, count: cardCount, pct: (cardSum / total) * 100, color: 'text-purple-400', bg: 'bg-purple-500' },
     ];
-  }, [rangeSales, grossSales]);
+  }, [activeRangeSales, grossSales]);
 
   // ----------------------------------------------------
   // 3. Product Sales & Performance Matrix
@@ -231,7 +247,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       }
     >();
 
-    rangeSales.forEach((sale) => {
+    activeRangeSales.forEach((sale) => {
       sale.items.forEach((item) => {
         const existing = map.get(item.productId) || {
           id: item.productId,
@@ -263,7 +279,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
         };
       })
       .sort((a, b) => b.revenue - a.revenue);
-  }, [rangeSales, products]);
+  }, [activeRangeSales, products]);
 
   // ----------------------------------------------------
   // 4. Inventory Valuation & Stock Health Metrics
@@ -376,7 +392,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     let vatCollected = 0;
     let exemptGross = 0;
 
-    rangeSales.forEach((s) => {
+    activeRangeSales.forEach((s) => {
       if (s.taxAmount > 0) {
         taxableGross += s.totalAmount;
         vatCollected += s.taxAmount;
@@ -394,9 +410,9 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       vatCollected,
       exemptGross,
       vatRate: config.defaultTaxRate,
-      invoiceCount: rangeSales.length,
+      invoiceCount: activeRangeSales.length,
     };
-  }, [rangeSales, grossSales, config.defaultTaxRate]);
+  }, [activeRangeSales, grossSales, config.defaultTaxRate]);
 
   // ----------------------------------------------------
   // Dedicated Bookkeeping & Accounting CSV Export: Financial Summary (Sales vs Expenses)
@@ -865,7 +881,14 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
               <p className="text-xl font-extrabold font-mono text-white mt-1">
                 {config.currencySymbol}{grossSales.toFixed(2)}
               </p>
-              <p className="text-[11px] text-charcoal-400 mt-1">{rangeSales.length} total orders recorded</p>
+              <p className="text-[11px] text-charcoal-400 mt-1">
+                {activeRangeSales.length} active orders
+                {returnedRangeSales.length > 0 && (
+                  <span className="block text-[10px] text-rose-400 font-medium">
+                    (-{config.currencySymbol}{returnsTotalAmount.toFixed(2)} in {returnedRangeSales.length} returns deducted)
+                  </span>
+                )}
+              </p>
             </div>
 
             <div className="bg-charcoal-900 p-4 rounded-xl border border-charcoal-800 shadow-2xs">

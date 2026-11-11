@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Printer, Download, X, CheckCircle, Clock } from 'lucide-react';
+import { Printer, Download, X, CheckCircle, Clock, RotateCcw } from 'lucide-react';
 import { Sale, StoreConfig } from '../types/pos.ts';
 import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 
@@ -142,7 +142,12 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
                 Payment Status:
               </p>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold font-mono uppercase">
-                {isPaid ? (
+                {sale.isReturned ? (
+                  <span className="flex items-center gap-1.5 text-rose-900 bg-rose-50 px-2.5 py-1 rounded border border-rose-300">
+                    <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+                    SALE REVERSED / RETURNED
+                  </span>
+                ) : isPaid ? (
                   <span className="flex items-center gap-1.5 text-forest-900 bg-forest-50 px-2.5 py-1 rounded border border-forest-200">
                     <CheckCircle className="w-3.5 h-3.5" />
                     PAID IN FULL · {sale.paymentMethod.toUpperCase()}
@@ -157,6 +162,18 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
               <p className="text-slate-500 text-[11px] mt-1.5">
                 Payment Method: <span className="font-semibold text-slate-800 capitalize">{sale.paymentMethod}</span>
               </p>
+              {sale.isReturned && (
+                <div className="mt-2 text-right">
+                  <p className="text-[10px] text-rose-700 font-semibold">
+                    Reversed at: {new Date(sale.returnedAt || '').toLocaleString()}
+                  </p>
+                  {sale.returnReason && (
+                    <p className="text-[10px] text-slate-600 italic">
+                      Reason: {sale.returnReason}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

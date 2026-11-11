@@ -198,6 +198,43 @@ class SoundEffectsService {
       osc.stop(now + 0.22);
     } catch {}
   }
+
+  /**
+   * Executive Welcome Fanfare / Login Chime:
+   * A warm, ascending 5-note arpeggio (F4 -> A4 -> C5 -> E5 -> A5)
+   * with smooth exponential release, creating a warm, premium luxury feel.
+   */
+  public playWelcomeFanfare() {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const notes = [
+        { freq: 349.23, time: 0.0, dur: 0.7, type: 'triangle' as OscillatorType, vol: 0.12 }, // F4
+        { freq: 440.0, time: 0.12, dur: 0.75, type: 'sine' as OscillatorType, vol: 0.14 },    // A4
+        { freq: 523.25, time: 0.24, dur: 0.85, type: 'triangle' as OscillatorType, vol: 0.15 }, // C5
+        { freq: 659.25, time: 0.38, dur: 1.0, type: 'sine' as OscillatorType, vol: 0.16 },    // E5
+        { freq: 880.0, time: 0.52, dur: 1.3, type: 'sine' as OscillatorType, vol: 0.13 },     // A5 shimmer
+      ];
+
+      notes.forEach((n) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = n.type;
+        osc.frequency.setValueAtTime(n.freq, now + n.time);
+        gain.gain.setValueAtTime(0.001, now + n.time);
+        gain.gain.linearRampToValueAtTime(n.vol, now + n.time + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + n.time + n.dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + n.time);
+        osc.stop(now + n.time + n.dur);
+      });
+    } catch {}
+  }
 }
 
 export const soundEffects = new SoundEffectsService();

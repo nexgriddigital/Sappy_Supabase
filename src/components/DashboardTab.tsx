@@ -18,6 +18,7 @@ import {
   Calendar,
   Settings,
   UserCog,
+  RotateCcw,
 } from 'lucide-react';
 import { Sale, Product, Customer, Expense, StoreConfig } from '../types/pos.ts';
 
@@ -44,15 +45,15 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const currentMonthStr = useMemo(() => new Date().toISOString().slice(0, 7), []);
 
-  // Filter today's transactions
-  const todaySales = useMemo(() => sales.filter((s) => s.timestamp.startsWith(todayStr)), [sales, todayStr]);
+  // Filter today's transactions (excluding returns)
+  const todaySales = useMemo(() => sales.filter((s) => !s.isReturned && s.timestamp.startsWith(todayStr)), [sales, todayStr]);
   const todayRevenue = useMemo(() => todaySales.reduce((acc, s) => acc + s.totalAmount, 0), [todaySales]);
   const todayGrossProfit = useMemo(() => todaySales.reduce((acc, s) => acc + s.grossProfit, 0), [todaySales]);
   const todayExpenses = useMemo(() => expenses.filter((e) => e.date === todayStr).reduce((acc, e) => acc + e.amount, 0), [expenses, todayStr]);
   const todayNetProfit = todayGrossProfit - todayExpenses;
 
-  // Monthly stats
-  const mtdSales = useMemo(() => sales.filter((s) => s.timestamp.startsWith(currentMonthStr)), [sales, currentMonthStr]);
+  // Monthly stats (excluding returns)
+  const mtdSales = useMemo(() => sales.filter((s) => !s.isReturned && s.timestamp.startsWith(currentMonthStr)), [sales, currentMonthStr]);
   const mtdRevenue = useMemo(() => mtdSales.reduce((acc, s) => acc + s.totalAmount, 0), [mtdSales]);
   const mtdExpenses = useMemo(() => expenses.filter((e) => e.date.startsWith(currentMonthStr)).reduce((acc, e) => acc + e.amount, 0), [expenses, currentMonthStr]);
   const mtdGrossProfit = useMemo(() => mtdSales.reduce((acc, s) => acc + s.grossProfit, 0), [mtdSales]);
@@ -71,10 +72,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   // Recent 6 Sales
   const recentSales = useMemo(() => sales.slice(0, 6), [sales]);
 
-  // Top 5 Selling items
+  // Top 5 Selling items (from completed non-returned sales)
   const topProducts = useMemo(() => {
     const map = new Map<string, { name: string; sku: string; qty: number; revenue: number }>();
-    sales.forEach((sale) => {
+    sales.filter((s) => !s.isReturned).forEach((sale) => {
       sale.items.forEach((item) => {
         const existing = map.get(item.productId) || { name: item.name, sku: item.sku, qty: 0, revenue: 0 };
         existing.qty += item.quantity;
@@ -259,11 +260,29 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                           {sale.paymentMethod}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-extrabold text-white">
-                        {config.currencySymbol}{sale.totalAmount.toFixed(2)}
+                      <td className="py-3 px-4 text-right font-mono font-extrabold">
+                        {sale.isReturned ? (
+                          <div>
+                            <span className="text-charcoal-500 line-through text-[11px] block">
+                              {config.currencySymbol}{sale.totalAmount.toFixed(2)}
+                            </span>
+                            <span className="text-rose-400 text-xs font-bold">
+                              Reversed
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-white">
+                            {config.currencySymbol}{sale.totalAmount.toFixed(2)}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        {sale.paymentMethod === 'credit' && !sale.isCreditPaid ? (
+                        {sale.isReturned ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-300 bg-rose-950/60 border border-rose-800 px-2 py-0.5 rounded">
+                            <RotateCcw className="w-3 h-3 text-rose-400" />
+                            Returned
+                          </span>
+                        ) : sale.paymentMethod === 'credit' && !sale.isCreditPaid ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded">
                             <Clock className="w-3 h-3" />
                             Pending

@@ -47,6 +47,7 @@ interface UsersTabProps {
   onRefreshData: () => void;
   syncState?: SyncState;
   onSyncNow?: () => Promise<boolean>;
+  onPlayWelcome?: (user: AppUser) => void;
 }
 
 export const UsersTab: React.FC<UsersTabProps> = ({
@@ -57,6 +58,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
   onRefreshData,
   syncState,
   onSyncNow,
+  onPlayWelcome,
 }) => {
   // All Users from storage / props
   const [users, setUsers] = useState<AppUser[]>(() =>
@@ -532,6 +534,18 @@ export const UsersTab: React.FC<UsersTabProps> = ({
             <span>{isManualSyncing ? 'Syncing...' : 'Sync Devices'}</span>
           </button>
 
+          {onPlayWelcome && currentUser && (
+            <button
+              type="button"
+              onClick={() => onPlayWelcome(currentUser)}
+              className="px-3.5 py-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-amber-400 hover:text-amber-300 text-xs font-semibold flex items-center gap-1.5 border border-charcoal-700 transition-colors cursor-pointer"
+              title="Preview the First Login Welcome Animation"
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Welcome Screen</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setIsPermissionsGuideOpen(true)}
@@ -938,6 +952,17 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                           )}
 
                           {/* Edit User Button */}
+                          {onPlayWelcome && (
+                            <button
+                              type="button"
+                              onClick={() => onPlayWelcome(user)}
+                              className="p-1.5 rounded-lg text-amber-400/80 hover:text-amber-300 hover:bg-charcoal-800 transition-colors cursor-pointer"
+                              title={`Preview Welcome Animation for ${user.fullName}`}
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(user)}
