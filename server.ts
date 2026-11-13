@@ -12,7 +12,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = parseInt(process.env.PORT || '3000', 10);
+const cliPortIdx = process.argv.indexOf('--port');
+const cliPort = cliPortIdx !== -1 ? process.argv[cliPortIdx + 1] : undefined;
+const envPort =
+  process.env.PORT && process.env.PORT !== process.env.NGINX_PORT
+    ? process.env.PORT
+    : undefined;
+const port = parseInt(cliPort || envPort || process.env.DEFAULT_APP_PORT || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
 // Universal CORS Middleware for GitHub Pages and Cross-Device Access
@@ -69,6 +75,7 @@ interface PosState {
   users: any[];
   lastSyncedAt: string;
   version: number;
+  isReset?: boolean;
 }
 
 const DEFAULT_STARTER_PRODUCTS = [
@@ -239,6 +246,11 @@ function loadServerState(): PosState {
     if (fs.existsSync(STORE_FILE)) {
       const content = fs.readFileSync(STORE_FILE, 'utf-8');
       const parsed = JSON.parse(content) as PosState;
+
+      if (parsed.isReset) {
+        return parsed;
+      }
+
       let changed = false;
 
       if (!parsed.products || parsed.products.length === 0) {
@@ -359,24 +371,51 @@ app.get('/api/pos/state', (_req: Request, res: Response) => {
 
 // Multi-Device Sync: Bi-Directional Merge & Push
 app.post('/api/pos/sync', (req: Request, res: Response) => {
-  const { payload } = req.body;
+  const { payload, isNewSetup } = req.body;
   if (!payload) {
     return res.status(400).json({ success: false, error: 'Payload is required' });
   }
 
+  // Prevent background timers from stale peer tabs re-uploading data after Factory Reset
+  if (serverState.isReset && !isNewSetup) {
+    return res.json({
+      success: true,
+      wasReset: true,
+      message: 'Server is in factory reset state; peer wiped',
+      state: serverState,
+      serverTime: serverState.lastSyncedAt,
+      version: serverState.version,
+    });
+  }
+
   try {
-    // 1. Merge Products (keep latest updates)
+    const parseUpdatedTime = (iso?: string) => {
+      if (!iso) return 0;
+      const t = new Date(iso).getTime();
+      return Number.isNaN(t) ? 0 : t;
+    };
+
+    // 1. Merge Products (keep newest updatedAt so stock deductions never revert)
     if (serverState.products.length === 0 && payload.products && payload.products.length > 0) {
       serverState.products = payload.products;
     } else if (payload.products && Array.isArray(payload.products) && payload.products.length > 0) {
-      const prodMap = new Map(serverState.products.map((p) => [p.id, p]));
+      const prodMap = new Map(serverState.products.map((p: any) => [p.id, p]));
       for (const p of payload.products) {
-        prodMap.set(p.id, p);
+        const existing: any = prodMap.get(p.id);
+        if (!existing) {
+          prodMap.set(p.id, p);
+        } else {
+          const existingTime = parseUpdatedTime(existing.updatedAt);
+          const incomingTime = parseUpdatedTime(p.updatedAt);
+          if (incomingTime >= existingTime) {
+            prodMap.set(p.id, p);
+          }
+        }
       }
       serverState.products = Array.from(prodMap.values());
     }
 
-    // 2. Merge Customers
+    // 2. Merge Customers (keep newest updatedAt so credit balances never revert)
     const deletedCustIds: string[] = Array.isArray(payload.deletedCustomerIds) ? payload.deletedCustomerIds : [];
     if (deletedCustIds.length > 0) {
       const delSet = new Set(deletedCustIds);
@@ -393,16 +432,29 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
       );
       for (const c of payload.customers) {
         if (!delSet.has(c.id)) {
-          custMap.set(c.id, c);
+          const existing: any = custMap.get(c.id);
+          if (!existing) {
+            custMap.set(c.id, c);
+          } else {
+            const existingTime = parseUpdatedTime(existing.updatedAt);
+            const incomingTime = parseUpdatedTime(c.updatedAt);
+            if (incomingTime >= existingTime) {
+              custMap.set(c.id, c);
+            }
+          }
         }
       }
       serverState.customers = Array.from(custMap.values());
     }
 
-    // 3. Merge Sales (union by id, sorted by timestamp descending)
+    // 3. Merge Sales (union by id, preserve returned status, sorted by timestamp descending)
     if (payload.sales && Array.isArray(payload.sales) && payload.sales.length > 0) {
-      const salesMap = new Map(serverState.sales.map((s) => [s.id, s]));
+      const salesMap = new Map(serverState.sales.map((s: any) => [s.id, s]));
       for (const s of payload.sales) {
+        const existing: any = salesMap.get(s.id);
+        if (existing && existing.isReturned && !s.isReturned) {
+          continue;
+        }
         salesMap.set(s.id, s);
       }
       serverState.sales = Array.from(salesMap.values()).sort(
@@ -495,6 +547,13 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
       });
     }
 
+    if (
+      (payload.products && payload.products.length > 0) ||
+      (payload.users && payload.users.length > 0)
+    ) {
+      serverState.isReset = false;
+    }
+
     serverState.lastSyncedAt = new Date().toISOString();
     serverState.version += 1;
     saveServerState(serverState);
@@ -512,7 +571,7 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
 });
 
 // Multi-Device Sync: Reset Server Store
-app.post('/api/pos/reset', (_req: Request, res: Response) => {
+app.post('/api/pos/reset', async (_req: Request, res: Response) => {
   serverState = {
     products: [],
     customers: [],
@@ -523,9 +582,29 @@ app.post('/api/pos/reset', (_req: Request, res: Response) => {
     users: [],
     lastSyncedAt: new Date().toISOString(),
     version: serverState.version + 1,
+    isReset: true,
   };
   saveServerState(serverState);
-  return res.json({ success: true, message: 'Server state cleared' });
+
+  // If Postgres database is connected, clear tables
+  const pool = getPool();
+  if (pool) {
+    try {
+      const client = await pool.connect();
+      await client.query('DELETE FROM sale_items').catch(() => {});
+      await client.query('DELETE FROM sales').catch(() => {});
+      await client.query('DELETE FROM credit_payments').catch(() => {});
+      await client.query('DELETE FROM expenses').catch(() => {});
+      await client.query('DELETE FROM products').catch(() => {});
+      await client.query('DELETE FROM customers').catch(() => {});
+      await client.query('DELETE FROM store_settings').catch(() => {});
+      client.release();
+    } catch (err: any) {
+      console.warn('Postgres reset warning:', err.message);
+    }
+  }
+
+  return res.json({ success: true, message: 'Server state and all records cleared' });
 });
 
 // Multi-Device Sync: Status & Diagnostics

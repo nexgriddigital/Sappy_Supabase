@@ -168,16 +168,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
     setCriticalChallenge({
       actionName: 'Factory Reset (Wipe Everything)',
-      actionDescription: 'Permanently wipe all product catalog, customers, sales invoices, debts, and expenses to an empty clean slate across all devices.',
+      actionDescription:
+        'Permanently wipe all users, products (manual and bulk imported), customer accounts, sales invoices, debts, and expenses to an empty clean slate across all devices.',
       onExecute: async () => {
         await crossDeviceSyncService.resetAllDevices();
         onDataReset();
         setShowResetAllModal(false);
         setResetAllConfirmText('');
-        setResetAllSuccessMsg(
-          'System completely wiped clean (0 products, 0 sales, 0 debts, 0 expenses) across all connected devices.'
-        );
-        setTimeout(() => setResetAllSuccessMsg(null), 8000);
       },
     });
   };
@@ -717,10 +714,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-900/60 text-xs text-rose-200 space-y-1.5">
               <div className="flex items-center gap-1.5 font-bold text-rose-300">
                 <ShieldAlert className="w-4 h-4 shrink-0 text-rose-400" />
-                <span>Full System Clean Slate</span>
+                <span>Full System Clean Slate (Includes Users & All Data)</span>
               </div>
               <p className="text-[11px] text-rose-200/90 leading-relaxed">
-                Permanently wipes all product inventory, customer accounts, sales invoices, payment history, and recorded expenses. The store database will be completely reset to a clean, empty state.
+                Permanently wipes everything: all staff and owner accounts, all products (both manually created and bulk-imported), customer accounts and debts, sales invoices, payment receipts, and expenses across all connected devices and cloud databases. The terminal will return to clean First-Time Store Setup mode.
               </p>
             </div>
 
@@ -828,10 +825,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </p>
 
             <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 text-xs space-y-1 font-mono text-rose-300">
-              <p>• {sales.length} sales invoices will be erased.</p>
-              <p>• {expenses.length} expense entries will be erased.</p>
-              <p>• {customers.length} customer records will be erased.</p>
-              <p>• {products.length} products and stock levels will be completely erased (0 items).</p>
+              <p>• ALL staff & owner profiles ({storageService.getUsers().length} accounts) will be erased.</p>
+              <p>• ALL products ({products.length} items, manual & bulk) will be erased.</p>
+              <p>• ALL customers ({customers.length} records) & debts will be erased.</p>
+              <p>• ALL sales invoices ({sales.length} transactions) will be erased.</p>
+              <p>• ALL expenses ({expenses.length} records) will be erased.</p>
+              <p>• Central Server & Supabase database will be completely wiped.</p>
+              <p>• System will immediately log out and prompt First-Time Store Owner Setup.</p>
             </div>
 
             <div className="space-y-1.5">

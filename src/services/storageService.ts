@@ -311,12 +311,16 @@ class StorageService {
     this.clearDeletedCustomerId(customer.id);
     const customers = this.getCustomers();
     const index = customers.findIndex((c) => c.id === customer.id);
+    const customerToSave: Customer = {
+      ...customer,
+      updatedAt: new Date().toISOString(),
+    };
     let updated: Customer[];
     if (index >= 0) {
       updated = [...customers];
-      updated[index] = customer;
+      updated[index] = customerToSave;
     } else {
-      updated = [customer, ...customers];
+      updated = [customerToSave, ...customers];
     }
     this.set(STORAGE_KEYS.CUSTOMERS, updated);
     return updated;
@@ -346,7 +350,7 @@ class StorageService {
     };
 
     const payments = [newPayment, ...this.getCreditPayments()];
-    this.set(STORAGE_KEYS.PAYMENTS, payments);
+    this.set(STORAGE_KEYS.PAYMENTS, payments, false);
 
     // Reduce customer's credit balance
     const customers = this.getCustomers();
@@ -355,10 +359,12 @@ class StorageService {
       customers[custIndex] = {
         ...customers[custIndex],
         creditBalance: Math.max(0, customers[custIndex].creditBalance - payment.amount),
+        updatedAt: new Date().toISOString(),
       };
-      this.set(STORAGE_KEYS.CUSTOMERS, customers);
+      this.set(STORAGE_KEYS.CUSTOMERS, customers, false);
     }
 
+    this.notifyChange();
     return { payment: newPayment, customers };
   }
 
@@ -375,6 +381,7 @@ class StorageService {
       customers[custIndex] = {
         ...customers[custIndex],
         creditBalance: updatedBalance,
+        updatedAt: new Date().toISOString(),
         notes: reason
           ? `${customers[custIndex].notes ? customers[custIndex].notes + ' • ' : ''}[Manual Credit Adjustment: ${amountDelta > 0 ? '+' : ''}${amountDelta} Br - ${reason}]`
           : customers[custIndex].notes,
@@ -410,31 +417,44 @@ class StorageService {
     const count = sales.length + 1;
     const year = new Date().getFullYear();
     const invoiceNumber = `INV-${year}-${String(count).padStart(4, '0')}`;
+    const nowIso = new Date().toISOString();
 
     const newSale: Sale = {
       ...saleData,
       id: `sale-${Date.now()}`,
       invoiceNumber,
-      timestamp: new Date().toISOString(),
+      timestamp: nowIso,
     };
 
-    // 1. Save Sale
+    // 1. Save Sale (batch notifications until stock and customer balances are also written)
     const updatedSales = [newSale, ...sales];
-    this.set(STORAGE_KEYS.SALES, updatedSales);
+    this.set(STORAGE_KEYS.SALES, updatedSales, false);
 
     // 2. Deduct Inventory Stock
     const products = this.getProducts();
+    let productsModified = false;
     newSale.items.forEach((item) => {
-      const pIndex = products.findIndex((p) => p.id === item.productId);
+      let pIndex = products.findIndex((p) => p.id === item.productId);
+      if (pIndex < 0 && item.sku) {
+        const normalizedSku = item.sku.trim().toLowerCase();
+        pIndex = products.findIndex(
+          (p) => p.sku && p.sku.trim().toLowerCase() === normalizedSku
+        );
+      }
       if (pIndex >= 0) {
+        const currentStock = Number(products[pIndex].stockLevel || 0);
+        const soldQty = Number(item.quantity || 0);
         products[pIndex] = {
           ...products[pIndex],
-          stockLevel: Math.max(0, products[pIndex].stockLevel - item.quantity),
-          updatedAt: new Date().toISOString(),
+          stockLevel: Math.max(0, currentStock - soldQty),
+          updatedAt: nowIso,
         };
+        productsModified = true;
       }
     });
-    this.set(STORAGE_KEYS.PRODUCTS, products);
+    if (productsModified) {
+      this.set(STORAGE_KEYS.PRODUCTS, products, false);
+    }
 
     // 3. If Credit Sale, add debt to Customer Account
     if (newSale.paymentMethod === 'credit' && newSale.customerId) {
@@ -446,8 +466,9 @@ class StorageService {
           ...customers[cIndex],
           creditBalance: customers[cIndex].creditBalance + remainingUnpaid,
           totalPurchased: customers[cIndex].totalPurchased + newSale.totalAmount,
+          updatedAt: nowIso,
         };
-        this.set(STORAGE_KEYS.CUSTOMERS, customers);
+        this.set(STORAGE_KEYS.CUSTOMERS, customers, false);
       }
     } else if (newSale.customerId) {
       // Cash/card sale for existing customer
@@ -457,11 +478,13 @@ class StorageService {
         customers[cIndex] = {
           ...customers[cIndex],
           totalPurchased: customers[cIndex].totalPurchased + newSale.totalAmount,
+          updatedAt: nowIso,
         };
-        this.set(STORAGE_KEYS.CUSTOMERS, customers);
+        this.set(STORAGE_KEYS.CUSTOMERS, customers, false);
       }
     }
 
+    this.notifyChange();
     return newSale;
   }
 
@@ -502,24 +525,30 @@ class StorageService {
     };
 
     sales[saleIndex] = updatedSale;
-    this.set(STORAGE_KEYS.SALES, sales);
+    this.set(STORAGE_KEYS.SALES, sales, false);
 
     // 2. Automatically increment product stock back into inventory
     const products = this.getProducts();
     let productsModified = false;
     targetSale.items.forEach((item) => {
-      const pIndex = products.findIndex((p) => p.id === item.productId);
+      let pIndex = products.findIndex((p) => p.id === item.productId);
+      if (pIndex < 0 && item.sku) {
+        const normalizedSku = item.sku.trim().toLowerCase();
+        pIndex = products.findIndex(
+          (p) => p.sku && p.sku.trim().toLowerCase() === normalizedSku
+        );
+      }
       if (pIndex >= 0) {
         products[pIndex] = {
           ...products[pIndex],
-          stockLevel: products[pIndex].stockLevel + item.quantity,
+          stockLevel: Number(products[pIndex].stockLevel || 0) + Number(item.quantity || 0),
           updatedAt: nowIso,
         };
         productsModified = true;
       }
     });
     if (productsModified) {
-      this.set(STORAGE_KEYS.PRODUCTS, products);
+      this.set(STORAGE_KEYS.PRODUCTS, products, false);
     }
 
     // 3. Reverse customer debt if credit sale or adjust customer spend
@@ -540,14 +569,16 @@ class StorageService {
           ...cust,
           creditBalance: newCreditBalance,
           totalPurchased: newTotalPurchased,
+          updatedAt: nowIso,
           notes: cust.notes
             ? `${cust.notes} • [Return: Reversed ${targetSale.invoiceNumber}]`
             : `[Return: Reversed ${targetSale.invoiceNumber}]`,
         };
-        this.set(STORAGE_KEYS.CUSTOMERS, customers);
+        this.set(STORAGE_KEYS.CUSTOMERS, customers, false);
       }
     }
 
+    this.notifyChange();
     return { success: true, sale: updatedSale };
   }
 
@@ -819,17 +850,25 @@ class StorageService {
     return { clearedSalesCount: salesCount, clearedExpensesCount: expCount };
   }
 
-  resetEverything(): void {
+  resetEverything(notify = true): void {
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
-    this.set(STORAGE_KEYS.PRODUCTS, []);
-    this.set(STORAGE_KEYS.CUSTOMERS, []);
-    this.set(STORAGE_KEYS.SALES, []);
-    this.set(STORAGE_KEYS.EXPENSES, []);
-    this.set(STORAGE_KEYS.PAYMENTS, []);
-    this.set(STORAGE_KEYS.USERS, []);
+    this.set(STORAGE_KEYS.PRODUCTS, [], false);
+    this.set(STORAGE_KEYS.CUSTOMERS, [], false);
+    this.set(STORAGE_KEYS.SALES, [], false);
+    this.set(STORAGE_KEYS.EXPENSES, [], false);
+    this.set(STORAGE_KEYS.PAYMENTS, [], false);
+    this.set(STORAGE_KEYS.USERS, [], false);
+    this.setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    try {
+      sessionStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    } catch {}
     localStorage.removeItem(STORAGE_KEYS.DELETED_USER_IDS);
     localStorage.removeItem(STORAGE_KEYS.DELETED_CUSTOMER_IDS);
+    localStorage.removeItem(STORAGE_KEYS.WELCOMED_USER_IDS);
+    if (notify) {
+      this.notifyChange();
+    }
   }
 
   // --- User Authentication & Session Management ---
@@ -842,7 +881,11 @@ class StorageService {
     if (raw !== null) {
       try {
         const parsed = JSON.parse(raw) as AppUser[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
+          // If explicitly empty (e.g. wiped after Reset Everything), strictly return empty list
+          if (parsed.length === 0) {
+            return [];
+          }
           // Filter out the three unknown mock users: Abebe, Bethelhem, and Dawit
           let filtered = parsed.filter((u) => {
             const email = (u?.email || '').toLowerCase().trim();
@@ -853,26 +896,30 @@ class StorageService {
             );
           });
 
-          // Ensure Amanuel Hailu (store owner) exists in the accounts list
-          const hasAmanuel = filtered.some((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com');
-          if (!hasAmanuel) {
-            filtered = [DEFAULT_INITIAL_USERS[0], ...filtered];
+          // Ensure default owners are maintained only if accounts already exist and store is not reset
+          if (filtered.length > 0 && localStorage.getItem(STORAGE_KEYS.INITIALIZED) !== 'true') {
+            const hasAmanuel = filtered.some((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com');
+            if (!hasAmanuel && DEFAULT_INITIAL_USERS[0]) {
+              filtered = [DEFAULT_INITIAL_USERS[0], ...filtered];
+            }
+            const hasYohannes = filtered.some((u) => u.email.toLowerCase() === 'yohannesleulseged802@gmail.com');
+            if (!hasYohannes && DEFAULT_INITIAL_USERS[1]) {
+              filtered = [...filtered, DEFAULT_INITIAL_USERS[1]];
+            }
           }
 
-          // Ensure Yohannes Leulseged (store owner) exists in the accounts list
-          const hasYohannes = filtered.some((u) => u.email.toLowerCase() === 'yohannesleulseged802@gmail.com');
-          if (!hasYohannes && DEFAULT_INITIAL_USERS[1]) {
-            filtered = [...filtered, DEFAULT_INITIAL_USERS[1]];
-          }
-
-          if (filtered.length !== parsed.length || !hasAmanuel || !hasYohannes) {
+          if (filtered.length !== parsed.length) {
             this.set(STORAGE_KEYS.USERS, filtered, false);
           }
           return filtered;
         }
       } catch {
-        // Fallback to defaults
+        return [];
       }
+    }
+    // If store has been initialized (e.g. wiped clean by Reset Everything), keep empty clean slate
+    if (localStorage.getItem(STORAGE_KEYS.INITIALIZED) === 'true') {
+      return [];
     }
     this.set(STORAGE_KEYS.USERS, DEFAULT_INITIAL_USERS, false);
     return DEFAULT_INITIAL_USERS;
@@ -1173,11 +1220,13 @@ class StorageService {
       }
     }
 
-    // 3. Ensure default initial owners (Amanuel and Yohannes) are preserved
-    for (const def of DEFAULT_INITIAL_USERS) {
-      const defKey = getKey(def);
-      if (!userMap.has(defKey) && !deletedIds.has(def.id)) {
-        userMap.set(defKey, def);
+    // 3. Ensure default initial owners are preserved ONLY IF database is not in clean reset state
+    if (localStorage.getItem(STORAGE_KEYS.INITIALIZED) !== 'true' && userMap.size > 0) {
+      for (const def of DEFAULT_INITIAL_USERS) {
+        const defKey = getKey(def);
+        if (!userMap.has(defKey) && !deletedIds.has(def.id)) {
+          userMap.set(defKey, def);
+        }
       }
     }
 
@@ -1192,35 +1241,240 @@ class StorageService {
     });
   }
 
-  hydrateFromServer(state: {
-    products?: Product[];
-    customers?: Customer[];
-    sales?: Sale[];
-    expenses?: Expense[];
-    creditPayments?: CreditPayment[];
-    config?: StoreConfig;
-    users?: AppUser[];
-    deletedUserIds?: string[];
-    deletedCustomerIds?: string[];
-  }): void {
+  mergeProductArrays(
+    localList: Product[],
+    incomingList: Product[],
+    minLocalTimeMs = 0,
+    canonicalRemote = false
+  ): Product[] {
+    const parseTime = (iso?: string) => {
+      if (!iso) return 0;
+      const t = new Date(iso).getTime();
+      return Number.isNaN(t) ? 0 : t;
+    };
+
+    if (canonicalRemote) {
+      const localMap = new Map(localList.map((p) => [p.id, p]));
+      const mergedMap = new Map<string, Product>();
+
+      for (const rp of incomingList) {
+        const lp = localMap.get(rp.id);
+        if (!lp) {
+          mergedMap.set(rp.id, rp);
+        } else {
+          const localTime = parseTime(lp.updatedAt);
+          const remoteTime = parseTime(rp.updatedAt);
+          if ((minLocalTimeMs > 0 && localTime >= minLocalTimeMs) || localTime > remoteTime) {
+            mergedMap.set(rp.id, lp);
+          } else {
+            mergedMap.set(rp.id, rp);
+          }
+        }
+      }
+
+      // Preserve brand new local products created during an in-flight sync
+      for (const lp of localList) {
+        if (!mergedMap.has(lp.id)) {
+          const localTime = parseTime(lp.updatedAt);
+          if (minLocalTimeMs > 0 && localTime >= minLocalTimeMs) {
+            mergedMap.set(lp.id, lp);
+          }
+        }
+      }
+
+      return Array.from(mergedMap.values());
+    }
+
+    // Additive bi-directional merge (e.g. Supabase sync): preserve newer local edits & sales deductions
+    const mergedMap = new Map(localList.map((p) => [p.id, p]));
+    for (const rp of incomingList) {
+      const lp = mergedMap.get(rp.id);
+      if (!lp) {
+        mergedMap.set(rp.id, rp);
+      } else {
+        const localTime = parseTime(lp.updatedAt);
+        const remoteTime = parseTime(rp.updatedAt);
+        if (minLocalTimeMs > 0 && localTime >= minLocalTimeMs) {
+          continue;
+        }
+        if (remoteTime > localTime) {
+          mergedMap.set(rp.id, rp);
+        }
+      }
+    }
+    return Array.from(mergedMap.values());
+  }
+
+  mergeProductsFromRemote(remoteProducts: Product[], minLocalTimeMs = 0): Product[] {
+    const merged = this.mergeProductArrays(
+      this.getProducts(),
+      remoteProducts,
+      minLocalTimeMs,
+      false
+    );
+    this.set(STORAGE_KEYS.PRODUCTS, merged, false);
+    return merged;
+  }
+
+  mergeCustomerArrays(
+    localList: Customer[],
+    incomingList: Customer[],
+    minLocalTimeMs = 0,
+    canonicalRemote = false
+  ): Customer[] {
+    const localDeleted = new Set(this.getDeletedCustomerIds());
+    const parseTime = (iso?: string) => {
+      if (!iso) return 0;
+      const t = new Date(iso).getTime();
+      return Number.isNaN(t) ? 0 : t;
+    };
+
+    const filteredIncoming = incomingList.filter(
+      (c) => !localDeleted.has(c.id) && !c.id.startsWith('__system_')
+    );
+    const localMap = new Map(
+      localList
+        .filter((c) => !localDeleted.has(c.id) && !c.id.startsWith('__system_'))
+        .map((c) => [c.id, c])
+    );
+
+    if (canonicalRemote) {
+      const mergedMap = new Map<string, Customer>();
+      for (const rc of filteredIncoming) {
+        const lc = localMap.get(rc.id);
+        if (!lc) {
+          mergedMap.set(rc.id, rc);
+        } else {
+          const localTime = parseTime(lc.updatedAt);
+          const remoteTime = parseTime(rc.updatedAt);
+          if ((minLocalTimeMs > 0 && localTime >= minLocalTimeMs) || localTime > remoteTime) {
+            mergedMap.set(rc.id, lc);
+          } else {
+            mergedMap.set(rc.id, rc);
+          }
+        }
+      }
+      for (const lc of localMap.values()) {
+        if (!mergedMap.has(lc.id)) {
+          const localTime = parseTime(lc.updatedAt);
+          if (minLocalTimeMs > 0 && localTime >= minLocalTimeMs) {
+            mergedMap.set(lc.id, lc);
+          }
+        }
+      }
+      return Array.from(mergedMap.values());
+    }
+
+    const mergedMap = new Map(localMap);
+    for (const rc of filteredIncoming) {
+      const lc = mergedMap.get(rc.id);
+      if (!lc) {
+        mergedMap.set(rc.id, rc);
+      } else {
+        const localTime = parseTime(lc.updatedAt);
+        const remoteTime = parseTime(rc.updatedAt);
+        if (minLocalTimeMs > 0 && localTime >= minLocalTimeMs) {
+          continue;
+        }
+        if (remoteTime > localTime) {
+          mergedMap.set(rc.id, rc);
+        }
+      }
+    }
+    return Array.from(mergedMap.values());
+  }
+
+  mergeCustomersFromRemote(remoteCustomers: Customer[], minLocalTimeMs = 0): Customer[] {
+    const merged = this.mergeCustomerArrays(
+      this.getCustomers(),
+      remoteCustomers,
+      minLocalTimeMs,
+      false
+    );
+    this.set(STORAGE_KEYS.CUSTOMERS, merged, false);
+    return merged;
+  }
+
+  hydrateFromServer(
+    state: {
+      products?: Product[];
+      customers?: Customer[];
+      sales?: Sale[];
+      expenses?: Expense[];
+      creditPayments?: CreditPayment[];
+      config?: StoreConfig;
+      users?: AppUser[];
+      deletedUserIds?: string[];
+      deletedCustomerIds?: string[];
+      isReset?: boolean;
+    },
+    minLocalTimeMs = 0
+  ): void {
+    if (state.isReset) {
+      this.resetEverything(false);
+      return;
+    }
+    const parseTime = (iso?: string) => {
+      if (!iso) return 0;
+      const t = new Date(iso).getTime();
+      return Number.isNaN(t) ? 0 : t;
+    };
+
     if (state.products && Array.isArray(state.products)) {
-      this.set(STORAGE_KEYS.PRODUCTS, state.products, false);
+      const mergedProducts = this.mergeProductArrays(
+        this.getProducts(),
+        state.products,
+        minLocalTimeMs,
+        true
+      );
+      this.set(STORAGE_KEYS.PRODUCTS, mergedProducts, false);
     }
     if (state.customers && Array.isArray(state.customers)) {
-      const localDeleted = new Set(this.getDeletedCustomerIds());
-      const filtered = state.customers.filter(
-        (c) => !localDeleted.has(c.id) && !c.id.startsWith('__system_')
+      const mergedCustomers = this.mergeCustomerArrays(
+        this.getCustomers(),
+        state.customers,
+        minLocalTimeMs,
+        true
       );
-      this.set(STORAGE_KEYS.CUSTOMERS, filtered, false);
+      this.set(STORAGE_KEYS.CUSTOMERS, mergedCustomers, false);
     }
     if (state.sales && Array.isArray(state.sales)) {
-      this.set(STORAGE_KEYS.SALES, state.sales, false);
+      const localSales = this.getSales();
+      const salesMap = new Map(state.sales.map((s) => [s.id, s]));
+      for (const ls of localSales) {
+        const rs = salesMap.get(ls.id);
+        if (!rs) {
+          if (minLocalTimeMs > 0 && parseTime(ls.timestamp) >= minLocalTimeMs) {
+            salesMap.set(ls.id, ls);
+          }
+        } else if (ls.isReturned && !rs.isReturned) {
+          salesMap.set(ls.id, ls);
+        }
+      }
+      const mergedSales = Array.from(salesMap.values()).sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      this.set(STORAGE_KEYS.SALES, mergedSales, false);
     }
     if (state.expenses && Array.isArray(state.expenses)) {
-      this.set(STORAGE_KEYS.EXPENSES, state.expenses, false);
+      const localExpenses = this.getExpenses();
+      const expMap = new Map(state.expenses.map((e) => [e.id, e]));
+      for (const le of localExpenses) {
+        if (!expMap.has(le.id) && minLocalTimeMs > 0 && parseTime(le.createdAt) >= minLocalTimeMs) {
+          expMap.set(le.id, le);
+        }
+      }
+      this.set(STORAGE_KEYS.EXPENSES, Array.from(expMap.values()), false);
     }
     if (state.creditPayments && Array.isArray(state.creditPayments)) {
-      this.set(STORAGE_KEYS.PAYMENTS, state.creditPayments, false);
+      const localPayments = this.getCreditPayments();
+      const payMap = new Map(state.creditPayments.map((p) => [p.id, p]));
+      for (const lp of localPayments) {
+        if (!payMap.has(lp.id) && minLocalTimeMs > 0 && parseTime(lp.timestamp) >= minLocalTimeMs) {
+          payMap.set(lp.id, lp);
+        }
+      }
+      this.set(STORAGE_KEYS.PAYMENTS, Array.from(payMap.values()), false);
     }
     if (state.config && typeof state.config === 'object') {
       this.set(STORAGE_KEYS.CONFIG, state.config, false);
@@ -1242,7 +1496,7 @@ class StorageService {
     if (state.users && Array.isArray(state.users)) {
       const localUsers = this.getUsers();
       const merged = this.mergeUserArrays(localUsers, state.users);
-      this.set(STORAGE_KEYS.USERS, merged, true);
+      this.set(STORAGE_KEYS.USERS, merged, false);
     }
   }
 }

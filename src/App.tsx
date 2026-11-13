@@ -163,14 +163,26 @@ export default function App() {
 
   // Load data from storage service
   const reloadData = useCallback(() => {
-    setProducts(storageService.getProducts());
-    setCustomers(storageService.getCustomers());
-    setSales(storageService.getSales());
-    setExpenses(storageService.getExpenses());
-    setCreditPayments(storageService.getCreditPayments());
-    setUsers(storageService.getUsers());
+    const prods = storageService.getProducts();
+    const custs = storageService.getCustomers();
+    const txSales = storageService.getSales();
+    const exps = storageService.getExpenses();
+    const pays = storageService.getCreditPayments();
+    const usrs = storageService.getUsers();
+
+    setProducts(prods);
+    setCustomers(custs);
+    setSales(txSales);
+    setExpenses(exps);
+    setCreditPayments(pays);
+    setUsers(usrs);
     setConfig(storageService.getStoreConfig());
     setDbConnected(isSupabaseConfigured());
+
+    // If all users have been wiped (e.g. Reset Everything), sign out immediately to prompt First-Time Setup
+    if (usrs.length === 0) {
+      setCurrentUser(null);
+    }
   }, []);
 
   // Load 16 Stationery Essentials Starter Pack
@@ -445,7 +457,7 @@ export default function App() {
       <div className="min-h-screen bg-charcoal-950 text-charcoal-100 flex flex-col font-sans selection:bg-forest-700 selection:text-white">
         <AuthPage
           onAuthSuccess={handleAuthSuccess}
-          initialMode="login"
+          initialMode={storageService.hasUsers() ? 'login' : 'setup'}
           isModal={false}
         />
       </div>

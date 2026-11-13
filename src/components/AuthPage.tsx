@@ -45,7 +45,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   initialMode,
   isModal = false,
 }) => {
-  const defaultMode = initialMode || 'login';
+  const defaultMode = initialMode || (storageService.hasUsers() ? 'login' : 'setup');
 
   const [mode, setMode] = useState<'login' | 'signup' | 'setup'>(defaultMode);
   const [showPairModal, setShowPairModal] = useState(false);
@@ -59,7 +59,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [email, setEmail] = useState(() => {
     const initialList = storageService.getUsers();
     const owner = initialList.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || initialList[0];
-    return owner ? owner.email : 'amanuealhailu007@gmail.com';
+    return owner ? owner.email : '';
   });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -78,13 +78,17 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
   // Sync mode whenever initialMode changes or when users become available
   useEffect(() => {
-    setMode(initialMode || 'login');
+    const hasAnyUsers = storageService.hasUsers();
+    setMode(initialMode || (hasAnyUsers ? 'login' : 'setup'));
     const currentUsers = storageService.getUsers();
     setStaffUsers(currentUsers);
     if (currentUsers.length > 0) {
       const ownerUser = currentUsers.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || currentUsers[0];
       setSelectedStaffUser((prev) => prev || ownerUser);
       setEmail((prev) => prev || ownerUser.email);
+    } else {
+      setSelectedStaffUser(null);
+      setEmail('');
     }
   }, [initialMode]);
 
@@ -93,7 +97,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     const refreshProfiles = () => {
       const users = storageService.getUsers();
       setStaffUsers(users);
-      if (users.length > 0) {
+      if (users.length === 0) {
+        setSelectedStaffUser(null);
+        setEmail('');
+        setMode('setup');
+      } else {
         setSelectedStaffUser((prev) => {
           if (!prev) {
             return users.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || users[0];
@@ -179,7 +187,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
       // Push newly configured store & owner to cloud server immediately
       crossDeviceSyncService.broadcastLocalChange();
-      crossDeviceSyncService.syncNow().catch(() => {});
+      crossDeviceSyncService.syncNow({ isNewSetup: true }).catch(() => {});
 
       setTimeout(() => {
         onAuthSuccess(ownerUser);

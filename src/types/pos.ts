@@ -93,6 +93,7 @@ export interface Customer {
   creditLimit: number;
   totalPurchased: number;
   createdAt: string;
+  updatedAt?: string;
   notes?: string;
 }
 

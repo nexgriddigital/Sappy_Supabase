@@ -1,6 +1,0 @@
-{
-  "summary":  "Implementation plan for wiping all demo users and mock data to zero, implementing a First-Launch Store Owner Setup screen, auditing empty states across all tabs, and preparing Sappy Stationary POS for direct client handover.",
-  "updatedAt":  "2026-11-07T16:50:32.468464806Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

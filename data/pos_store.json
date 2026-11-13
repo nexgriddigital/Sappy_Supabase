@@ -3776,7 +3776,7 @@
       "creditBalance": 0,
       "creditLimit": 5000,
       "totalPurchased": 2400,
-      "createdAt": "2026-11-11T11:52:59.131592+00:00"
+      "createdAt": "2026-11-11T14:39:37.023395+00:00"
     },
     {
       "id": "cust-init-002",
@@ -3787,20 +3787,43 @@
       "creditBalance": 0,
       "creditLimit": 10000,
       "totalPurchased": 5800,
-      "createdAt": "2026-11-11T11:52:59.131592+00:00"
-    },
-    {
-      "id": "__system_staff_registry__",
-      "name": "__SYSTEM_STAFF_REGISTRY__",
-      "phone": "+251 00 000 0000",
-      "creditBalance": 0,
-      "creditLimit": 500,
-      "totalPurchased": 0,
-      "notes": "[{\"id\":\"usr-owner-amanuel\",\"email\":\"amanuealhailu007@gmail.com\",\"fullName\":\"Amanuel Hailu\",\"role\":\"owner\",\"storeName\":\"Sappy Stationary\",\"phone\":\"+251 91 123 4567\",\"pinCode\":\"1313\",\"status\":\"active\",\"createdAt\":\"2026-01-01T08:00:00Z\",\"notes\":\"Store Owner & Commercial Administrator\"},{\"id\":\"usr-owner-yohannes\",\"email\":\"yohannesleulseged802@gmail.com\",\"fullName\":\"Yohannes Leulseged\",\"role\":\"owner\",\"storeName\":\"Sappy Stationary\",\"phone\":\"+251 91 222 3344\",\"pinCode\":\"1313\",\"status\":\"active\",\"createdAt\":\"2026-01-02T08:00:00Z\",\"notes\":\"Store Owner & Commercial Administrator\"}]",
-      "createdAt": "2026-11-11T11:46:56.372475+00:00"
+      "createdAt": "2026-11-11T18:32:25.218465+00:00"
     }
   ],
   "sales": [
+    {
+      "id": "sale-1794405022051",
+      "invoiceNumber": "INV-2026-0002",
+      "timestamp": "2026-11-11T13:50:22.051+00:00",
+      "customerName": "Walk-in Retail Customer",
+      "subtotal": 220,
+      "taxRate": 0,
+      "taxAmount": 0,
+      "discountAmount": 0,
+      "totalAmount": 220,
+      "totalCost": 0,
+      "grossProfit": 220,
+      "paymentMethod": "cash",
+      "amountTendered": 220,
+      "changeGiven": 0,
+      "isCreditPaid": true,
+      "paidAmount": 220,
+      "items": [
+        {
+          "sku": "STN-0253",
+          "name": "UHU",
+          "unit": "pcs",
+          "category": "General",
+          "quantity": 1,
+          "unitCost": 0,
+          "lineTotal": 220,
+          "productId": "prod-import-1794085785285-252-adur",
+          "unitPrice": 220,
+          "lineCostTotal": 0,
+          "discountPercent": 0
+        }
+      ]
+    },
     {
       "id": "sale-1794339434165",
       "invoiceNumber": "INV-2026-0001",
@@ -3878,7 +3901,8 @@
       "status": "active",
       "createdAt": "2026-01-01T08:00:00Z",
       "notes": "Store Owner & Commercial Administrator",
-      "updatedAt": "2026-11-08T09:42:00Z"
+      "updatedAt": "2026-11-08T09:42:00Z",
+      "lastLoginAt": "2026-11-07T18:00:05.482Z"
     },
     {
       "id": "usr-owner-yohannes",
@@ -3891,8 +3915,22 @@
       "status": "active",
       "createdAt": "2026-01-02T08:00:00Z",
       "notes": "Store Owner & Commercial Administrator"
+    },
+    {
+      "id": "usr-1794332046019-pvdh",
+      "email": "yohannesleulseged802@gmail.com",
+      "fullName": "Yohannes Leulseged",
+      "role": "owner",
+      "storeName": "Sappy Stationary",
+      "phone": "+251980442353",
+      "pinCode": "1313",
+      "status": "active",
+      "createdAt": "2026-11-10T17:34:06.019Z",
+      "notes": "Store Owner & Commercial Administrator",
+      "updatedAt": "2026-11-10T17:34:06.019Z"
     }
   ],
-  "lastSyncedAt": "2026-11-11T11:53:11.438Z",
-  "version": 30220
+  "lastSyncedAt": "2026-11-13T10:28:13.385Z",
+  "version": 33360,
+  "isReset": false
 }

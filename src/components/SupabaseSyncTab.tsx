@@ -401,6 +401,7 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
         low_stock_threshold: p.lowStockThreshold,
         unit: p.unit,
         description: p.description,
+        updated_at: p.updatedAt || new Date().toISOString(),
       }));
       const { error: prodErr } = await client.from('products').upsert(mappedProducts);
       if (prodErr) throw new Error(`Products sync failed: ${prodErr.message}`);
@@ -419,6 +420,7 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
         credit_limit: c.creditLimit,
         total_purchased: c.totalPurchased,
         notes: c.notes,
+        updated_at: c.updatedAt || new Date().toISOString(),
       }));
       const { error: custErr } = await client.from('customers').upsert(mappedCustomers);
       if (custErr) throw new Error(`Customers sync failed: ${custErr.message}`);
