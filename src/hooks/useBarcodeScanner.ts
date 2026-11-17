@@ -13,6 +13,8 @@ export interface UseBarcodeScannerOptions {
   preventDefault?: boolean;
   /** Whether to intercept and consume scanner input even if an input field is focused (default: true) */
   interceptInputs?: boolean;
+  /** Optional idle timeout (ms) to auto-complete a rapid burst when scanner omits Enter/Tab (0 = disabled) */
+  completeOnIdleMs?: number;
 }
 
 export interface UseBarcodeScannerReturn {
@@ -25,7 +27,8 @@ export interface UseBarcodeScannerReturn {
 
 /**
  * Custom React Hook that listens for rapid external USB/Bluetooth HID barcode scanner input sequences.
- * Hardware barcode scanners emulate high-speed keyboard input (<35ms per character) terminated by 'Enter'.
+ * Hardware barcode scanners emulate high-speed keyboard input (<35ms per character) terminated by 'Enter'
+ * (or idle sequence completion when enabled).
  * This hook distinguishes scanner sequences from human typing and automatically routes the scanned barcode.
  */
 export function useBarcodeScanner({
@@ -35,6 +38,7 @@ export function useBarcodeScanner({
   minBarcodeLength = 2,
   preventDefault = true,
   interceptInputs = true,
+  completeOnIdleMs = 0,
 }: UseBarcodeScannerOptions): UseBarcodeScannerReturn {
   const [lastScannedBarcode, setLastScannedBarcode] = useState<string | null>(null);
   const [lastScanTimestamp, setLastScanTimestamp] = useState<number | null>(null);
@@ -47,6 +51,8 @@ export function useBarcodeScanner({
   const timestampsRef = useRef<number[]>([]);
   const isBurstRef = useRef<boolean>(false);
   const scanTimerRef = useRef<any>(null);
+  const idleCompleteTimerRef = useRef<any>(null);
+  const lastAutoCompletedAtRef = useRef<number>(0);
 
   const clearLastScan = useCallback(() => {
     setLastScannedBarcode(null);
@@ -61,20 +67,58 @@ export function useBarcodeScanner({
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return;
 
+    const dispatchCompletedScan = (
+      barcodeCandidate: string,
+      target: HTMLElement | null,
+      isInput: boolean | null
+    ) => {
+      if (isInput && interceptInputs && target instanceof HTMLInputElement) {
+        if (target.dataset.scannerControlled !== 'true' && target.value === barcodeCandidate) {
+          target.value = '';
+        }
+      }
+
+      setLastScannedBarcode(barcodeCandidate);
+      setLastScanTimestamp(Date.now());
+      setScannerConnected(true);
+      setIsScanning(false);
+
+      try {
+        onScanRef.current(barcodeCandidate);
+      } catch (err) {
+        console.warn('Error in onScan callback:', err);
+      }
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const now = performance.now();
       const timeDiff = now - lastKeyTimeRef.current;
       lastKeyTimeRef.current = now;
 
       const target = e.target as HTMLElement | null;
-      const isInput =
+      const isInput = Boolean(
         target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable);
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+      );
 
       // 1. Check for Scanner Terminator Key (Enter or Tab)
       if (e.key === 'Enter' || e.key === 'Tab') {
+        if (idleCompleteTimerRef.current) {
+          clearTimeout(idleCompleteTimerRef.current);
+          idleCompleteTimerRef.current = null;
+        }
+
+        // Ignore trailing Enter right after an idle burst auto-completion
+        if (now - lastAutoCompletedAtRef.current < 90 && bufferRef.current === '') {
+          if (preventDefault) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+          return;
+        }
+
         const barcodeCandidate = bufferRef.current.trim();
         const timestamps = timestampsRef.current;
         const charCount = barcodeCandidate.length;
@@ -95,26 +139,8 @@ export function useBarcodeScanner({
               e.stopPropagation();
             }
 
-            // If an input was focused and filled by the scanner burst, clean it up if desired
-            if (isInput && interceptInputs && target instanceof HTMLInputElement) {
-              // If the input value exactly ends with or contains the barcode, strip it
-              if (target.value === barcodeCandidate) {
-                target.value = '';
-              }
-            }
-
-            setLastScannedBarcode(barcodeCandidate);
-            const scanTime = Date.now();
-            setLastScanTimestamp(scanTime);
-            setScannerConnected(true);
-            setIsScanning(false);
-
-            try {
-              onScanRef.current(barcodeCandidate);
-            } catch (err) {
-              console.warn('Error in onScan callback:', err);
-            }
-
+            isBurstRef.current = false;
+            dispatchCompletedScan(barcodeCandidate, target, isInput);
             return;
           }
         }
@@ -128,6 +154,11 @@ export function useBarcodeScanner({
         return;
       }
 
+      if (idleCompleteTimerRef.current) {
+        clearTimeout(idleCompleteTimerRef.current);
+        idleCompleteTimerRef.current = null;
+      }
+
       // 3. Buffer reset if gap between keys exceeds scanner speed
       if (timeDiff > maxIntervalMs) {
         bufferRef.current = e.key;
@@ -138,7 +169,7 @@ export function useBarcodeScanner({
         bufferRef.current += e.key;
         timestampsRef.current.push(now);
 
-        // If at least 3 characters arrive within <50ms of each other, mark as active scanner burst
+        // If at least 3 characters arrive within scanner interval, mark as active scanner burst
         if (timestampsRef.current.length >= 3) {
           isBurstRef.current = true;
           setIsScanning(true);
@@ -149,6 +180,24 @@ export function useBarcodeScanner({
           scanTimerRef.current = setTimeout(() => {
             setIsScanning(false);
           }, 300);
+
+          // Optional idle sequence completion for scanners without an Enter suffix
+          if (completeOnIdleMs > 0) {
+            idleCompleteTimerRef.current = setTimeout(() => {
+              const candidate = bufferRef.current.trim();
+              const timestamps = timestampsRef.current;
+              bufferRef.current = '';
+              timestampsRef.current = [];
+              isBurstRef.current = false;
+
+              if (candidate.length >= Math.max(minBarcodeLength, 3) && timestamps.length >= 3) {
+                lastAutoCompletedAtRef.current = performance.now();
+                dispatchCompletedScan(candidate, target, isInput);
+              } else {
+                setIsScanning(false);
+              }
+            }, completeOnIdleMs);
+          }
         }
       }
     };
@@ -160,8 +209,11 @@ export function useBarcodeScanner({
       if (scanTimerRef.current) {
         clearTimeout(scanTimerRef.current);
       }
+      if (idleCompleteTimerRef.current) {
+        clearTimeout(idleCompleteTimerRef.current);
+      }
     };
-  }, [enabled, maxIntervalMs, minBarcodeLength, preventDefault, interceptInputs]);
+  }, [enabled, maxIntervalMs, minBarcodeLength, preventDefault, interceptInputs, completeOnIdleMs]);
 
   return {
     lastScannedBarcode,

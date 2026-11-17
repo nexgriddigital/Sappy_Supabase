@@ -176,7 +176,7 @@ export const CustomerDisplayModal: React.FC<CustomerDisplayModalProps> = ({
                   <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
                     {cart.map((item) => (
                       <div
-                        key={item.product.id}
+                        key={item.lineId || item.product.id}
                         className="p-3 rounded-xl bg-charcoal-900 border border-charcoal-800/90 flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0">

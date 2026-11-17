@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Search,
   Plus,
@@ -22,6 +22,8 @@ import {
   Boxes,
   CheckCircle2,
   AlertCircle,
+  Zap,
+  Layers,
 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner.ts';
 import {
@@ -86,6 +88,11 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   const [applyTax, setApplyTax] = useState<boolean>(false); // All sales are Tax Exempt by default unless specially ticked
   const [mobileTab, setMobileTab] = useState<'catalog' | 'cart'>('catalog');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isScannerMode, setIsScannerMode] = useState(false);
+  const [isBulkScanMode, setIsBulkScanMode] = useState(false);
+  const [lastIncrementedKey, setLastIncrementedKey] = useState<string | null>(null);
+  const [scannerInput, setScannerInput] = useState('');
+  const scannerInputRef = useRef<HTMLInputElement>(null);
 
   // Checkout Tender Modal State
   const [isTenderOpen, setIsTenderOpen] = useState(false);
@@ -150,18 +157,72 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
     }
   }, [cart, rawSubtotal, orderDiscountAmount, taxAmount, taxRate, grandTotal, selectedCustomer, onCartChange]);
 
-  // Add Item to Cart with POS Beep audio feedback
+  const isSameProductOrSku = useCallback((a: Product, b: Product): boolean => {
+    if (a.id === b.id) return true;
+    const skuA = a.sku?.trim().toLowerCase();
+    const skuB = b.sku?.trim().toLowerCase();
+    return Boolean(skuA && skuB && skuA === skuB);
+  }, []);
+
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flashCartLine = useCallback((lineKey: string) => {
+    if (flashTimerRef.current) {
+      clearTimeout(flashTimerRef.current);
+    }
+    setLastIncrementedKey(lineKey);
+    flashTimerRef.current = setTimeout(() => {
+      setLastIncrementedKey((prev) => (prev === lineKey ? null : prev));
+      flashTimerRef.current = null;
+    }, 900);
+  }, []);
+
+  // Toggle Bulk Scan Mode; when activating, consolidate any duplicate SKU lines already in the cart
+  const handleToggleBulkScanMode = useCallback(() => {
+    const next = !isBulkScanMode;
+    setIsBulkScanMode(next);
+    if (next) {
+      setCart((prevCart) => {
+        const consolidated: CartItem[] = [];
+        for (const item of prevCart) {
+          const matchIdx = consolidated.findIndex((c) => isSameProductOrSku(c.product, item.product));
+          if (matchIdx >= 0) {
+            const target = consolidated[matchIdx];
+            const mergedQty = Math.min(target.product.stockLevel, target.quantity + item.quantity);
+            const unitPrice = target.customPrice ?? target.product.sellingPrice;
+            consolidated[matchIdx] = {
+              ...target,
+              quantity: mergedQty,
+              lineTotal: mergedQty * unitPrice,
+              lineCostTotal: mergedQty * target.product.costPrice,
+            };
+          } else {
+            consolidated.push({ ...item });
+          }
+        }
+        return consolidated;
+      });
+    }
+  }, [isBulkScanMode, isSameProductOrSku]);
+
+  // Add Item to Cart from catalog tap (always consolidates by product id)
   const handleAddToCart = (product: Product) => {
     if (product.stockLevel <= 0) return;
     soundEffects.playBeep();
 
     setCart((prevCart) => {
+      const totalInCart = prevCart
+        .filter((i) => isSameProductOrSku(i.product, product))
+        .reduce((sum, i) => sum + i.quantity, 0);
+      if (totalInCart >= product.stockLevel) return prevCart;
+
       const existing = prevCart.find((item) => item.product.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stockLevel) return prevCart; // Cap at stock
         const newQty = existing.quantity + 1;
+        const key = existing.lineId || existing.product.id;
+        queueMicrotask(() => flashCartLine(key));
         return prevCart.map((item) =>
-          item.product.id === product.id
+          (item.lineId || item.product.id) === key
             ? {
                 ...item,
                 quantity: newQty,
@@ -171,9 +232,12 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
             : item
         );
       } else {
+        const newKey = `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        queueMicrotask(() => flashCartLine(newKey));
         return [
           ...prevCart,
           {
+            lineId: newKey,
             product,
             quantity: 1,
             discountPercent: 0,
@@ -185,8 +249,57 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
     });
   };
 
+  // Add Item to Cart from barcode/camera scan respecting Bulk Scan Mode toggle
+  const handleScanAddToCart = useCallback(
+    (product: Product) => {
+      if (product.stockLevel <= 0) return;
+      soundEffects.playBeep();
+
+      setCart((prevCart) => {
+        const totalInCart = prevCart
+          .filter((i) => isSameProductOrSku(i.product, product))
+          .reduce((sum, i) => sum + i.quantity, 0);
+        if (totalInCart >= product.stockLevel) return prevCart;
+
+        if (isBulkScanMode) {
+          const existing = prevCart.find((item) => isSameProductOrSku(item.product, product));
+          if (existing) {
+            const key = existing.lineId || existing.product.id;
+            const newQty = existing.quantity + 1;
+            queueMicrotask(() => flashCartLine(key));
+            return prevCart.map((item) =>
+              (item.lineId || item.product.id) === key
+                ? {
+                    ...item,
+                    quantity: newQty,
+                    lineTotal: newQty * (item.customPrice ?? item.product.sellingPrice),
+                    lineCostTotal: newQty * item.product.costPrice,
+                  }
+                : item
+            );
+          }
+        }
+
+        const newKey = `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        queueMicrotask(() => flashCartLine(newKey));
+        return [
+          ...prevCart,
+          {
+            lineId: newKey,
+            product,
+            quantity: 1,
+            discountPercent: 0,
+            lineTotal: product.sellingPrice,
+            lineCostTotal: product.costPrice,
+          },
+        ];
+      });
+    },
+    [isBulkScanMode, isSameProductOrSku, flashCartLine]
+  );
+
   // Adjust Cart Item Quantity with audio feedback
-  const handleUpdateQty = (productId: string, delta: number) => {
+  const handleUpdateQty = (lineKey: string, delta: number) => {
     if (delta > 0) {
       soundEffects.playBeep();
     } else {
@@ -194,12 +307,19 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
     }
 
     setCart((prevCart) => {
+      const targetItem = prevCart.find((i) => (i.lineId || i.product.id) === lineKey);
+      if (!targetItem) return prevCart;
+
+      const totalForProduct = prevCart
+        .filter((i) => i.product.id === targetItem.product.id)
+        .reduce((sum, i) => sum + i.quantity, 0);
+
       return prevCart
         .map((item) => {
-          if (item.product.id === productId) {
+          if ((item.lineId || item.product.id) === lineKey) {
             const newQty = item.quantity + delta;
             if (newQty <= 0) return null;
-            if (newQty > item.product.stockLevel) return item; // Cannot exceed inventory
+            if (delta > 0 && totalForProduct + delta > item.product.stockLevel) return item; // Cannot exceed inventory
             return {
               ...item,
               quantity: newQty,
@@ -214,9 +334,9 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   };
 
   // Remove Item
-  const handleRemoveItem = (productId: string) => {
+  const handleRemoveItem = (lineKey: string) => {
     soundEffects.playTrash();
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+    setCart((prev) => prev.filter((item) => (item.lineId || item.product.id) !== lineKey));
   };
 
   // Open Tender Modal
@@ -226,30 +346,70 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
     setIsTenderOpen(true);
   };
 
-  // Toast notification for external hardware barcode scans
+  // Toast notification for external hardware & Scanner Mode scans
   const [scannerNotification, setScannerNotification] = useState<{
     type: 'success' | 'error';
     message: string;
     barcode: string;
   } | null>(null);
 
-  // Hook listening for external USB/Bluetooth barcode scanner input sequences
-  const { isScanning, lastScannedBarcode, scannerConnected } = useBarcodeScanner({
-    enabled: !isTenderOpen && !showNewCustModal && !isScannerOpen,
-    onScan: (scannedCode) => {
-      const candidate = scannedCode.trim();
+  const isScannerModeRef = useRef(isScannerMode);
+  const modalsOpenRef = useRef(false);
+  useEffect(() => {
+    isScannerModeRef.current = isScannerMode;
+  }, [isScannerMode]);
+  useEffect(() => {
+    modalsOpenRef.current = isTenderOpen || showNewCustModal || isScannerOpen;
+  }, [isTenderOpen, showNewCustModal, isScannerOpen]);
+
+  const focusScannerInput = useCallback(() => {
+    if (!isScannerModeRef.current || modalsOpenRef.current) return;
+    requestAnimationFrame(() => {
+      if (isScannerModeRef.current && !modalsOpenRef.current) {
+        scannerInputRef.current?.focus();
+      }
+    });
+  }, []);
+
+  // Auto-focus Scanner Mode input when activated or when modals close
+  useEffect(() => {
+    if (isScannerMode && !isTenderOpen && !showNewCustModal && !isScannerOpen) {
+      focusScannerInput();
+    }
+  }, [isScannerMode, isTenderOpen, showNewCustModal, isScannerOpen, focusScannerInput]);
+
+  // Keyboard shortcut (F2) to toggle Scanner Mode quickly without a mouse click
+  useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      if (e.key === 'F2' && !isTenderOpen && !showNewCustModal && !isScannerOpen) {
+        e.preventDefault();
+        setIsScannerMode((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, [isTenderOpen, showNewCustModal, isScannerOpen]);
+
+  // Unified barcode/SKU scan processor used by hardware bursts, Scanner Mode input, and Search Enter
+  const processScannedCode = useCallback(
+    (rawCode: string) => {
+      const candidate = rawCode.trim();
       if (!candidate) return;
 
+      const lowerCandidate = candidate.toLowerCase();
       const matched = products.find(
         (p) =>
           (p.barcode && p.barcode.trim() === candidate) ||
           (p.sku && p.sku.trim() === candidate) ||
-          (p.barcode && p.barcode.trim().toLowerCase() === candidate.toLowerCase()) ||
-          (p.sku && p.sku.trim().toLowerCase() === candidate.toLowerCase()) ||
+          (p.barcode && p.barcode.trim().toLowerCase() === lowerCandidate) ||
+          (p.sku && p.sku.trim().toLowerCase() === lowerCandidate) ||
           p.id === candidate
       );
 
       if (matched) {
+        const totalInCartForMatched = cart
+          .filter((item) => isSameProductOrSku(item.product, matched))
+          .reduce((sum, item) => sum + item.quantity, 0);
         if (matched.stockLevel <= 0) {
           soundEffects.playError();
           setScannerNotification({
@@ -257,11 +417,21 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
             message: `"${matched.name}" is out of stock!`,
             barcode: candidate,
           });
+        } else if (totalInCartForMatched >= matched.stockLevel) {
+          soundEffects.playError();
+          setScannerNotification({
+            type: 'error',
+            message: `Max stock (${matched.stockLevel} ${matched.unit}) already in cart for "${matched.name}"`,
+            barcode: candidate,
+          });
         } else {
-          handleAddToCart(matched);
+          handleScanAddToCart(matched);
+          const nextQty = totalInCartForMatched + 1;
           setScannerNotification({
             type: 'success',
-            message: `Scanned: "${matched.name}" (${config.currencySymbol}${matched.sellingPrice.toFixed(2)}) added to cart`,
+            message: isBulkScanMode
+              ? `Bulk Scan (+1): "${matched.name}" — Qty: ${nextQty} (${config.currencySymbol}${matched.sellingPrice.toFixed(2)})`
+              : `Scanned: "${matched.name}" added as new line item (${config.currencySymbol}${matched.sellingPrice.toFixed(2)})`,
             barcode: candidate,
           });
         }
@@ -274,11 +444,75 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         });
       }
 
+      setScannerInput('');
+      setSearchQuery((prev) => (prev.trim().toLowerCase() === lowerCandidate ? '' : prev));
+      focusScannerInput();
+
       setTimeout(() => {
         setScannerNotification((prev) => (prev?.barcode === candidate ? null : prev));
       }, 4000);
     },
+    [products, cart, config.currencySymbol, focusScannerInput, handleScanAddToCart, isBulkScanMode, isSameProductOrSku]
+  );
+
+  // Hook listening for external USB/Bluetooth barcode scanner input sequences
+  const { isScanning } = useBarcodeScanner({
+    enabled: !isTenderOpen && !showNewCustModal && !isScannerOpen,
+    completeOnIdleMs: isScannerMode ? 120 : 0,
+    onScan: (scannedCode) => {
+      processScannedCode(scannedCode);
+    },
   });
+
+  // Handle Enter / Tab / Escape inside dedicated Scanner Mode input
+  const handleScannerInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      if (scannerInput.trim()) {
+        e.preventDefault();
+        processScannedCode(scannerInput);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (scannerInput) {
+        setScannerInput('');
+      } else {
+        setIsScannerMode(false);
+      }
+    }
+  };
+
+  // Handle paste or newline-terminated mobile barcode wedge input in Scanner Mode
+  const handleScannerInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.includes('\n') || val.includes('\r')) {
+      const codes = val
+        .split(/[\r\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      codes.forEach((code) => processScannedCode(code));
+      setScannerInput('');
+      return;
+    }
+    setScannerInput(val);
+  };
+
+  // Keep Scanner Mode input focused unless user clicked into another form control or modal
+  const handleScannerInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (!isScannerModeRef.current || modalsOpenRef.current) return;
+    const nextTarget = e.relatedTarget as HTMLElement | null;
+    if (
+      nextTarget &&
+      (nextTarget.tagName === 'INPUT' ||
+        nextTarget.tagName === 'SELECT' ||
+        nextTarget.tagName === 'TEXTAREA' ||
+        nextTarget.tagName === 'BUTTON')
+    ) {
+      return;
+    }
+    focusScannerInput();
+  };
 
   // Handle Enter key in Search Box to immediately add exact barcode/SKU to cart
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -292,7 +526,8 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
           (p.sku && p.sku.trim().toLowerCase() === q.toLowerCase())
       );
       if (exact) {
-        handleAddToCart(exact);
+        e.preventDefault();
+        processScannedCode(q);
         setSearchQuery('');
       }
     }
@@ -428,52 +663,102 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
       {/* LEFT COLUMN: Product Catalog (Touchscreen optimized) */}
       <div className={`lg:col-span-8 space-y-4 ${mobileTab === 'catalog' ? 'block' : 'hidden lg:block'}`}>
         
-        {/* Search & Barcode Scan Bar */}
+        {/* Search, Scanner Mode & Camera Scan Bar */}
         <div className="flex flex-col sm:flex-row gap-2.5">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-charcoal-400 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              placeholder="Search stationery by name, SKU, or scan barcode (Enter to add)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              className="w-full pl-10 pr-16 py-2.5 bg-charcoal-900 border border-charcoal-800 rounded-xl text-sm text-charcoal-100 placeholder-charcoal-500 focus:outline-hidden focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 shadow-2xs font-sans"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-charcoal-400 hover:text-white text-xs cursor-pointer px-1 py-0.5"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+          {isScannerMode ? (
+            <div
+              onClick={() => scannerInputRef.current?.focus()}
+              className="relative flex-1 bg-emerald-950/40 border-2 border-emerald-500/80 rounded-xl shadow-lg shadow-emerald-950/40 flex items-center transition-all cursor-text"
+            >
+              <div className="pl-3.5 pr-2 flex items-center gap-1.5 shrink-0">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                </span>
+                <Barcode className="w-4 h-4 text-emerald-400" />
+              </div>
+              <input
+                ref={scannerInputRef}
+                type="text"
+                autoFocus
+                data-scanner-controlled="true"
+                placeholder="Scanner Mode Ready — scan barcode or type SKU + Enter..."
+                value={scannerInput}
+                onChange={handleScannerInputChange}
+                onKeyDown={handleScannerInputKeyDown}
+                onBlur={handleScannerInputBlur}
+                className="w-full py-2.5 pr-28 bg-transparent text-sm text-white placeholder-emerald-300/60 focus:outline-hidden font-mono"
+              />
+              <span className="absolute right-2.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 pointer-events-none">
+                Auto-Add
+              </span>
+            </div>
+          ) : (
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-charcoal-400 absolute left-3.5 top-3" />
+              <input
+                type="text"
+                data-scanner-controlled="true"
+                placeholder="Search stationery by name, SKU, or scan barcode (Enter to add)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                className="w-full pl-10 pr-16 py-2.5 bg-charcoal-900 border border-charcoal-800 rounded-xl text-sm text-charcoal-100 placeholder-charcoal-500 focus:outline-hidden focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 shadow-2xs font-sans"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 text-charcoal-400 hover:text-white text-xs cursor-pointer px-1 py-0.5"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setIsScannerOpen(true)}
-            className="px-4 py-2.5 bg-forest-700 hover:bg-forest-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 active:scale-95 shadow-md shadow-forest-950/60 border border-forest-500/80 group"
-            title="Choose Camera Scanner (Select front, rear, or USB webcam)"
-          >
-            <Camera className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
-            <span>Use Camera</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsScannerMode((prev) => !prev)}
+              className={`px-3.5 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 border ${
+                isScannerMode
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400 shadow-md shadow-emerald-950/60'
+                  : 'bg-charcoal-900 hover:bg-charcoal-800 text-charcoal-200 border-charcoal-700 hover:border-emerald-600/60'
+              }`}
+              title="Toggle dedicated Scanner Mode (F2) — keeps input focused and auto-adds scanned items without clicking"
+            >
+              <Zap className={`w-4 h-4 ${isScannerMode ? 'text-amber-200' : 'text-emerald-400'}`} />
+              <span>{isScannerMode ? 'Scanner Mode: ON' : 'Scanner Mode'}</span>
+              <span className="hidden sm:inline-block text-[10px] font-mono opacity-75 px-1 py-0.5 rounded bg-black/25">
+                F2
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              className="px-4 py-2.5 bg-forest-700 hover:bg-forest-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 active:scale-95 shadow-md shadow-forest-950/60 border border-forest-500/80 group"
+              title="Choose Camera Scanner (Select front, rear, or USB webcam)"
+            >
+              <Camera className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
+              <span>Use Camera</span>
+            </button>
+          </div>
         </div>
 
-        {/* Scanner Control Bar: Hardware USB/Bluetooth & Camera Scanner Option */}
+        {/* Scanner Control Bar: Hardware USB/Bluetooth, Bulk Scan Mode & Camera Scanner Option */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs -mt-1">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span
                 className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  isScanning ? 'bg-amber-400' : 'bg-emerald-400'
+                  isScanning || isScannerMode ? 'bg-amber-400' : 'bg-emerald-400'
                 }`}
               ></span>
               <span
                 className={`relative inline-flex rounded-full h-2 w-2 ${
-                  isScanning ? 'bg-amber-500' : 'bg-emerald-500'
+                  isScanning || isScannerMode ? 'bg-amber-500' : 'bg-emerald-500'
                 }`}
               ></span>
             </span>
@@ -481,20 +766,67 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
               <Barcode className="w-3.5 h-3.5 text-forest-400" />
               <span>USB / Bluetooth Scanner:</span>
               <strong className="text-emerald-400 font-semibold">
-                {isScanning ? 'Scanning...' : 'Active & Listening'}
+                {isScanning
+                  ? 'Scanning...'
+                  : isScannerMode
+                  ? 'Scanner Mode Focus Locked'
+                  : 'Active & Listening'}
               </strong>
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsScannerOpen(true)}
-            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1.5 bg-charcoal-900 hover:bg-charcoal-800 border border-charcoal-800 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
-            title="Choose Camera Scanner option (Select front, rear, or USB webcam)"
-          >
-            <Camera className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Option: Choose Camera Scanner</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Bulk Scan Mode Toggle Switch */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isBulkScanMode}
+              onClick={handleToggleBulkScanMode}
+              className={`text-[11px] font-semibold flex items-center gap-2 px-2.5 py-1 rounded-lg border cursor-pointer transition-all ${
+                isBulkScanMode
+                  ? 'bg-emerald-950/80 hover:bg-emerald-900/80 text-emerald-200 border-emerald-500/70 shadow-xs'
+                  : 'bg-charcoal-900 hover:bg-charcoal-800 text-charcoal-300 border-charcoal-800'
+              }`}
+              title="When ON, continuous scanning of the same SKU automatically increments quantity instead of adding multiple line items"
+            >
+              <Layers className={`w-3.5 h-3.5 ${isBulkScanMode ? 'text-emerald-400' : 'text-charcoal-400'}`} />
+              <span>Bulk Scan Mode</span>
+              <span
+                className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                  isBulkScanMode ? 'bg-emerald-500' : 'bg-charcoal-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    isBulkScanMode ? 'translate-x-3.5' : 'translate-x-0.5'
+                  }`}
+                />
+              </span>
+              <span className={`font-mono text-[10px] font-bold ${isBulkScanMode ? 'text-emerald-300' : 'text-charcoal-500'}`}>
+                {isBulkScanMode ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            {isScannerMode && (
+              <button
+                type="button"
+                onClick={() => setIsScannerMode(false)}
+                className="text-[11px] text-charcoal-300 hover:text-white font-semibold flex items-center gap-1 bg-charcoal-900 hover:bg-charcoal-800 border border-charcoal-700 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
+              >
+                <X className="w-3 h-3" />
+                <span>Exit Scanner Mode (Esc)</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1.5 bg-charcoal-900 hover:bg-charcoal-800 border border-charcoal-800 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
+              title="Choose Camera Scanner option (Select front, rear, or USB webcam)"
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Option: Choose Camera Scanner</span>
+            </button>
+          </div>
         </div>
 
         {/* Real-time Hardware Scanner Notification Toast */}
@@ -543,7 +875,9 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         {/* Product Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredProducts.map((product) => {
-            const inCart = cart.find((i) => i.product.id === product.id);
+            const inCartQty = cart
+              .filter((i) => i.product.id === product.id)
+              .reduce((sum, i) => sum + i.quantity, 0);
             const isOutOfStock = product.stockLevel <= 0;
             const isLowStock = product.stockLevel > 0 && product.stockLevel <= product.lowStockThreshold;
 
@@ -555,7 +889,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                 className={`relative p-3.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-150 cursor-pointer min-h-[140px] select-none ${
                   isOutOfStock
                     ? 'bg-charcoal-950 border-charcoal-800/80 opacity-50 cursor-not-allowed'
-                    : inCart
+                    : inCartQty > 0
                     ? 'bg-forest-950/80 border-forest-600 shadow-xs ring-1 ring-forest-500'
                     : 'bg-charcoal-900 border-charcoal-800 hover:border-forest-600/70 hover:bg-charcoal-800 hover:shadow-xs active:scale-[0.98]'
                 }`}
@@ -565,9 +899,9 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                     <span className="text-[10px] font-mono text-charcoal-400 uppercase">
                       {product.sku}
                     </span>
-                    {inCart && (
+                    {inCartQty > 0 && (
                       <span className="w-5 h-5 rounded-full bg-forest-600 text-white text-[10px] font-mono font-bold flex items-center justify-center shrink-0">
-                        {inCart.quantity}
+                        {inCartQty}
                       </span>
                     )}
                   </div>
@@ -660,7 +994,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-white leading-tight">Current Sale</h2>
-              <p className="text-[11px] text-charcoal-400">{cart.length} distinct item{cart.length === 1 ? '' : 's'}</p>
+              <p className="text-[11px] text-charcoal-400">{cart.length} line item{cart.length === 1 ? '' : 's'}</p>
             </div>
           </div>
 
@@ -702,10 +1036,17 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
               <p className="text-xs text-charcoal-500 mt-1">Tap items on the left or scan a barcode to begin.</p>
             </div>
           ) : (
-            cart.map((item) => (
+            cart.map((item) => {
+              const lineKey = item.lineId || item.product.id;
+              const isHighlighted = lastIncrementedKey === lineKey;
+              return (
               <div
-                key={item.product.id}
-                className="p-2.5 rounded-xl bg-charcoal-950/80 border border-charcoal-800 flex items-center justify-between gap-3 text-xs"
+                key={lineKey}
+                className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 text-xs transition-all duration-300 ${
+                  isHighlighted
+                    ? 'bg-emerald-950/50 border-emerald-500/80 ring-1 ring-emerald-500/40'
+                    : 'bg-charcoal-950/80 border-charcoal-800'
+                }`}
               >
                 <div className="flex-1 min-w-0">
                   <h4 className="font-semibold text-charcoal-100 truncate">{item.product.name}</h4>
@@ -717,7 +1058,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                 {/* Tactile Quantity Steppers */}
                 <div className="flex items-center gap-1.5 shrink-0 bg-charcoal-900 rounded-lg border border-charcoal-700 p-0.5">
                   <button
-                    onClick={() => handleUpdateQty(item.product.id, -1)}
+                    onClick={() => handleUpdateQty(lineKey, -1)}
                     className="w-7 h-7 rounded flex items-center justify-center text-charcoal-300 hover:bg-forest-900/50 hover:text-forest-300 transition-colors cursor-pointer active:scale-90"
                     title="Decrease quantity"
                   >
@@ -727,7 +1068,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                     {item.quantity}
                   </span>
                   <button
-                    onClick={() => handleUpdateQty(item.product.id, 1)}
+                    onClick={() => handleUpdateQty(lineKey, 1)}
                     className="w-7 h-7 rounded flex items-center justify-center text-charcoal-300 hover:bg-forest-900/50 hover:text-forest-300 transition-colors cursor-pointer active:scale-90"
                     title="Increase quantity"
                   >
@@ -740,7 +1081,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                     {config.currencySymbol}{item.lineTotal.toFixed(2)}
                   </span>
                   <button
-                    onClick={() => handleRemoveItem(item.product.id)}
+                    onClick={() => handleRemoveItem(lineKey)}
                     className="text-charcoal-500 hover:text-rose-400 transition-colors cursor-pointer"
                     title="Remove item"
                   >
@@ -748,7 +1089,8 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                   </button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -1242,7 +1584,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         products={products}
-        onAddToCart={handleAddToCart}
+        onAddToCart={handleScanAddToCart}
         config={config}
       />
 

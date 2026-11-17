@@ -27,6 +27,7 @@ export interface Product {
 }
 
 export interface CartItem {
+  lineId?: string;
   product: Product;
   quantity: number;
   discountPercent: number; // 0 to 100
