@@ -114,14 +114,18 @@ class StorageService {
 
   // --- Store Configuration ---
   getStoreConfig(): StoreConfig {
-    const config = this.get<StoreConfig>(STORAGE_KEYS.CONFIG, INITIAL_STORE_CONFIG);
-    let changed = false;
-
-    // Ensure master passcode exists with fallback Sappy#1313
-    if (!config.masterPasscode) {
-      config.masterPasscode = DEFAULT_MASTER_PASSCODE;
-      changed = true;
-    }
+    const rawConfig = this.get<Partial<StoreConfig>>(STORAGE_KEYS.CONFIG, {});
+    const config: StoreConfig = {
+      ...INITIAL_STORE_CONFIG,
+      ...rawConfig,
+      storeName: rawConfig.storeName || INITIAL_STORE_CONFIG.storeName,
+      currencySymbol: rawConfig.currencySymbol || INITIAL_STORE_CONFIG.currencySymbol,
+      currencyCode: rawConfig.currencyCode || INITIAL_STORE_CONFIG.currencyCode,
+      taxId: rawConfig.taxId || INITIAL_STORE_CONFIG.taxId,
+      defaultTaxRate: rawConfig.defaultTaxRate ?? INITIAL_STORE_CONFIG.defaultTaxRate,
+      masterPasscode: rawConfig.masterPasscode || DEFAULT_MASTER_PASSCODE,
+    };
+    let changed = !rawConfig.currencySymbol || !rawConfig.currencyCode || !rawConfig.masterPasscode;
 
     // Auto-migrate old dollar currency symbol to Ethiopian Birr (Br)
     if (config.currencySymbol === '$' || config.currencyCode === 'USD') {
@@ -1477,16 +1481,28 @@ class StorageService {
       this.set(STORAGE_KEYS.PAYMENTS, Array.from(payMap.values()), false);
     }
     if (state.config && typeof state.config === 'object') {
-      this.set(STORAGE_KEYS.CONFIG, state.config, false);
-      if (state.config.supabaseUrl && state.config.supabaseAnonKey) {
+      const currentConfig = this.getStoreConfig();
+      const mergedConfig: StoreConfig = {
+        ...INITIAL_STORE_CONFIG,
+        ...currentConfig,
+        ...state.config,
+        storeName: state.config.storeName || currentConfig.storeName || INITIAL_STORE_CONFIG.storeName,
+        currencySymbol: state.config.currencySymbol || currentConfig.currencySymbol || INITIAL_STORE_CONFIG.currencySymbol,
+        currencyCode: state.config.currencyCode || currentConfig.currencyCode || INITIAL_STORE_CONFIG.currencyCode,
+        taxId: state.config.taxId || currentConfig.taxId || INITIAL_STORE_CONFIG.taxId,
+        defaultTaxRate: state.config.defaultTaxRate ?? currentConfig.defaultTaxRate ?? INITIAL_STORE_CONFIG.defaultTaxRate,
+        masterPasscode: state.config.masterPasscode || currentConfig.masterPasscode || DEFAULT_MASTER_PASSCODE,
+      };
+      this.set(STORAGE_KEYS.CONFIG, mergedConfig, false);
+      if (mergedConfig.supabaseUrl && mergedConfig.supabaseAnonKey) {
         try {
           const creds = getSupabaseCredentials();
           if (
-            creds.url !== state.config.supabaseUrl ||
-            creds.anonKey !== state.config.supabaseAnonKey ||
+            creds.url !== mergedConfig.supabaseUrl ||
+            creds.anonKey !== mergedConfig.supabaseAnonKey ||
             !isSupabaseConfigured()
           ) {
-            configureSupabase(state.config.supabaseUrl, state.config.supabaseAnonKey);
+            configureSupabase(mergedConfig.supabaseUrl, mergedConfig.supabaseAnonKey);
           }
         } catch (e) {
           console.warn('Auto-configuring Supabase from server state failed:', e);

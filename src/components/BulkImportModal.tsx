@@ -425,8 +425,8 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
                       <th className="py-2.5 px-3">Product Name</th>
                       <th className="py-2.5 px-3">Category</th>
                       <th className="py-2.5 px-3 text-center">Stock & Warning</th>
-                      <th className="py-2.5 px-3 text-right">Cost ({config.currencySymbol.trim()})</th>
-                      <th className="py-2.5 px-3 text-right">Price ({config.currencySymbol.trim()})</th>
+                      <th className="py-2.5 px-3 text-right">Cost ({(config?.currencySymbol || 'Br').trim()})</th>
+                      <th className="py-2.5 px-3 text-right">Price ({(config?.currencySymbol || 'Br').trim()})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-charcoal-800/80 font-mono text-[11px]">

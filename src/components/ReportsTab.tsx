@@ -435,19 +435,21 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       lines.push(cols.map(escapeCsv).join(','));
     };
 
+    const safeCurrencySymbol = (config?.currencySymbol || 'Br').trim();
+
     // --- Header Block ---
-    addRow([`=== ${config.storeName.toUpperCase()} — FINANCIAL SUMMARY (SALES VS EXPENSES) ===`]);
-    addRow(['Store Name', config.storeName]);
-    addRow(['Tax Registration / TIN', config.taxId]);
-    addRow(['Store Address', config.address]);
-    addRow(['Currency', `${config.currencySymbol.trim()} (${config.currencyCode})`]);
+    addRow([`=== ${(config?.storeName || 'Sappy Stationary').toUpperCase()} — FINANCIAL SUMMARY (SALES VS EXPENSES) ===`]);
+    addRow(['Store Name', config?.storeName || 'Sappy Stationary']);
+    addRow(['Tax Registration / TIN', config?.taxId || '']);
+    addRow(['Store Address', config?.address || '']);
+    addRow(['Currency', `${safeCurrencySymbol} (${config?.currencyCode || 'ETB'})`]);
     addRow(['Reporting Period', `${rangeLabel} (${startDate} to ${endDate})`]);
     addRow(['Date Generated', new Date().toISOString()]);
     addRow([]);
 
     // --- Section 1: Executive Financial Summary (P&L KPIs) ---
     addRow(['--- SECTION 1: EXECUTIVE FINANCIAL SUMMARY (PROFIT & LOSS) ---']);
-    addRow(['Financial Metric', `Amount (${config.currencySymbol.trim()})`, 'Accounting Context']);
+    addRow(['Financial Metric', `Amount (${safeCurrencySymbol})`, 'Accounting Context']);
     addRow(['Gross Sales Revenue (Invoiced)', grossSales.toFixed(2), 'Total retail transaction volume']);
     addRow(['Sales Tax / VAT Collected', taxCollected.toFixed(2), 'Statutory output sales tax']);
     addRow(['Net Sales Revenue (Excl. Tax)', netSales.toFixed(2), 'Gross sales revenue minus output tax']);
@@ -461,7 +463,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
     // --- Section 2: Inflow by Payment Channel ---
     addRow(['--- SECTION 2: REVENUE INFLOWS BY PAYMENT CHANNEL ---']);
-    addRow(['Payment Channel', `Total Invoiced (${config.currencySymbol.trim()})`, 'Invoices Count', 'Revenue Share %']);
+    addRow(['Payment Channel', `Total Invoiced (${safeCurrencySymbol})`, 'Invoices Count', 'Revenue Share %']);
     paymentChannelStats.forEach((c) => {
       addRow([c.channel, c.amount.toFixed(2), c.count, `${c.pct.toFixed(2)}%`]);
     });
@@ -470,7 +472,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
     // --- Section 3: Expenses by Accounting Category ---
     addRow(['--- SECTION 3: OPERATING EXPENSES BY ACCOUNTING CATEGORY ---']);
-    addRow(['Expense Category', `Disbursed Amount (${config.currencySymbol.trim()})`, 'Disbursements Count', 'Share of Overhead %']);
+    addRow(['Expense Category', `Disbursed Amount (${safeCurrencySymbol})`, 'Disbursements Count', 'Share of Overhead %']);
     if (expenseBreakdown.length === 0) {
       addRow(['No operating expenses recorded in period', '0.00', 0, '0.00%']);
     } else {
@@ -486,11 +488,11 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     addRow([
       'Date',
       'Transactions',
-      `Gross Sales (${config.currencySymbol.trim()})`,
-      `COGS (${config.currencySymbol.trim()})`,
-      `Gross Profit (${config.currencySymbol.trim()})`,
-      `Operating Expenses (${config.currencySymbol.trim()})`,
-      `Net Profit (${config.currencySymbol.trim()})`,
+      `Gross Sales (${safeCurrencySymbol})`,
+      `COGS (${safeCurrencySymbol})`,
+      `Gross Profit (${safeCurrencySymbol})`,
+      `Operating Expenses (${safeCurrencySymbol})`,
+      `Net Profit (${safeCurrencySymbol})`,
       'Net Margin %',
     ]);
     if (dailyBreakdown.length === 0) {
@@ -520,9 +522,9 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
       'Reference / Invoice #',
       'Customer / Payee',
       'Channel / Category',
-      `Inflow (Sales ${config.currencySymbol.trim()})`,
-      `Outflow (Expense ${config.currencySymbol.trim()})`,
-      `Net Cash Impact (${config.currencySymbol.trim()})`,
+      `Inflow (Sales ${safeCurrencySymbol})`,
+      `Outflow (Expense ${safeCurrencySymbol})`,
+      `Net Cash Impact (${safeCurrencySymbol})`,
       'Notes',
     ]);
 

@@ -487,7 +487,10 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
     // 6. Merge Config (protect against blank overrides, allow clean disconnects)
     if (payload.config && typeof payload.config === 'object') {
       if (!serverState.config) {
-        serverState.config = payload.config;
+        serverState.config = {
+          ...DEFAULT_SERVER_CONFIG,
+          ...payload.config,
+        };
       } else {
         const cleanPayloadEntries = Object.entries(payload.config).filter(([k, v]) => {
           if (k === 'supabaseUrl' || k === 'supabaseAnonKey') return true;

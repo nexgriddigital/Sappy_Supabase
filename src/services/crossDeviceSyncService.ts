@@ -148,7 +148,7 @@ class CrossDeviceSyncService {
 
   public setBackendUrl(url: string) {
     if (typeof window === 'undefined') return;
-    const clean = url.trim();
+    const clean = String(url || '').trim();
     if (clean) {
       localStorage.setItem('sappy_custom_backend_url', clean);
     } else {

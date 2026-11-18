@@ -1104,11 +1104,11 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
           <div className="flex items-center justify-between text-xs text-charcoal-400 pt-1 gap-2">
             <div className="flex items-center gap-1.5">
               <span className="font-medium text-[11px] text-charcoal-300 whitespace-nowrap">
-                Discount ({config.currencySymbol.trim()}):
+                Discount ({(config?.currencySymbol || 'Br').trim()}):
               </span>
               <div className="relative flex items-center">
                 <span className="absolute left-2 text-[10px] font-mono text-charcoal-400 select-none">
-                  {config.currencySymbol.trim()}
+                  {(config?.currencySymbol || 'Br').trim()}
                 </span>
                 <input
                   type="number"

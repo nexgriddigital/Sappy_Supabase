@@ -1067,7 +1067,7 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
                 </div>
                 <div className="relative">
                   <span className="absolute left-3.5 top-2.5 text-xs font-mono font-bold text-charcoal-400">
-                    {config.currencySymbol.trim()}
+                    {(config?.currencySymbol || 'Br').trim()}
                   </span>
                   <input
                     type="number"

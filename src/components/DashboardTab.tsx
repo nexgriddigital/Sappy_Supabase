@@ -110,7 +110,7 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               {config.storeName}
             </h1>
             <p className="text-xs sm:text-sm text-forest-200 mt-1 max-w-xl">
-              Track live daily sales, inventory levels, customer credit accounts, and profit & loss in Ethiopian Birr ({config.currencySymbol.trim()}).
+              Track live daily sales, inventory levels, customer credit accounts, and profit & loss in Ethiopian Birr ({(config?.currencySymbol || 'Br').trim()}).
             </p>
           </div>
 

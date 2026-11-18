@@ -744,7 +744,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>© 2026 {config.storeName} — Commercial Point of Sale & Financial Management Hub</p>
           <div className="flex items-center gap-4 text-[11px] text-charcoal-400 font-mono">
-            <span className="text-forest-400 font-semibold">Currency: {config.currencySymbol.trim()} ({config.currencyCode})</span>
+            <span className="text-forest-400 font-semibold">Currency: {(config?.currencySymbol || 'Br').trim()} ({config?.currencyCode || 'ETB'})</span>
             <span>·</span>
             <span className="text-forest-400 font-semibold">Supabase Free Tier (PostgreSQL)</span>
             <span>·</span>

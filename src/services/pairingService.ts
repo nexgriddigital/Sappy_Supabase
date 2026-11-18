@@ -68,7 +68,7 @@ export function generatePairingCode(): string {
  */
 export function applyPairingToken(tokenOrUrl: string): { success: boolean; message: string } {
   try {
-    let clean = tokenOrUrl.trim();
+    let clean = String(tokenOrUrl || '').trim();
     if (clean.includes('#pair=')) {
       clean = clean.split('#pair=')[1].split('&')[0];
     } else if (clean.includes('pair=')) {
@@ -93,8 +93,8 @@ export function applyPairingToken(tokenOrUrl: string): { success: boolean; messa
     const currentConfig = storageService.getStoreConfig();
     const updatedConfig: StoreConfig = {
       ...currentConfig,
-      supabaseUrl: payload.supabaseUrl.trim(),
-      supabaseAnonKey: payload.supabaseAnonKey.trim(),
+      supabaseUrl: String(payload.supabaseUrl || '').trim(),
+      supabaseAnonKey: String(payload.supabaseAnonKey || '').trim(),
       storeName: payload.storeName || currentConfig.storeName,
       masterPasscode: payload.masterPasscode || currentConfig.masterPasscode || 'Sappy#1313',
     };

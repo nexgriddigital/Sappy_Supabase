@@ -225,8 +225,8 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   onRefreshData,
 }) => {
   const [credentials, setCredentials] = useState(getSupabaseCredentials());
-  const [supabaseUrl, setSupabaseUrl] = useState(credentials.url || storageService.getStoreConfig().supabaseUrl || '');
-  const [supabaseKey, setSupabaseKey] = useState(credentials.anonKey || storageService.getStoreConfig().supabaseAnonKey || '');
+  const [supabaseUrl, setSupabaseUrl] = useState(credentials?.url || storageService.getStoreConfig()?.supabaseUrl || '');
+  const [supabaseKey, setSupabaseKey] = useState(credentials?.anonKey || storageService.getStoreConfig()?.supabaseAnonKey || '');
   const [backendUrl, setBackendUrlState] = useState(crossDeviceSyncService.getBackendUrl());
 
   const [activeSubTab, setActiveSubTab] = useState<'pair' | 'supabase' | 'backend'>(isSupabaseConfigured() ? 'pair' : 'supabase');
@@ -250,7 +250,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     if (e) e.preventDefault();
     setPairError(null);
     setPairSuccess(null);
-    if (!pastePairInput.trim()) {
+    if (!String(pastePairInput || '').trim()) {
       setPairError('Please paste a pairing link or code from your other device.');
       return;
     }
@@ -286,7 +286,9 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
   const getProjectRef = (url: string) => {
     try {
-      const parsed = new URL(url.trim());
+      const cleanUrl = String(url || '').trim();
+      if (!cleanUrl) return '';
+      const parsed = new URL(cleanUrl);
       return parsed.hostname.split('.')[0] || '';
     } catch {
       return '';
@@ -312,7 +314,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
   const handleSaveSupabase = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabaseUrl.trim() || !supabaseKey.trim()) {
+    if (!String(supabaseUrl || '').trim() || !String(supabaseKey || '').trim()) {
       setStatusMessage({ type: 'error', text: 'Please enter both Supabase Project URL and Anon Key.' });
       return;
     }
@@ -329,8 +331,8 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
         const currentConfig = storageService.getStoreConfig();
         storageService.saveStoreConfig({
           ...currentConfig,
-          supabaseUrl: supabaseUrl.trim(),
-          supabaseAnonKey: supabaseKey.trim(),
+          supabaseUrl: String(supabaseUrl || '').trim(),
+          supabaseAnonKey: String(supabaseKey || '').trim(),
         });
         crossDeviceSyncService.broadcastLocalChange();
         await crossDeviceSyncService.syncNow();
@@ -405,8 +407,8 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
         const currentConfig = storageService.getStoreConfig();
         storageService.saveStoreConfig({
           ...currentConfig,
-          supabaseUrl: supabaseUrl.trim(),
-          supabaseAnonKey: supabaseKey.trim(),
+          supabaseUrl: String(supabaseUrl || '').trim(),
+          supabaseAnonKey: String(supabaseKey || '').trim(),
         });
         setMissingTables(false);
         if (testResult.rlsError) {
@@ -676,7 +678,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           )}
 
           {/* RLS Error 42501 Actionable Helper Card */}
-          {(hasRlsError || syncState.message.includes('42501') || syncState.message.includes('RLS')) && (
+          {(hasRlsError || String(syncState?.message || '').includes('42501') || String(syncState?.message || '').includes('RLS')) && (
             <div className="p-4 rounded-xl bg-amber-950/70 border border-amber-600/80 text-amber-100 space-y-3 shadow-xl">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
@@ -742,7 +744,9 @@ CREATE POLICY "Enable all operations for POS terminals" ON public.products FOR A
                   <div className="p-4 bg-charcoal-950 border border-charcoal-800 rounded-2xl flex flex-col items-center text-center space-y-3">
                     <div className="bg-white p-3 rounded-xl shadow-lg border border-charcoal-700">
                       {(() => {
-                        const matrix = generateQrMatrix(generatePairingUrl());
+                        const pairUrl = generatePairingUrl();
+                        if (!pairUrl) return null;
+                        const matrix = generateQrMatrix(pairUrl);
                         const dim = matrix.length || 29;
                         return (
                           <svg className="w-36 h-36 aspect-square" viewBox={`0 0 ${dim} ${dim}`} shapeRendering="crispEdges">

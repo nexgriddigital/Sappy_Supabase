@@ -43,8 +43,8 @@ export const SupabaseSyncTab: React.FC<SupabaseSyncTabProps> = ({
   onRefreshData,
 }) => {
   const [credentials, setCredentials] = useState(getSupabaseCredentials());
-  const [urlInput, setUrlInput] = useState(credentials.url || config.supabaseUrl || '');
-  const [keyInput, setKeyInput] = useState(credentials.anonKey || config.supabaseAnonKey || '');
+  const [urlInput, setUrlInput] = useState(credentials?.url || config?.supabaseUrl || '');
+  const [keyInput, setKeyInput] = useState(credentials?.anonKey || config?.supabaseAnonKey || '');
   const [testStatus, setTestStatus] = useState<
     'idle' | 'testing' | 'success' | 'error'
   >('idle');
@@ -136,7 +136,7 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
   };
 
   const handleApplyPairToken = () => {
-    if (!pastePairInput.trim()) return;
+    if (!String(pastePairInput || '').trim()) return;
     const res = applyPairingToken(pastePairInput);
     if (res.success) {
       setPairingNotice('Device successfully paired!');
@@ -157,13 +157,13 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
   useEffect(() => {
     const creds = getSupabaseCredentials();
     setCredentials(creds);
-    if (creds.url || config.supabaseUrl) {
-      setUrlInput(creds.url || config.supabaseUrl || '');
+    if (creds?.url || config?.supabaseUrl) {
+      setUrlInput(creds?.url || config?.supabaseUrl || '');
     }
-    if (creds.anonKey || config.supabaseAnonKey) {
-      setKeyInput(creds.anonKey || config.supabaseAnonKey || '');
+    if (creds?.anonKey || config?.supabaseAnonKey) {
+      setKeyInput(creds?.anonKey || config?.supabaseAnonKey || '');
     }
-  }, [config.supabaseUrl, config.supabaseAnonKey]);
+  }, [config?.supabaseUrl, config?.supabaseAnonKey]);
 
   // SQL script tailored for Supabase SQL Editor
   const supabaseSql = `-- ============================================================================
@@ -305,12 +305,20 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
 
   // Test Connection & Synchronize Across Devices
   const handleTestConnection = async () => {
+    const cleanUrl = String(urlInput || '').trim();
+    const cleanKey = String(keyInput || '').trim();
+    if (!cleanUrl || !cleanKey) {
+      setTestStatus('error');
+      setTestMessage('Please enter both Supabase Project URL and Publishable / Anon Key.');
+      return;
+    }
+
     setTestStatus('testing');
     setTestMessage('Connecting to Supabase...');
 
     try {
       // Re-configure in case user modified inputs
-      const { client } = configureSupabase(urlInput, keyInput);
+      const { client } = configureSupabase(cleanUrl, cleanKey);
       setCredentials(getSupabaseCredentials());
 
       // Attempt test ping query
@@ -321,8 +329,8 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
       // Persist credentials into store configuration and push cross-device sync
       const updatedConfig = {
         ...config,
-        supabaseUrl: urlInput.trim(),
-        supabaseAnonKey: keyInput.trim(),
+        supabaseUrl: cleanUrl,
+        supabaseAnonKey: cleanKey,
       };
       storageService.saveStoreConfig(updatedConfig);
       await crossDeviceSyncService.syncNow();
@@ -542,15 +550,15 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
 
   const activeHostname = (() => {
     try {
-      const u = (urlInput || credentials.url || config.supabaseUrl || '').trim();
+      const u = String(urlInput || credentials?.url || config?.supabaseUrl || '').trim();
       if (!u) return 'Not Connected (Local Storage Mode)';
       return new URL(u).hostname;
     } catch {
-      return (urlInput || credentials.url || config.supabaseUrl || 'Not Connected (Local Storage Mode)');
+      return String(urlInput || credentials?.url || config?.supabaseUrl || 'Not Connected (Local Storage Mode)');
     }
   })();
 
-  const isConfigured = Boolean(credentials.url || config.supabaseUrl);
+  const isConfigured = Boolean(credentials?.url || config?.supabaseUrl);
 
   return (
     <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
@@ -712,7 +720,9 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="bg-white p-2.5 rounded-xl shadow-lg border border-charcoal-700 shrink-0">
               {(() => {
-                const matrix = generateQrMatrix(generatePairingUrl());
+                const pairUrl = generatePairingUrl();
+                if (!pairUrl) return null;
+                const matrix = generateQrMatrix(pairUrl);
                 const dim = matrix.length || 29;
                 return (
                   <svg className="w-32 h-32 aspect-square" viewBox={`0 0 ${dim} ${dim}`} shapeRendering="crispEdges">

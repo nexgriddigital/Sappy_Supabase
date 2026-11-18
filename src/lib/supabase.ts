@@ -17,7 +17,7 @@ try {
   const saved = typeof window !== 'undefined' ? localStorage.getItem('sappy_supabase_credentials_v1') : null;
   if (saved) {
     const parsed = JSON.parse(saved);
-    if (parsed.url && parsed.anonKey) {
+    if (parsed && typeof parsed.url === 'string' && typeof parsed.anonKey === 'string' && parsed.url && parsed.anonKey) {
       activeUrl = parsed.url.trim();
       activeAnonKey = parsed.anonKey.trim();
     }
@@ -27,7 +27,7 @@ try {
     const rawConfig = localStorage.getItem('sappy_pos_config_v1');
     if (rawConfig) {
       const cfg = JSON.parse(rawConfig);
-      if (cfg.supabaseUrl && cfg.supabaseAnonKey) {
+      if (cfg && typeof cfg.supabaseUrl === 'string' && typeof cfg.supabaseAnonKey === 'string' && cfg.supabaseUrl && cfg.supabaseAnonKey) {
         activeUrl = cfg.supabaseUrl.trim();
         activeAnonKey = cfg.supabaseAnonKey.trim();
       }
@@ -89,8 +89,8 @@ export function configureSupabase(url: string, anonKey: string): {
   client: SupabaseClient;
   success: boolean;
 } {
-  const cleanUrl = url.trim();
-  const cleanKey = anonKey.trim();
+  const cleanUrl = String(url || '').trim();
+  const cleanKey = String(anonKey || '').trim();
 
   if (!cleanUrl || !cleanKey) {
     throw new Error('Supabase Project URL and Anon/Public Key are required.');
@@ -114,12 +114,16 @@ export function configureSupabase(url: string, anonKey: string): {
         JSON.stringify({ url: cleanUrl, anonKey: cleanKey })
       );
 
-      // Also persist to store config so crossDeviceSyncService automatically pushes credentials to central server
+      // Update store config only if it already exists (avoid creating a partial config missing currencySymbol)
       const rawConfig = localStorage.getItem('sappy_pos_config_v1');
-      const cfg = rawConfig ? JSON.parse(rawConfig) : {};
-      cfg.supabaseUrl = cleanUrl;
-      cfg.supabaseAnonKey = cleanKey;
-      localStorage.setItem('sappy_pos_config_v1', JSON.stringify(cfg));
+      if (rawConfig) {
+        const cfg = JSON.parse(rawConfig);
+        if (cfg && typeof cfg === 'object') {
+          cfg.supabaseUrl = cleanUrl;
+          cfg.supabaseAnonKey = cleanKey;
+          localStorage.setItem('sappy_pos_config_v1', JSON.stringify(cfg));
+        }
+      }
 
       if ('BroadcastChannel' in window) {
         try {
