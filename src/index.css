@@ -66,3 +66,21 @@
   scrollbar-width: none;
 }
 
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+    width: 45%;
+  }
+  50% {
+    transform: translateX(65%);
+    width: 55%;
+  }
+  100% {
+    transform: translateX(220%);
+    width: 45%;
+  }
+}
+
+.animate-indeterminate {
+  animation: indeterminate 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

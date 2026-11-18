@@ -6,21 +6,31 @@ import { soundEffects } from './utils/soundEffects.ts';
 import { STARTER_STATIONERY_PRODUCTS } from './data/starterCatalog.ts';
 import { storageService } from './services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
-import { LoadingScreen } from './components/LoadingAnimation.tsx';
+import { LoadingScreen, ModuleLoader } from './components/LoadingAnimation.tsx';
 import { isSupabaseConfigured } from './lib/supabase.ts';
 import { checkAndApplyUrlPairing } from './services/pairingService.ts';
+import { DashboardTab } from './components/DashboardTab.tsx';
+import { RegisterTab } from './components/RegisterTab.tsx';
 
-const DashboardTab = lazy(() => import('./components/DashboardTab.tsx').then((m) => ({ default: m.DashboardTab })));
-const RegisterTab = lazy(() => import('./components/RegisterTab.tsx').then((m) => ({ default: m.RegisterTab })));
-const SalesLedgerTab = lazy(() => import('./components/SalesLedgerTab.tsx').then((m) => ({ default: m.SalesLedgerTab })));
-const CreditDebtTab = lazy(() => import('./components/CreditDebtTab.tsx').then((m) => ({ default: m.CreditDebtTab })));
-const InventoryTab = lazy(() => import('./components/InventoryTab.tsx').then((m) => ({ default: m.InventoryTab })));
-const ExpensesTab = lazy(() => import('./components/ExpensesTab.tsx').then((m) => ({ default: m.ExpensesTab })));
-const ReportsTab = lazy(() => import('./components/ReportsTab.tsx').then((m) => ({ default: m.ReportsTab })));
-const QRBarcodeStudioTab = lazy(() => import('./components/QRBarcodeStudioTab.tsx').then((m) => ({ default: m.QRBarcodeStudioTab })));
-const UsersTab = lazy(() => import('./components/UsersTab.tsx').then((m) => ({ default: m.UsersTab })));
-const SettingsTab = lazy(() => import('./components/SettingsTab.tsx').then((m) => ({ default: m.SettingsTab })));
-const SupabaseSyncTab = lazy(() => import('./components/SupabaseSyncTab.tsx').then((m) => ({ default: m.SupabaseSyncTab })));
+const loadSalesLedgerTab = () => import('./components/SalesLedgerTab.tsx');
+const loadCreditDebtTab = () => import('./components/CreditDebtTab.tsx');
+const loadInventoryTab = () => import('./components/InventoryTab.tsx');
+const loadExpensesTab = () => import('./components/ExpensesTab.tsx');
+const loadReportsTab = () => import('./components/ReportsTab.tsx');
+const loadQRBarcodeStudioTab = () => import('./components/QRBarcodeStudioTab.tsx');
+const loadUsersTab = () => import('./components/UsersTab.tsx');
+const loadSettingsTab = () => import('./components/SettingsTab.tsx');
+const loadSupabaseSyncTab = () => import('./components/SupabaseSyncTab.tsx');
+
+const SalesLedgerTab = lazy(() => loadSalesLedgerTab().then((m) => ({ default: m.SalesLedgerTab })));
+const CreditDebtTab = lazy(() => loadCreditDebtTab().then((m) => ({ default: m.CreditDebtTab })));
+const InventoryTab = lazy(() => loadInventoryTab().then((m) => ({ default: m.InventoryTab })));
+const ExpensesTab = lazy(() => loadExpensesTab().then((m) => ({ default: m.ExpensesTab })));
+const ReportsTab = lazy(() => loadReportsTab().then((m) => ({ default: m.ReportsTab })));
+const QRBarcodeStudioTab = lazy(() => loadQRBarcodeStudioTab().then((m) => ({ default: m.QRBarcodeStudioTab })));
+const UsersTab = lazy(() => loadUsersTab().then((m) => ({ default: m.UsersTab })));
+const SettingsTab = lazy(() => loadSettingsTab().then((m) => ({ default: m.SettingsTab })));
+const SupabaseSyncTab = lazy(() => loadSupabaseSyncTab().then((m) => ({ default: m.SupabaseSyncTab })));
 const A4InvoiceModal = lazy(() => import('./components/A4InvoiceModal.tsx').then((m) => ({ default: m.A4InvoiceModal })));
 const CloudSyncModal = lazy(() => import('./components/CloudSyncModal.tsx').then((m) => ({ default: m.CloudSyncModal })));
 const MasterPasscodeModal = lazy(() => import('./components/MasterPasscodeModal.tsx').then((m) => ({ default: m.MasterPasscodeModal })));
@@ -238,7 +248,7 @@ export default function App() {
 
     // Initial server state fetch: run immediately without blocking cached devices
     const startupPromise = crossDeviceSyncService.initialSync();
-    const safetyTimeoutPromise = new Promise((resolve) => setTimeout(resolve, 500));
+    const safetyTimeoutPromise = new Promise((resolve) => setTimeout(resolve, 300));
 
     Promise.race([startupPromise, safetyTimeoutPromise]).then(() => {
       if (isMounted) {
@@ -254,7 +264,20 @@ export default function App() {
       }
     });
 
-    // If background initialSync finishes after the 500ms budget, hydrate UI seamlessly
+    // Background prefetch secondary tab chunks so tab switching is near-instant
+    const prefetchTimer = setTimeout(() => {
+      void loadSalesLedgerTab();
+      void loadCreditDebtTab();
+      void loadInventoryTab();
+      void loadExpensesTab();
+      void loadReportsTab();
+      void loadQRBarcodeStudioTab();
+      void loadUsersTab();
+      void loadSettingsTab();
+      void loadSupabaseSyncTab();
+    }, 150);
+
+    // If background initialSync finishes after the 300ms budget, hydrate UI seamlessly
     startupPromise.then(() => {
       if (isMounted) {
         reloadData();
@@ -263,6 +286,7 @@ export default function App() {
 
     return () => {
       isMounted = false;
+      clearTimeout(prefetchTimer);
       unsubscribe();
     };
   }, [reloadData, showToast]);
@@ -494,13 +518,7 @@ export default function App() {
 
       {/* Main Tab Content */}
       <main className="flex-1 flex flex-col pb-20 md:pb-6">
-        <Suspense
-          fallback={
-            <div className="flex-1 flex items-center justify-center p-12 text-xs font-mono text-charcoal-400">
-              Loading module...
-            </div>
-          }
-        >
+        <Suspense fallback={<ModuleLoader />}>
         {activeTab === 'dashboard' && (
           <DashboardTab
             sales={sales}
