@@ -175,13 +175,33 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     handleBarcodeDecodedRef.current = handleBarcodeDecoded;
   }, [handleBarcodeDecoded]);
 
-  // Stop camera helper (safe against concurrent transitions)
-  const stopCamera = useCallback(async () => {
+  // Helper to list video devices WITHOUT opening a new camera stream (avoids iOS "Camera is busy" conflict)
+  const listVideoDevices = useCallback(async (): Promise<{ id: string; label: string }[]> => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+      return [];
+    }
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices
+        .filter((d) => d.kind === 'videoinput' && d.deviceId)
+        .map((d, idx) => ({
+          id: d.deviceId,
+          label: d.label || `Camera ${idx + 1}`,
+        }));
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Stop camera helper (returns true if an active stream was stopped)
+  const stopCamera = useCallback(async (): Promise<boolean> => {
     const instance = scannerRef.current;
     scannerRef.current = null;
+    let wasActive = false;
     if (instance) {
       try {
         if (instance.isScanning) {
+          wasActive = true;
           await instance.stop();
         }
       } catch {
@@ -197,95 +217,100 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       setIsCameraActive(false);
       setTorchOn(false);
     }
+    return wasActive;
   }, []);
 
-  // Start live camera scanner with request token & device constraint fallbacks
-  const startCamera = useCallback(async (overrideCameraId?: string) => {
-    const requestId = ++startRequestIdRef.current;
+  // Start live camera scanner with request token, iOS settle delay & constraint fallbacks
+  const startCamera = useCallback(
+    async (overrideCameraId?: string) => {
+      const requestId = ++startRequestIdRef.current;
 
-    try {
-      await stopCamera();
-      if (!isMountedRef.current || requestId !== startRequestIdRef.current) return;
-      setCameraError(null);
-
-      const containerId = 'pos-camera-viewport';
-      const container = document.getElementById(containerId);
-      if (!container) return;
-
-      // Clear any leftover HTML inside viewport before mounting a fresh scanner
-      container.innerHTML = '';
-
-      let detectedDevices: { id: string; label: string }[] = [];
       try {
-        const devices = await Html5Qrcode.getCameras();
-        if (requestId !== startRequestIdRef.current || !isMountedRef.current) return;
-        if (devices && devices.length > 0) {
-          detectedDevices = devices.map((d, idx) => ({
-            id: d.id,
-            label: d.label || `Camera ${idx + 1}`,
-          }));
-          setAvailableCameras(detectedDevices);
+        const hadActiveCamera = await stopCamera();
+        if (!isMountedRef.current || requestId !== startRequestIdRef.current) return;
+        setCameraError(null);
+
+        // Give iOS/mobile AVFoundation time to release the hardware camera before re-opening
+        if (hadActiveCamera) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          if (!isMountedRef.current || requestId !== startRequestIdRef.current) return;
         }
-      } catch {
-        // getCameras may require active stream first on some browsers; fall through to constraint fallbacks
-      }
 
-      const qrScanner = new Html5Qrcode(containerId, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.ITF,
-        ],
-        verbose: false,
-      });
-      scannerRef.current = qrScanner;
+        const containerId = 'pos-camera-viewport';
+        const container = document.getElementById(containerId);
+        if (!container) return;
 
-      const desiredId = overrideCameraId !== undefined ? overrideCameraId : selectedCameraIdRef.current;
-      const validDesiredId =
-        desiredId && (detectedDevices.length === 0 || detectedDevices.some((d) => d.id === desiredId))
-          ? desiredId
-          : '';
+        // Wait one animation frame if modal container is still measuring dimensions
+        if (container.clientWidth === 0) {
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          if (!isMountedRef.current || requestId !== startRequestIdRef.current) return;
+        }
 
-      // Clear stale camera ID if it no longer exists on this device
-      if (desiredId && !validDesiredId && detectedDevices.length > 0 && isMountedRef.current) {
-        selectedCameraIdRef.current = '';
-        setSelectedCameraId('');
-        try {
-          localStorage.removeItem('sappy_preferred_camera_id');
-        } catch {}
-      }
+        // Clear any leftover HTML inside viewport before mounting a fresh scanner
+        container.innerHTML = '';
 
-      const scanConfig = {
-        fps: 12,
-        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-          const minEdge = Math.max(100, Math.min(viewfinderWidth, viewfinderHeight));
-          const boxWidth = Math.max(80, Math.min(Math.floor(minEdge * 0.78), viewfinderWidth - 16));
-          const boxHeight = Math.max(60, Math.min(Math.floor(boxWidth * 0.65), viewfinderHeight - 16));
-          return { width: boxWidth, height: boxHeight };
-        },
-      };
+        // Enumerate already-permitted devices without triggering an extra getUserMedia stream
+        const knownDevices = await listVideoDevices();
+        if (!isMountedRef.current || requestId !== startRequestIdRef.current) return;
+        if (knownDevices.length > 0) {
+          setAvailableCameras(knownDevices);
+        }
 
-      const candidateConstraints: Array<string | MediaTrackConstraints> = [];
-      if (validDesiredId) {
-        candidateConstraints.push({ deviceId: { exact: validDesiredId } });
-      }
-      candidateConstraints.push({ facingMode: 'environment' });
-      candidateConstraints.push({ facingMode: 'user' });
-      if (detectedDevices.length > 0) {
-        candidateConstraints.push(detectedDevices[0].id);
-      }
+        const qrScanner = new Html5Qrcode(containerId, {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+            Html5QrcodeSupportedFormats.ITF,
+          ],
+          verbose: false,
+        });
+        scannerRef.current = qrScanner;
 
-      let started = false;
-      let lastErr: any = null;
+        const desiredId = overrideCameraId !== undefined ? overrideCameraId : selectedCameraIdRef.current;
+        const validDesiredId =
+          desiredId && (knownDevices.length === 0 || knownDevices.some((d) => d.id === desiredId))
+            ? desiredId
+            : '';
 
-      for (const constraint of candidateConstraints) {
-        if (!isMountedRef.current || requestId !== startRequestIdRef.current || scannerRef.current !== qrScanner) break;
-        try {
+        // Clear stale camera ID if it no longer exists on this device
+        if (desiredId && !validDesiredId && knownDevices.length > 0 && isMountedRef.current) {
+          selectedCameraIdRef.current = '';
+          setSelectedCameraId('');
+          try {
+            localStorage.removeItem('sappy_preferred_camera_id');
+          } catch {}
+        }
+
+        const scanConfig = {
+          fps: 12,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const minEdge = Math.max(100, Math.min(viewfinderWidth, viewfinderHeight));
+            const boxWidth = Math.max(80, Math.min(Math.floor(minEdge * 0.78), viewfinderWidth - 16));
+            const boxHeight = Math.max(60, Math.min(Math.floor(boxWidth * 0.65), viewfinderHeight - 16));
+            return { width: boxWidth, height: boxHeight };
+          },
+        };
+
+        const candidateConstraints: Array<string | MediaTrackConstraints> = [];
+        if (validDesiredId) {
+          candidateConstraints.push({ deviceId: { exact: validDesiredId } });
+          candidateConstraints.push({ deviceId: validDesiredId });
+        }
+        candidateConstraints.push({ facingMode: 'environment' });
+        candidateConstraints.push({ facingMode: 'user' });
+        if (knownDevices.length > 0) {
+          candidateConstraints.push(knownDevices[0].id);
+        }
+
+        let started = false;
+        let lastErr: any = null;
+
+        const attemptStart = async (constraint: string | MediaTrackConstraints): Promise<boolean> => {
           await qrScanner.start(
             constraint,
             scanConfig,
@@ -296,71 +321,115 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               // Frame parse miss, normal during scanning
             }
           );
-          started = true;
-          break;
-        } catch (err: any) {
-          lastErr = err;
-          const errName = String(err?.name || err?.message || '');
-          // Don't retry other cameras if user explicitly denied camera permission
-          if (errName.includes('NotAllowedError') || errName.includes('Permission')) {
-            break;
-          }
+          return true;
+        };
+
+        for (const constraint of candidateConstraints) {
+          if (!isMountedRef.current || requestId !== startRequestIdRef.current || scannerRef.current !== qrScanner) break;
           try {
-            if (qrScanner.isScanning) {
-              await qrScanner.stop();
+            started = await attemptStart(constraint);
+            break;
+          } catch (err: any) {
+            lastErr = err;
+            const errName = String(err?.name || err?.message || '');
+            // Don't retry other cameras if user explicitly denied camera permission
+            if (errName.includes('NotAllowedError') || errName.includes('Permission')) {
+              break;
+            }
+
+            try {
+              if (qrScanner.isScanning) {
+                await qrScanner.stop();
+              }
+            } catch {}
+
+            // On iOS/mobile, NotReadableError/AbortError often means hardware is still releasing; retry once after a short wait
+            const isBusyErr =
+              errName.includes('NotReadableError') ||
+              errName.includes('AbortError') ||
+              errName.includes('TrackStartError') ||
+              errName.toLowerCase().includes('busy') ||
+              errName.toLowerCase().includes('starting videoinput');
+
+            if (isBusyErr) {
+              await new Promise((resolve) => setTimeout(resolve, 350));
+              if (!isMountedRef.current || requestId !== startRequestIdRef.current || scannerRef.current !== qrScanner) break;
+              try {
+                started = await attemptStart(constraint);
+                break;
+              } catch (retryErr: any) {
+                lastErr = retryErr;
+                try {
+                  if (qrScanner.isScanning) {
+                    await qrScanner.stop();
+                  }
+                } catch {}
+              }
+            }
+          }
+        }
+
+        if (requestId !== startRequestIdRef.current || !isMountedRef.current || scannerRef.current !== qrScanner) {
+          try {
+            if (qrScanner.isScanning) await qrScanner.stop();
+            qrScanner.clear();
+          } catch {}
+          return;
+        }
+
+        if (!started) {
+          throw lastErr || new Error('Unable to start camera stream.');
+        }
+
+        setIsCameraActive(true);
+
+        // Refresh device list via enumerateDevices (never getCameras, which opens a conflicting second stream on iOS)
+        const devicesAfter = await listVideoDevices();
+        if (devicesAfter.length > 0 && isMountedRef.current && requestId === startRequestIdRef.current) {
+          setAvailableCameras(devicesAfter);
+          try {
+            const activeDeviceId = qrScanner.getRunningTrackSettings()?.deviceId;
+            if (activeDeviceId && devicesAfter.some((d) => d.id === activeDeviceId)) {
+              selectedCameraIdRef.current = activeDeviceId;
+              setSelectedCameraId(activeDeviceId);
             }
           } catch {}
         }
-      }
 
-      if (requestId !== startRequestIdRef.current || !isMountedRef.current || scannerRef.current !== qrScanner) {
+        // Check if torch/flashlight capability is available
         try {
-          if (qrScanner.isScanning) await qrScanner.stop();
-          qrScanner.clear();
-        } catch {}
-        return;
-      }
-
-      if (!started) {
-        throw lastErr || new Error('Unable to start camera stream.');
-      }
-
-      setIsCameraActive(true);
-
-      // Refresh device list after permission grant so labels populate and dropdown matches active camera
-      try {
-        const devicesAfter = await Html5Qrcode.getCameras();
-        if (devicesAfter && devicesAfter.length > 0 && isMountedRef.current && requestId === startRequestIdRef.current) {
-          setAvailableCameras(
-            devicesAfter.map((d, idx) => ({ id: d.id, label: d.label || `Camera ${idx + 1}` }))
-          );
+          const capabilities = qrScanner.getRunningTrackCapabilities();
+          setHasTorch(Boolean((capabilities as any)?.torch));
+        } catch {
+          setHasTorch(false);
         }
-      } catch {}
-
-      // Check if torch/flashlight capability is available
-      try {
-        const capabilities = qrScanner.getRunningTrackCapabilities();
-        setHasTorch(Boolean((capabilities as any)?.torch));
-      } catch {
-        setHasTorch(false);
+      } catch (err: any) {
+        if (requestId !== startRequestIdRef.current) return;
+        console.warn('Camera start error:', err);
+        await stopCamera();
+        if (!isMountedRef.current) return;
+        const msg = String(err?.message || err?.name || 'Unable to access camera.');
+        if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
+          setCameraError(
+            'Camera access denied. Allow camera permission in your browser settings, or use Type Code / Photo.'
+          );
+        } else if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
+          setCameraError('No camera found on this device. You can scan from a photo or enter the barcode manually.');
+        } else if (
+          msg.includes('NotReadableError') ||
+          msg.includes('AbortError') ||
+          msg.toLowerCase().includes('busy')
+        ) {
+          setCameraError(
+            'Camera was temporarily busy or locked by another app/tab. Tap Try Again, or use Type Code / Photo.'
+          );
+        } else {
+          setCameraError(`Camera could not start (${msg}). You can enter barcodes manually or upload an image.`);
+        }
       }
-    } catch (err: any) {
-      if (requestId !== startRequestIdRef.current) return;
-      console.warn('Camera start error:', err);
-      await stopCamera();
-      if (!isMountedRef.current) return;
-      const msg = String(err?.message || err?.name || 'Unable to access camera.');
-      if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
-        setCameraError(
-          'Camera access denied. Allow camera permission in your browser settings, or use Type Code / Photo.'
-        );
-      } else if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
-        setCameraError('No camera found on this device. You can scan from a photo or enter the barcode manually.');
-      } else {
-        setCameraError(`Camera could not start (${msg}). You can enter barcodes manually or upload an image.`);
-      }
-    }
-  }, [stopCamera]);
+    },
+    [listVideoDevices, stopCamera]
+  );
 
   // Toggle torch / flashlight
   const handleToggleTorch = async () => {
@@ -595,7 +664,10 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             <div className="space-y-3">
               <div className="relative w-full aspect-square max-h-[300px] sm:max-h-[340px] mx-auto bg-black rounded-2xl overflow-hidden border border-charcoal-800 shadow-inner flex items-center justify-center">
                 {/* HTML5 QR Code Mount Node */}
-                <div id="pos-camera-viewport" className="w-full h-full object-cover" />
+                <div
+                  id="pos-camera-viewport"
+                  className="w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
+                />
 
                 {/* Animated Targeting Overlay (Visual Reticle & Laser) */}
                 {isCameraActive && (
