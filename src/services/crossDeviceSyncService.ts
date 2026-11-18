@@ -531,7 +531,6 @@ class CrossDeviceSyncService {
                   credit_limit: c.creditLimit,
                   total_purchased: c.totalPurchased,
                   notes: c.notes || null,
-                  updated_at: c.updatedAt || new Date().toISOString(),
                 }))
               );
               if (custErr && (custErr.code === '42501' || custErr.message?.includes('row-level security'))) {

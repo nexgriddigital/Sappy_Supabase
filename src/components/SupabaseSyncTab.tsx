@@ -22,6 +22,7 @@ import {
   getSupabaseCredentials,
   configureSupabase,
   resetSupabaseConfig,
+  testSupabaseConnection,
 } from '../lib/supabase.ts';
 import { storageService } from '../services/storageService.ts';
 import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
@@ -60,6 +61,7 @@ export const SupabaseSyncTab: React.FC<SupabaseSyncTabProps> = ({
   const [copiedPairCode, setCopiedPairCode] = useState(false);
   const [pastePairInput, setPastePairInput] = useState('');
   const [pairingNotice, setPairingNotice] = useState<string | null>(null);
+  const [dbHealth, setDbHealth] = useState<'idle' | 'checking' | 'ok' | 'rls_error' | 'missing_tables' | 'error'>('idle');
 
   const supabaseRlsFixSql = `-- ============================================================================
 -- SAPPY STATIONARY POS - SUPABASE RLS SECURITY POLICY FIX
@@ -134,6 +136,32 @@ END $$;
       setKeyInput(creds?.anonKey || config?.supabaseAnonKey || '');
     }
   }, [config?.supabaseUrl, config?.supabaseAnonKey]);
+
+  const runHealthCheck = async (targetClient?: any) => {
+    const client = targetClient || getSupabase();
+    if (!client) {
+      setDbHealth('idle');
+      return null;
+    }
+    setDbHealth('checking');
+    const res = await testSupabaseConnection(client);
+    if (res.success && !res.tableFound) {
+      setDbHealth('missing_tables');
+    } else if (res.rlsError) {
+      setDbHealth('rls_error');
+    } else if (res.success) {
+      setDbHealth('ok');
+    } else {
+      setDbHealth('error');
+    }
+    return res;
+  };
+
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      void runHealthCheck();
+    }
+  }, []);
 
   // SQL script tailored for Supabase SQL Editor
   const supabaseSql = `-- ============================================================================
@@ -291,11 +319,6 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
       const { client } = configureSupabase(cleanUrl, cleanKey);
       setCredentials(getSupabaseCredentials());
 
-      // Attempt test ping query
-      const { error } = await client
-        .from('products')
-        .select('count', { count: 'exact', head: true });
-
       // Persist credentials into store configuration and push cross-device sync
       const updatedConfig = {
         ...config,
@@ -303,28 +326,36 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
         supabaseAnonKey: cleanKey,
       };
       storageService.saveStoreConfig(updatedConfig);
+
+      // Run full read + write health check
+      const health = await runHealthCheck(client);
+
       await crossDeviceSyncService.syncNow();
       crossDeviceSyncService.broadcastLocalChange();
       onRefreshData();
 
-      if (error && error.code !== 'PGRST116') {
-        // If table doesn't exist yet, it still connects to Supabase auth!
-        if (
-          error.code === 'PGRST205' ||
-          error.code === '42P01' ||
-          error.message?.includes('schema cache') ||
-          error.message?.includes('does not exist')
-        ) {
-          setTestStatus('success');
-          setTestMessage('Connected to Supabase project! Synced across all your devices. (Tables pending - run the SQL script below in SQL Editor).');
-          return;
-        }
-        throw error;
+      if (health && !health.tableFound && health.success) {
+        setTestStatus('error');
+        setTestMessage('Connected to Supabase project, but database tables do not exist yet. Run the SQL Schema on the right, then click Verify.');
+        return;
+      }
+
+      if (health?.rlsError) {
+        setTestStatus('error');
+        setTestMessage(health.message);
+        return;
+      }
+
+      if (health && !health.success) {
+        setTestStatus('error');
+        setTestMessage(health.message);
+        return;
       }
 
       setTestStatus('success');
-      setTestMessage('Connected to Supabase PostgreSQL! Connection verified and synchronized across all your devices.');
+      setTestMessage('Connected to Supabase PostgreSQL! Read & write permissions verified and synchronized across all devices.');
     } catch (err: any) {
+      setDbHealth('error');
       setTestStatus('error');
       setTestMessage(err.message || 'Could not connect to Supabase. Check Project URL and Publishable Key.');
     }
@@ -366,72 +397,77 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
       const expenses = storageService.getExpenses();
 
       // 1. Sync Products
-      setSyncProgress(`Syncing ${products.length} stationery products...`);
-      const mappedProducts = products.map((p) => ({
-        id: p.id,
-        sku: p.sku,
-        barcode: p.barcode,
-        name: p.name,
-        category: p.category,
-        cost_price: p.costPrice,
-        selling_price: p.sellingPrice,
-        stock_level: p.stockLevel,
-        low_stock_threshold: p.lowStockThreshold,
-        unit: p.unit,
-        description: p.description,
-        updated_at: p.updatedAt || new Date().toISOString(),
-      }));
-      const { error: prodErr } = await client.from('products').upsert(mappedProducts);
-      if (prodErr) throw new Error(`Products sync failed: ${prodErr.message}`);
+      if (products.length > 0) {
+        setSyncProgress(`Syncing ${products.length} stationery products...`);
+        const mappedProducts = products.map((p) => ({
+          id: p.id,
+          sku: p.sku,
+          barcode: p.barcode,
+          name: p.name,
+          category: p.category,
+          cost_price: p.costPrice,
+          selling_price: p.sellingPrice,
+          stock_level: p.stockLevel,
+          low_stock_threshold: p.lowStockThreshold,
+          unit: p.unit,
+          description: p.description,
+          updated_at: p.updatedAt || new Date().toISOString(),
+        }));
+        const { error: prodErr } = await client.from('products').upsert(mappedProducts);
+        if (prodErr) throw new Error(`Products sync failed: ${prodErr.message}`);
+      }
 
       // 2. Sync Customers
-      setSyncProgress(`Syncing ${customers.length} customer accounts...`);
-      const mappedCustomers = customers.map((c) => ({
-        id: c.id,
-        name: c.name,
-        company_name: c.companyName,
-        phone: c.phone,
-        email: c.email,
-        address: c.address,
-        tax_number: c.taxNumber,
-        credit_balance: c.creditBalance,
-        credit_limit: c.creditLimit,
-        total_purchased: c.totalPurchased,
-        notes: c.notes,
-        updated_at: c.updatedAt || new Date().toISOString(),
-      }));
-      const { error: custErr } = await client.from('customers').upsert(mappedCustomers);
-      if (custErr) throw new Error(`Customers sync failed: ${custErr.message}`);
+      if (customers.length > 0) {
+        setSyncProgress(`Syncing ${customers.length} customer accounts...`);
+        const mappedCustomers = customers.map((c) => ({
+          id: c.id,
+          name: c.name,
+          company_name: c.companyName,
+          phone: c.phone,
+          email: c.email,
+          address: c.address,
+          tax_number: c.taxNumber,
+          credit_balance: c.creditBalance,
+          credit_limit: c.creditLimit,
+          total_purchased: c.totalPurchased,
+          notes: c.notes,
+        }));
+        const { error: custErr } = await client.from('customers').upsert(mappedCustomers);
+        if (custErr) throw new Error(`Customers sync failed: ${custErr.message}`);
+      }
 
       // 3. Sync Sales
-      setSyncProgress(`Syncing ${sales.length} sales ledger transactions...`);
-      const mappedSales = sales.map((s) => ({
-        id: s.id,
-        invoice_number: s.invoiceNumber,
-        timestamp: s.timestamp,
-        customer_id: s.customerId,
-        customer_name: s.customerName,
-        customer_phone: s.customerPhone,
-        customer_email: s.customerEmail,
-        customer_address: s.customerAddress,
-        subtotal: s.subtotal,
-        tax_rate: s.taxRate,
-        tax_amount: s.taxAmount,
-        discount_amount: s.discountAmount,
-        total_amount: s.totalAmount,
-        total_cost: s.totalCost,
-        gross_profit: s.grossProfit,
-        payment_method: s.paymentMethod,
-        amount_tendered: s.amountTendered,
-        change_given: s.changeGiven,
-        is_credit_paid: s.isCreditPaid,
-        credit_due_date: s.creditDueDate,
-        paid_amount: s.paidAmount,
-        notes: s.notes,
-        items: s.items,
-      }));
-      const { error: salesErr } = await client.from('sales').upsert(mappedSales);
-      if (salesErr) throw new Error(`Sales sync failed: ${salesErr.message}`);
+      if (sales.length > 0) {
+        setSyncProgress(`Syncing ${sales.length} sales ledger transactions...`);
+        const mappedSales = sales.map((s) => ({
+          id: s.id,
+          invoice_number: s.invoiceNumber,
+          timestamp: s.timestamp,
+          customer_id: s.customerId,
+          customer_name: s.customerName,
+          customer_phone: s.customerPhone,
+          customer_email: s.customerEmail,
+          customer_address: s.customerAddress,
+          subtotal: s.subtotal,
+          tax_rate: s.taxRate,
+          tax_amount: s.taxAmount,
+          discount_amount: s.discountAmount,
+          total_amount: s.totalAmount,
+          total_cost: s.totalCost,
+          gross_profit: s.grossProfit,
+          payment_method: s.paymentMethod,
+          amount_tendered: s.amountTendered,
+          change_given: s.changeGiven,
+          is_credit_paid: s.isCreditPaid,
+          credit_due_date: s.creditDueDate,
+          paid_amount: s.paidAmount,
+          notes: s.notes,
+          items: s.items,
+        }));
+        const { error: salesErr } = await client.from('sales').upsert(mappedSales);
+        if (salesErr) throw new Error(`Sales sync failed: ${salesErr.message}`);
+      }
 
       // 4. Sync Credit Payments
       if (payments.length > 0) {
@@ -469,12 +505,19 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
         if (expErr) throw new Error(`Expenses sync failed: ${expErr.message}`);
       }
 
+      setDbHealth('ok');
       setSyncStatus('success');
       setSyncProgress('All local records successfully synced to Supabase Free Tier!');
       onRefreshData();
     } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (msg.includes('row-level security') || msg.includes('42501')) {
+        setDbHealth('rls_error');
+      } else if (msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('42P01')) {
+        setDbHealth('missing_tables');
+      }
       setSyncStatus('error');
-      setSyncProgress(err.message || 'Sync failed. Ensure tables are created in Supabase SQL Editor.');
+      setSyncProgress(msg || 'Sync failed. Ensure tables are created in Supabase SQL Editor.');
     }
   };
 
@@ -747,42 +790,101 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
         </div>
       )}
 
-      {/* RLS Policy Fix Card (Solves Error 42501) */}
-      <div className="p-4 rounded-2xl bg-amber-950/50 border border-amber-600/70 text-amber-100 shadow-lg space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-amber-800/60">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-amber-400" />
-            <h4 className="font-bold text-xs uppercase tracking-wider text-amber-300">
-              Fix Row-Level Security (Error 42501)
-            </h4>
+      {/* RLS Policy Fix Card (Only shown when Error 42501 is actively detected) */}
+      {dbHealth === 'rls_error' && (
+        <div className="p-4 rounded-2xl bg-amber-950/50 border border-amber-600/70 text-amber-100 shadow-lg space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-amber-800/60">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <h4 className="font-bold text-xs uppercase tracking-wider text-amber-300">
+                Fix Row-Level Security (Error 42501)
+              </h4>
+            </div>
+            <span className="text-[10px] font-mono bg-charcoal-950 border border-amber-700/60 text-amber-300 px-2 py-0.5 rounded-md">
+              PostgreSQL Error 42501
+            </span>
           </div>
-          <span className="text-[10px] font-mono bg-charcoal-950 border border-amber-700/60 text-amber-300 px-2 py-0.5 rounded-md">
-            PostgreSQL Error 42501
-          </span>
+          <p className="text-xs text-charcoal-300 leading-relaxed">
+            Supabase is rejecting writes because Row-Level Security policies are blocking table access. Copy and run this 1-click SQL fix, then click <strong>Verify Permissions</strong>:
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleCopyRlsFix}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-charcoal-950 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>{copiedRlsFix ? 'Copied RLS Fix to Clipboard!' : 'Copy 1-Click RLS Fix'}</span>
+            </button>
+            <a
+              href="https://supabase.com/dashboard/project/fegfrjhxxpojmalytbku/sql/new"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2 bg-charcoal-950 hover:bg-charcoal-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer border border-charcoal-700 transition-colors"
+            >
+              <span>Open Supabase SQL Editor</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={testStatus === 'testing'}
+              className="px-3.5 py-2 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${testStatus === 'testing' ? 'animate-spin' : ''}`} />
+              <span>Verify Permissions</span>
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-charcoal-300 leading-relaxed">
-          If your Supabase logs show <code className="bg-charcoal-950 px-1 py-0.5 rounded text-amber-300 font-mono">new row violates row-level security policy for table &quot;products&quot;</code>, run this 1-click SQL fix to allow POS client synchronization:
-        </p>
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <button
-            type="button"
-            onClick={handleCopyRlsFix}
-            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-charcoal-950 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
-          >
-            <Copy className="w-3.5 h-3.5" />
-            <span>{copiedRlsFix ? 'Copied RLS Fix to Clipboard!' : 'Copy 1-Click RLS Fix'}</span>
-          </button>
-          <a
-            href="https://supabase.com/dashboard/project/fegfrjhxxpojmalytbku/sql/new"
-            target="_blank"
-            rel="noreferrer"
-            className="px-3.5 py-2 bg-charcoal-950 hover:bg-charcoal-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer border border-charcoal-700 transition-colors"
-          >
-            <span>Open Supabase SQL Editor</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+      )}
+
+      {/* Missing Tables Card (Only shown when tables have not been created yet) */}
+      {dbHealth === 'missing_tables' && (
+        <div className="p-4 rounded-2xl bg-amber-950/50 border border-amber-600/70 text-amber-100 shadow-lg space-y-3">
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-amber-800/60">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-amber-400" />
+              <h4 className="font-bold text-xs uppercase tracking-wider text-amber-300">
+                Supabase Tables Not Created Yet
+              </h4>
+            </div>
+            <span className="text-[10px] font-mono bg-charcoal-950 border border-amber-700/60 text-amber-300 px-2 py-0.5 rounded-md">
+              Run SQL Schema
+            </span>
+          </div>
+          <p className="text-xs text-charcoal-300 leading-relaxed">
+            Connected to Supabase, but the POS tables (<code className="text-amber-300 font-mono">products</code>, <code className="text-amber-300 font-mono">sales</code>, <code className="text-amber-300 font-mono">customers</code>) are missing. Copy the SQL Schema below, paste & run it in the Supabase SQL Editor, then click <strong>Verify &amp; Sync Now</strong>.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={handleCopySql}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-charcoal-950 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>{copiedSql ? 'Copied SQL Script!' : 'Copy Full SQL Schema'}</span>
+            </button>
+            <a
+              href="https://supabase.com/dashboard/project/fegfrjhxxpojmalytbku/sql/new"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2 bg-charcoal-950 hover:bg-charcoal-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer border border-charcoal-700 transition-colors"
+            >
+              <span>Open Supabase SQL Editor</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={testStatus === 'testing'}
+              className="px-3.5 py-2 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${testStatus === 'testing' ? 'animate-spin' : ''}`} />
+              <span>Verify &amp; Sync Now</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Grid: 2 Columns (Credentials & SQL Schema Setup) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
