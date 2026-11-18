@@ -550,6 +550,8 @@ export default function App() {
             config={config}
             onNavigate={(tab) => setActiveTab(tab)}
             onOpenInvoice={(sale) => setActiveInvoice(sale)}
+            onAdjustStock={handleAdjustStock}
+            onSaveProduct={handleSaveProduct}
           />
         )}
 

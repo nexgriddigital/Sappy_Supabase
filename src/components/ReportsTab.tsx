@@ -26,6 +26,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Sale, Expense, CreditPayment, Product, Customer, StoreConfig } from '../types/pos.ts';
+import { exportReportToPdf, exportSheetsToExcel } from '../utils/exportHelpers.ts';
 
 interface ReportsTabProps {
   sales: Sale[];
@@ -415,118 +416,11 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
   }, [activeRangeSales, grossSales, config.defaultTaxRate]);
 
   // ----------------------------------------------------
-  // Dedicated Bookkeeping & Accounting CSV Export: Financial Summary (Sales vs Expenses)
+  // Dedicated Bookkeeping & Accounting Exports: Financial Summary (Sales vs Expenses)
   // ----------------------------------------------------
-  const handleExportFinancialSummaryCSV = () => {
+  const buildFinancialSummaryData = () => {
     const safeStore = (config.storeName || 'Sappy_Stationery').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `${safeStore}_Financial_Summary_Sales_vs_Expenses_${rangePreset}_${startDate}_to_${endDate}.csv`;
-
-    const lines: string[] = [];
-
-    const escapeCsv = (val: string | number) => {
-      const s = String(val ?? '');
-      if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-        return `"${s.replace(/"/g, '""')}"`;
-      }
-      return s;
-    };
-
-    const addRow = (cols: (string | number)[]) => {
-      lines.push(cols.map(escapeCsv).join(','));
-    };
-
     const safeCurrencySymbol = (config?.currencySymbol || 'Br').trim();
-
-    // --- Header Block ---
-    addRow([`=== ${(config?.storeName || 'Sappy Stationary').toUpperCase()} — FINANCIAL SUMMARY (SALES VS EXPENSES) ===`]);
-    addRow(['Store Name', config?.storeName || 'Sappy Stationary']);
-    addRow(['Tax Registration / TIN', config?.taxId || '']);
-    addRow(['Store Address', config?.address || '']);
-    addRow(['Currency', `${safeCurrencySymbol} (${config?.currencyCode || 'ETB'})`]);
-    addRow(['Reporting Period', `${rangeLabel} (${startDate} to ${endDate})`]);
-    addRow(['Date Generated', new Date().toISOString()]);
-    addRow([]);
-
-    // --- Section 1: Executive Financial Summary (P&L KPIs) ---
-    addRow(['--- SECTION 1: EXECUTIVE FINANCIAL SUMMARY (PROFIT & LOSS) ---']);
-    addRow(['Financial Metric', `Amount (${safeCurrencySymbol})`, 'Accounting Context']);
-    addRow(['Gross Sales Revenue (Invoiced)', grossSales.toFixed(2), 'Total retail transaction volume']);
-    addRow(['Sales Tax / VAT Collected', taxCollected.toFixed(2), 'Statutory output sales tax']);
-    addRow(['Net Sales Revenue (Excl. Tax)', netSales.toFixed(2), 'Gross sales revenue minus output tax']);
-    addRow(['Cost of Goods Sold (COGS)', cogs.toFixed(2), 'Wholesale acquisition cost of items sold']);
-    addRow(['Gross Profit Margin', grossProfit.toFixed(2), 'Net Sales minus COGS']);
-    addRow(['Gross Profit Margin %', `${grossMarginPct.toFixed(2)}%`, 'Gross Profit as % of Net Sales']);
-    addRow(['Total Operating Overhead & Expenses', totalExpenses.toFixed(2), 'Disbursements across all operating expense categories']);
-    addRow(['Net Operating Income / Profit', netProfit.toFixed(2), 'Gross Profit minus total operating expenses']);
-    addRow(['Net Profit Margin %', `${netMarginPct.toFixed(2)}%`, 'Net Profit as % of Net Sales']);
-    addRow([]);
-
-    // --- Section 2: Inflow by Payment Channel ---
-    addRow(['--- SECTION 2: REVENUE INFLOWS BY PAYMENT CHANNEL ---']);
-    addRow(['Payment Channel', `Total Invoiced (${safeCurrencySymbol})`, 'Invoices Count', 'Revenue Share %']);
-    paymentChannelStats.forEach((c) => {
-      addRow([c.channel, c.amount.toFixed(2), c.count, `${c.pct.toFixed(2)}%`]);
-    });
-    addRow(['Total Revenue Channels', grossSales.toFixed(2), rangeSales.length, '100.00%']);
-    addRow([]);
-
-    // --- Section 3: Expenses by Accounting Category ---
-    addRow(['--- SECTION 3: OPERATING EXPENSES BY ACCOUNTING CATEGORY ---']);
-    addRow(['Expense Category', `Disbursed Amount (${safeCurrencySymbol})`, 'Disbursements Count', 'Share of Overhead %']);
-    if (expenseBreakdown.length === 0) {
-      addRow(['No operating expenses recorded in period', '0.00', 0, '0.00%']);
-    } else {
-      expenseBreakdown.forEach((e) => {
-        addRow([e.category, e.amount.toFixed(2), e.count, `${e.pct.toFixed(2)}%`]);
-      });
-      addRow(['Total Operating Expenses', totalExpenses.toFixed(2), rangeExpenses.length, '100.00%']);
-    }
-    addRow([]);
-
-    // --- Section 4: Daily Sales vs Expenses Comparison Schedule ---
-    addRow(['--- SECTION 4: DAILY SALES VS EXPENSES COMPARISON SCHEDULE ---']);
-    addRow([
-      'Date',
-      'Transactions',
-      `Gross Sales (${safeCurrencySymbol})`,
-      `COGS (${safeCurrencySymbol})`,
-      `Gross Profit (${safeCurrencySymbol})`,
-      `Operating Expenses (${safeCurrencySymbol})`,
-      `Net Profit (${safeCurrencySymbol})`,
-      'Net Margin %',
-    ]);
-    if (dailyBreakdown.length === 0) {
-      addRow(['No activity recorded in this period', 0, '0.00', '0.00', '0.00', '0.00', '0.00', '0.00%']);
-    } else {
-      dailyBreakdown.forEach((r) => {
-        addRow([
-          r.date,
-          r.orderCount,
-          r.grossSales.toFixed(2),
-          r.cogs.toFixed(2),
-          r.grossProfit.toFixed(2),
-          r.expenses.toFixed(2),
-          r.netProfit.toFixed(2),
-          `${r.netMargin.toFixed(2)}%`,
-        ]);
-      });
-    }
-    addRow([]);
-
-    // --- Section 5: Itemized Chronological Cash Flow & Audit Register ---
-    addRow(['--- SECTION 5: ITEMIZED CHRONOLOGICAL CASH FLOW & AUDIT REGISTER ---']);
-    addRow([
-      'Date',
-      'Time',
-      'Transaction Type',
-      'Reference / Invoice #',
-      'Customer / Payee',
-      'Channel / Category',
-      `Inflow (Sales ${safeCurrencySymbol})`,
-      `Outflow (Expense ${safeCurrencySymbol})`,
-      `Net Cash Impact (${safeCurrencySymbol})`,
-      'Notes',
-    ]);
 
     type UnifiedEntry = {
       date: string;
@@ -542,13 +436,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
     };
 
     const unifiedList: UnifiedEntry[] = [];
-
     rangeSales.forEach((s) => {
-      const d = s.timestamp.slice(0, 10);
-      const t = s.timestamp.slice(11, 19) || '12:00:00';
       unifiedList.push({
-        date: d,
-        time: t,
+        date: s.timestamp.slice(0, 10),
+        time: s.timestamp.slice(11, 19) || '12:00:00',
         type: 'Sale',
         ref: s.invoiceNumber,
         party: s.customerName || 'Walk-in Customer',
@@ -559,13 +450,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
         notes: s.notes || '',
       });
     });
-
     rangeExpenses.forEach((e) => {
-      const d = e.date;
-      const t = '12:00:00';
       unifiedList.push({
-        date: d,
-        time: t,
+        date: e.date,
+        time: '12:00:00',
         type: 'Expense',
         ref: e.receiptNumber || e.id,
         party: e.payee || config.storeName,
@@ -576,131 +464,353 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
         notes: e.title + (e.notes ? ` (${e.notes})` : ''),
       });
     });
-
     unifiedList.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
 
-    if (unifiedList.length === 0) {
-      addRow(['No transactions recorded in this period', '', '', '', '', '', '0.00', '0.00', '0.00', '']);
-    } else {
-      unifiedList.forEach((entry) => {
-        addRow([
-          entry.date,
-          entry.time,
-          entry.type,
-          entry.ref,
-          entry.party,
-          entry.categoryOrChannel,
-          entry.inflow > 0 ? entry.inflow.toFixed(2) : '0.00',
-          entry.outflow > 0 ? entry.outflow.toFixed(2) : '0.00',
-          entry.net.toFixed(2),
-          entry.notes,
-        ]);
-      });
-    }
+    return { safeStore, safeCurrencySymbol, unifiedList };
+  };
 
-    // Export with UTF-8 BOM (\uFEFF) for compatibility with Excel, LibreOffice, and bookkeeping software
-    const csvString = '\uFEFF' + lines.join('\r\n');
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleExportFinancialSummaryExcel = () => {
+    const { safeStore, safeCurrencySymbol, unifiedList } = buildFinancialSummaryData();
+    const filename = `${safeStore}_Financial_Summary_${rangePreset}_${startDate}_to_${endDate}.xlsx`;
+
+    exportSheetsToExcel(filename, [
+      {
+        sheetName: 'Executive_Summary',
+        headers: ['Financial Metric', `Amount (${safeCurrencySymbol})`, 'Accounting Context'],
+        rows: [
+          ['Store Name', config?.storeName || 'Sappy Stationary', `TIN: ${config?.taxId || 'N/A'}`],
+          ['Reporting Period', `${rangeLabel}`, `${startDate} to ${endDate}`],
+          ['Gross Sales Revenue (Invoiced)', Number(grossSales.toFixed(2)), 'Total retail transaction volume'],
+          ['Sales Tax / VAT Collected', Number(taxCollected.toFixed(2)), 'Statutory output sales tax'],
+          ['Net Sales Revenue (Excl. Tax)', Number(netSales.toFixed(2)), 'Gross sales revenue minus output tax'],
+          ['Cost of Goods Sold (COGS)', Number(cogs.toFixed(2)), 'Wholesale acquisition cost of items sold'],
+          ['Gross Profit Margin', Number(grossProfit.toFixed(2)), `${grossMarginPct.toFixed(2)}% of Net Sales`],
+          ['Total Operating Overhead & Expenses', Number(totalExpenses.toFixed(2)), 'Disbursements across all expense categories'],
+          ['Net Operating Income / Profit', Number(netProfit.toFixed(2)), `${netMarginPct.toFixed(2)}% Net Margin`],
+        ],
+      },
+      {
+        sheetName: 'Payment_Channels',
+        headers: ['Payment Channel', `Total Invoiced (${safeCurrencySymbol})`, 'Invoices Count', 'Revenue Share %'],
+        rows: [
+          ...paymentChannelStats.map((c) => [
+            c.channel,
+            Number(c.amount.toFixed(2)),
+            c.count,
+            `${c.pct.toFixed(2)}%`,
+          ]),
+          ['Total Revenue Channels', Number(grossSales.toFixed(2)), rangeSales.length, '100.00%'],
+        ],
+      },
+      {
+        sheetName: 'Expense_Categories',
+        headers: ['Expense Category', `Disbursed Amount (${safeCurrencySymbol})`, 'Disbursements Count', 'Share of Overhead %'],
+        rows:
+          expenseBreakdown.length === 0
+            ? [['No operating expenses recorded in period', 0, 0, '0.00%']]
+            : [
+                ...expenseBreakdown.map((e) => [
+                  e.category,
+                  Number(e.amount.toFixed(2)),
+                  e.count,
+                  `${e.pct.toFixed(2)}%`,
+                ]),
+                ['Total Operating Expenses', Number(totalExpenses.toFixed(2)), rangeExpenses.length, '100.00%'],
+              ],
+      },
+      {
+        sheetName: 'Daily_Sales_vs_Expenses',
+        headers: [
+          'Date',
+          'Transactions',
+          `Gross Sales (${safeCurrencySymbol})`,
+          `COGS (${safeCurrencySymbol})`,
+          `Gross Profit (${safeCurrencySymbol})`,
+          `Operating Expenses (${safeCurrencySymbol})`,
+          `Net Profit (${safeCurrencySymbol})`,
+          'Net Margin %',
+        ],
+        rows:
+          dailyBreakdown.length === 0
+            ? [['No activity recorded in this period', 0, 0, 0, 0, 0, 0, '0.00%']]
+            : dailyBreakdown.map((r) => [
+                r.date,
+                r.orderCount,
+                Number(r.grossSales.toFixed(2)),
+                Number(r.cogs.toFixed(2)),
+                Number(r.grossProfit.toFixed(2)),
+                Number(r.expenses.toFixed(2)),
+                Number(r.netProfit.toFixed(2)),
+                `${r.netMargin.toFixed(2)}%`,
+              ]),
+      },
+      {
+        sheetName: 'Cash_Flow_Audit',
+        headers: [
+          'Date',
+          'Time',
+          'Transaction Type',
+          'Reference / Invoice #',
+          'Customer / Payee',
+          'Channel / Category',
+          `Inflow (Sales ${safeCurrencySymbol})`,
+          `Outflow (Expense ${safeCurrencySymbol})`,
+          `Net Cash Impact (${safeCurrencySymbol})`,
+          'Notes',
+        ],
+        rows:
+          unifiedList.length === 0
+            ? [['No transactions recorded in this period', '', '', '', '', '', 0, 0, 0, '']]
+            : unifiedList.map((entry) => [
+                entry.date,
+                entry.time,
+                entry.type,
+                entry.ref,
+                entry.party,
+                entry.categoryOrChannel,
+                Number(entry.inflow.toFixed(2)),
+                Number(entry.outflow.toFixed(2)),
+                Number(entry.net.toFixed(2)),
+                entry.notes,
+              ]),
+      },
+    ]);
+  };
+
+  const handleExportFinancialSummaryPdf = () => {
+    const { safeStore, safeCurrencySymbol, unifiedList } = buildFinancialSummaryData();
+    const cur = `${safeCurrencySymbol} `;
+    exportReportToPdf({
+      filename: `${safeStore}_Financial_Summary_${rangePreset}_${startDate}_to_${endDate}.pdf`,
+      title: 'Financial Summary — Profit & Loss Statement',
+      subtitle: `Period: ${rangeLabel} (${startDate} to ${endDate})`,
+      storeConfig: config,
+      orientation: 'landscape',
+      summaryPairs: [
+        { label: 'Gross Sales', value: `${cur}${grossSales.toFixed(2)}` },
+        { label: 'Gross Profit', value: `${cur}${grossProfit.toFixed(2)} (${grossMarginPct.toFixed(1)}%)` },
+        { label: 'Total Expenses', value: `${cur}${totalExpenses.toFixed(2)}` },
+        { label: 'Net Operating Profit', value: `${cur}${netProfit.toFixed(2)} (${netMarginPct.toFixed(1)}%)` },
+      ],
+      sections: [
+        {
+          title: 'Daily Sales vs Expenses Comparison Schedule',
+          headers: ['Date', 'Orders', 'Gross Sales', 'COGS', 'Gross Profit', 'Expenses', 'Net Profit', 'Net Margin %'],
+          columnAlignments: ['left', 'center', 'right', 'right', 'right', 'right', 'right', 'right'],
+          rows: dailyBreakdown.map((r) => [
+            r.date,
+            r.orderCount,
+            `${cur}${r.grossSales.toFixed(2)}`,
+            `${cur}${r.cogs.toFixed(2)}`,
+            `${cur}${r.grossProfit.toFixed(2)}`,
+            `${cur}${r.expenses.toFixed(2)}`,
+            `${cur}${r.netProfit.toFixed(2)}`,
+            `${r.netMargin.toFixed(1)}%`,
+          ]),
+        },
+        {
+          title: 'Revenue Inflows by Payment Channel',
+          headers: ['Payment Channel', 'Total Invoiced', 'Invoices', 'Share %'],
+          columnAlignments: ['left', 'right', 'center', 'right'],
+          rows: paymentChannelStats.map((c) => [
+            c.channel,
+            `${cur}${c.amount.toFixed(2)}`,
+            c.count,
+            `${c.pct.toFixed(1)}%`,
+          ]),
+        },
+        {
+          title: 'Operating Expenses by Category',
+          headers: ['Category', 'Disbursed Amount', 'Entries', 'Share %'],
+          columnAlignments: ['left', 'right', 'center', 'right'],
+          rows: expenseBreakdown.map((e) => [
+            e.category,
+            `${cur}${e.amount.toFixed(2)}`,
+            e.count,
+            `${e.pct.toFixed(1)}%`,
+          ]),
+        },
+        {
+          title: 'Recent Cash Flow & Audit Register (Latest 80 Entries)',
+          headers: ['Date', 'Type', 'Reference', 'Party', 'Channel / Category', 'Inflow', 'Outflow', 'Net Impact'],
+          columnAlignments: ['left', 'center', 'left', 'left', 'left', 'right', 'right', 'right'],
+          rows: unifiedList.slice(0, 80).map((entry) => [
+            entry.date,
+            entry.type,
+            entry.ref,
+            entry.party,
+            entry.categoryOrChannel,
+            entry.inflow > 0 ? `${cur}${entry.inflow.toFixed(2)}` : '-',
+            entry.outflow > 0 ? `${cur}${entry.outflow.toFixed(2)}` : '-',
+            `${cur}${entry.net.toFixed(2)}`,
+          ]),
+        },
+      ],
+    });
   };
 
   // ----------------------------------------------------
-  // Dynamic CSV Export for the Current Report
+  // Dynamic Excel & PDF Export for the Active Report Tab
   // ----------------------------------------------------
-  const handleExportCSV = () => {
-    if (activeReport === 'pl') {
-      handleExportFinancialSummaryCSV();
-      return;
-    }
-
-    let filename = `Sappy_Stationery_${activeReport.toUpperCase()}_Report_${rangePreset}.csv`;
+  const buildActiveReportSpec = () => {
+    const cur = (config?.currencySymbol || 'Br').trim() + ' ';
+    let filenameBase = `Sappy_Stationery_${activeReport.toUpperCase()}_Report_${rangePreset}`;
+    let title = 'Financial & Operations Report';
     let headers: string[] = [];
     let rows: (string | number)[][] = [];
+    let pdfRows: (string | number)[][] = [];
+    let alignments: Array<'left' | 'right' | 'center'> = [];
 
     if (activeReport === 'sales') {
+      title = 'Sales & Payment Channels Breakdown';
       headers = ['Payment Channel', 'Total Amount', 'Transaction Count', 'Share %'];
-      rows = paymentChannelStats.map((r) => [
-        r.channel,
-        r.amount.toFixed(2),
-        r.count,
-        `${r.pct.toFixed(1)}%`,
-      ]);
+      alignments = ['left', 'right', 'center', 'right'];
+      rows = paymentChannelStats.map((r) => [r.channel, Number(r.amount.toFixed(2)), r.count, `${r.pct.toFixed(1)}%`]);
+      pdfRows = paymentChannelStats.map((r) => [r.channel, `${cur}${r.amount.toFixed(2)}`, r.count, `${r.pct.toFixed(1)}%`]);
     } else if (activeReport === 'products') {
+      title = 'Product Performance & Margin Report';
       headers = ['Product Name', 'SKU', 'Category', 'Units Sold', 'Revenue', 'Cost', 'Gross Profit', 'Margin %', 'Stock Level'];
+      alignments = ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'right'];
       rows = productPerformance.map((p) => [
-        `"${p.name}"`,
+        p.name,
         p.sku,
         p.category,
         p.qtySold,
-        p.revenue.toFixed(2),
-        p.cost.toFixed(2),
-        p.profit.toFixed(2),
+        Number(p.revenue.toFixed(2)),
+        Number(p.cost.toFixed(2)),
+        Number(p.profit.toFixed(2)),
+        `${p.marginPct.toFixed(1)}%`,
+        p.currentStock,
+      ]);
+      pdfRows = productPerformance.map((p) => [
+        p.name,
+        p.sku,
+        p.category,
+        p.qtySold,
+        `${cur}${p.revenue.toFixed(2)}`,
+        `${cur}${p.cost.toFixed(2)}`,
+        `${cur}${p.profit.toFixed(2)}`,
         `${p.marginPct.toFixed(1)}%`,
         p.currentStock,
       ]);
     } else if (activeReport === 'inventory') {
-      filename = `Sappy_Stationery_Inventory_Valuation_${new Date().toISOString().slice(0, 10)}.csv`;
-      headers = ['Product Name', 'SKU', 'Category', 'Stock Level', 'Min Stock', 'Unit Cost', 'Unit Price', 'Asset Cost Value', 'Retail Value', 'Potential Profit', 'Stock Status'];
+      filenameBase = `Sappy_Stationery_Inventory_Valuation_${new Date().toISOString().slice(0, 10)}`;
+      title = 'Inventory Asset Valuation & Stock Health';
+      headers = ['Product Name', 'SKU', 'Category', 'Stock', 'Min Stock', 'Unit Cost', 'Unit Price', 'Asset Cost Value', 'Retail Value', 'Potential Profit', 'Status'];
+      alignments = ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'center'];
       rows = inventoryReport.items.map((i) => [
-        `"${i.name}"`,
+        i.name,
         i.sku,
         i.category,
         i.stockLevel,
         i.minStock,
-        i.costPrice.toFixed(2),
-        i.sellingPrice.toFixed(2),
-        i.costVal.toFixed(2),
-        i.retailVal.toFixed(2),
-        i.projectedProfit.toFixed(2),
+        Number(i.costPrice.toFixed(2)),
+        Number(i.sellingPrice.toFixed(2)),
+        Number(i.costVal.toFixed(2)),
+        Number(i.retailVal.toFixed(2)),
+        Number(i.projectedProfit.toFixed(2)),
+        i.status.toUpperCase(),
+      ]);
+      pdfRows = inventoryReport.items.map((i) => [
+        i.name,
+        i.sku,
+        i.category,
+        i.stockLevel,
+        i.minStock,
+        `${cur}${i.costPrice.toFixed(2)}`,
+        `${cur}${i.sellingPrice.toFixed(2)}`,
+        `${cur}${i.costVal.toFixed(2)}`,
+        `${cur}${i.retailVal.toFixed(2)}`,
+        `${cur}${i.projectedProfit.toFixed(2)}`,
         i.status.toUpperCase(),
       ]);
     } else if (activeReport === 'credit') {
+      title = 'Customer Credit & Debt Risk Ledger';
       headers = ['Customer Name', 'Company', 'Phone', 'Outstanding Debt', 'Credit Limit', 'Limit Usage %', 'Status'];
+      alignments = ['left', 'left', 'left', 'right', 'right', 'right', 'center'];
       rows = creditReport.debtorsList.map((c) => [
-        `"${c.name}"`,
-        c.companyName ? `"${c.companyName}"` : '',
+        c.name,
+        c.companyName || '',
         c.phone,
-        c.creditBalance.toFixed(2),
-        c.creditLimit.toFixed(2),
+        Number(c.creditBalance.toFixed(2)),
+        Number(c.creditLimit.toFixed(2)),
+        `${c.limitUsagePct.toFixed(1)}%`,
+        c.status.toUpperCase(),
+      ]);
+      pdfRows = creditReport.debtorsList.map((c) => [
+        c.name,
+        c.companyName || '-',
+        c.phone,
+        `${cur}${c.creditBalance.toFixed(2)}`,
+        `${cur}${c.creditLimit.toFixed(2)}`,
         `${c.limitUsagePct.toFixed(1)}%`,
         c.status.toUpperCase(),
       ]);
     } else if (activeReport === 'expenses') {
+      title = 'Operating Overhead Expenses Breakdown';
       headers = ['Expense Category', 'Total Amount', 'Disbursement Count', 'Share % of Total'];
-      rows = expenseBreakdown.map((e) => [
-        `"${e.category}"`,
-        e.amount.toFixed(2),
-        e.count,
-        `${e.pct.toFixed(1)}%`,
-      ]);
+      alignments = ['left', 'right', 'center', 'right'];
+      rows = expenseBreakdown.map((e) => [e.category, Number(e.amount.toFixed(2)), e.count, `${e.pct.toFixed(1)}%`]);
+      pdfRows = expenseBreakdown.map((e) => [e.category, `${cur}${e.amount.toFixed(2)}`, e.count, `${e.pct.toFixed(1)}%`]);
     } else if (activeReport === 'tax') {
-      headers = ['Metric / Field', 'Amount (Br)'];
+      title = 'Tax & VAT Compliance Summary';
+      headers = ['Metric / Field', `Amount (${cur.trim()})`];
+      alignments = ['left', 'right'];
       rows = [
-        ['Total Gross Invoices', taxReport.grossSales.toFixed(2)],
-        ['Standard Taxable Sales Base (15% VAT)', taxReport.netTaxableSales.toFixed(2)],
-        ['Output VAT Collected (15%)', taxReport.vatCollected.toFixed(2)],
-        ['VAT-Exempt / Zero-Rated Sales', taxReport.exemptGross.toFixed(2)],
+        ['Total Gross Invoices', Number(taxReport.grossSales.toFixed(2))],
+        ['Standard Taxable Sales Base (15% VAT)', Number(taxReport.netTaxableSales.toFixed(2))],
+        ['Output VAT Collected (15%)', Number(taxReport.vatCollected.toFixed(2))],
+        ['VAT-Exempt / Zero-Rated Sales', Number(taxReport.exemptGross.toFixed(2))],
         ['Total Invoices Count', taxReport.invoiceCount],
+      ];
+      pdfRows = [
+        ['Total Gross Invoices', `${cur}${taxReport.grossSales.toFixed(2)}`],
+        ['Standard Taxable Sales Base (15% VAT)', `${cur}${taxReport.netTaxableSales.toFixed(2)}`],
+        ['Output VAT Collected (15%)', `${cur}${taxReport.vatCollected.toFixed(2)}`],
+        ['VAT-Exempt / Zero-Rated Sales', `${cur}${taxReport.exemptGross.toFixed(2)}`],
+        ['Total Invoices Count', String(taxReport.invoiceCount)],
       ];
     }
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    return { filenameBase, title, headers, rows, pdfRows, alignments };
+  };
+
+  const handleExportActiveReportExcel = () => {
+    if (activeReport === 'pl') {
+      handleExportFinancialSummaryExcel();
+      return;
+    }
+    const spec = buildActiveReportSpec();
+    exportSheetsToExcel(`${spec.filenameBase}.xlsx`, [
+      {
+        sheetName: activeReport.toUpperCase(),
+        headers: spec.headers,
+        rows: spec.rows,
+      },
+    ]);
+  };
+
+  const handleExportActiveReportPdf = () => {
+    if (activeReport === 'pl') {
+      handleExportFinancialSummaryPdf();
+      return;
+    }
+    const spec = buildActiveReportSpec();
+    exportReportToPdf({
+      filename: `${spec.filenameBase}.pdf`,
+      title: spec.title,
+      subtitle: `Period: ${rangeLabel} (${startDate} to ${endDate})`,
+      storeConfig: config,
+      orientation: spec.headers.length > 6 ? 'landscape' : 'portrait',
+      sections: [
+        {
+          title: spec.title,
+          headers: spec.headers,
+          rows: spec.pdfRows,
+          columnAlignments: spec.alignments,
+        },
+      ],
+    });
   };
 
   const handlePrint = () => {
@@ -734,27 +844,36 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
 
         <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
           <button
-            onClick={handleExportFinancialSummaryCSV}
+            onClick={handleExportFinancialSummaryExcel}
             className="px-3.5 py-2 bg-forest-800/80 hover:bg-forest-700 text-forest-100 hover:text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-transform cursor-pointer border border-forest-600/70 active:scale-95 shadow-xs"
-            title="Export comprehensive Sales vs Expenses financial statement to CSV for bookkeeping & accounting"
+            title="Export comprehensive Sales vs Expenses financial workbook (.xlsx) for Excel & bookkeeping"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-forest-300" />
-            <span>Export Financial Summary (CSV)</span>
+            <span>Financial Summary (Excel)</span>
           </button>
 
           <button
-            onClick={handleExportCSV}
+            onClick={handleExportActiveReportExcel}
             className="px-3.5 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-200 hover:text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer border border-charcoal-700 active:scale-95 shadow-2xs"
-            title="Export currently displayed report to CSV spreadsheet"
+            title="Export currently displayed report to Excel (.xlsx)"
           >
             <Download className="w-3.5 h-3.5 text-forest-400" />
-            <span>Export CSV</span>
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            onClick={handleExportActiveReportPdf}
+            className="px-3.5 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-200 hover:text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer border border-charcoal-700 active:scale-95 shadow-2xs"
+            title="Download currently displayed report as PDF (.pdf)"
+          >
+            <FileText className="w-3.5 h-3.5 text-amber-400" />
+            <span>Export PDF</span>
           </button>
 
           <button
             onClick={handlePrint}
             className="px-3.5 py-2 bg-forest-700 hover:bg-forest-600 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-2xs active:scale-95 border border-forest-600/50"
-            title="Print or Save current report as PDF"
+            title="Print current report view"
           >
             <Printer className="w-3.5 h-3.5 text-forest-200" />
             <span>Print Report</span>
@@ -928,15 +1047,24 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({
                 <p className="text-xs text-charcoal-400">Day-by-day revenue, cost of goods, overhead, and net earnings.</p>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={handleExportFinancialSummaryCSV}
+                  onClick={handleExportFinancialSummaryExcel}
                   className="px-3 py-1.5 bg-forest-900/80 hover:bg-forest-800 text-forest-200 border border-forest-600/70 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shadow-xs"
-                  title="Download complete Sales vs Expenses CSV breakdown"
+                  title="Download complete Sales vs Expenses workbook in Excel (.xlsx)"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-forest-400" />
-                  <span>Download Sales vs Expenses CSV</span>
+                  <span>Excel (.xlsx)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportFinancialSummaryPdf}
+                  className="px-3 py-1.5 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-200 border border-charcoal-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shadow-xs"
+                  title="Download complete Sales vs Expenses statement as PDF (.pdf)"
+                >
+                  <FileText className="w-3.5 h-3.5 text-amber-400" />
+                  <span>PDF (.pdf)</span>
                 </button>
                 <span className="text-xs font-mono text-charcoal-400">{dailyBreakdown.length} active dates</span>
               </div>

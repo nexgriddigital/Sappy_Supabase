@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Search,
   FileText,
-  Download,
+  FileSpreadsheet,
   Calendar,
   CheckCircle,
   Clock,
@@ -17,6 +17,7 @@ import {
   Info,
 } from 'lucide-react';
 import { PaymentMethod, Sale, StoreConfig } from '../types/pos.ts';
+import { exportReportToPdf, exportSheetsToExcel } from '../utils/exportHelpers.ts';
 
 interface SalesLedgerTabProps {
   sales: Sale[];
@@ -138,8 +139,8 @@ export const SalesLedgerTab: React.FC<SalesLedgerTabProps> = ({
     }
   };
 
-  // CSV Export Handler
-  const handleExportCSV = () => {
+  // Excel Export Handler (.xlsx)
+  const handleExportExcel = () => {
     const headers = [
       'Invoice Number',
       'Date & Time',
@@ -150,6 +151,7 @@ export const SalesLedgerTab: React.FC<SalesLedgerTabProps> = ({
       'Tax Amount',
       'Discount',
       'Total Amount',
+      'Paid Amount',
       'Total Cost (COGS)',
       'Gross Profit',
       'Sale Status',
@@ -161,29 +163,68 @@ export const SalesLedgerTab: React.FC<SalesLedgerTabProps> = ({
     const rows = filteredSales.map((s) => [
       s.invoiceNumber,
       s.timestamp,
-      `"${s.customerName.replace(/"/g, '""')}"`,
+      s.customerName,
       s.paymentMethod,
       s.items.length,
-      s.subtotal.toFixed(2),
-      s.taxAmount.toFixed(2),
-      s.discountAmount.toFixed(2),
-      s.totalAmount.toFixed(2),
-      s.totalCost.toFixed(2),
-      s.isReturned ? '0.00 (Reversed)' : s.grossProfit.toFixed(2),
+      Number(s.subtotal.toFixed(2)),
+      Number(s.taxAmount.toFixed(2)),
+      Number(s.discountAmount.toFixed(2)),
+      Number(s.totalAmount.toFixed(2)),
+      Number((s.paymentMethod === 'credit' ? (s.isCreditPaid ? s.totalAmount : s.paidAmount || 0) : s.totalAmount).toFixed(2)),
+      Number(s.totalCost.toFixed(2)),
+      s.isReturned ? 0 : Number(s.grossProfit.toFixed(2)),
       s.isReturned ? 'RETURNED / REVERSED' : 'COMPLETED',
       s.paymentMethod === 'credit' ? (s.isCreditPaid ? 'Paid' : 'Unpaid') : 'N/A',
       s.returnedAt || 'N/A',
-      s.returnReason ? `"${s.returnReason.replace(/"/g, '""')}"` : 'N/A',
+      s.returnReason || 'N/A',
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Sappy_Stationary_Sales_Ledger_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportSheetsToExcel(`Sappy_Stationary_Sales_Ledger_${new Date().toISOString().slice(0, 10)}.xlsx`, [
+      {
+        sheetName: 'Sales_Ledger',
+        headers,
+        rows,
+      },
+    ]);
+  };
+
+  // PDF Export Handler (.pdf)
+  const handleExportPdf = () => {
+    const cur = (config.currencySymbol || 'Br ').trim() + ' ';
+    exportReportToPdf({
+      filename: `Sappy_Stationary_Sales_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`,
+      title: 'Sales Ledger & Transaction Register',
+      subtitle: `Filtered view: ${filteredSales.length} transaction(s) (${activeSales.length} active, ${returnedSales.length} returned)`,
+      storeConfig: config,
+      orientation: 'landscape',
+      summaryPairs: [
+        { label: 'Realized Net Sales', value: `${cur}${netRealizedRevenue.toFixed(2)}` },
+        { label: 'Realized Gross Profit', value: `${cur}${netGrossProfit.toFixed(2)}` },
+        { label: 'Uncollected Credit', value: `${cur}${uncollectedCredit.toFixed(2)}` },
+        { label: 'Reversed / Returns', value: `${cur}${returnsTotalAmount.toFixed(2)}` },
+      ],
+      sections: [
+        {
+          title: 'Itemized Sales Ledger',
+          headers: ['Invoice #', 'Date', 'Customer', 'Method', 'Items', 'Total', 'Profit', 'Status'],
+          columnAlignments: ['left', 'left', 'left', 'center', 'right', 'right', 'right', 'center'],
+          rows: filteredSales.map((s) => [
+            s.invoiceNumber,
+            s.timestamp.slice(0, 16).replace('T', ' '),
+            s.customerName,
+            s.paymentMethod.toUpperCase(),
+            s.items.length,
+            `${cur}${s.totalAmount.toFixed(2)}`,
+            s.isReturned ? 'Reversed' : `${cur}${s.grossProfit.toFixed(2)}`,
+            s.isReturned
+              ? 'RETURNED'
+              : s.paymentMethod === 'credit' && !s.isCreditPaid
+                ? 'CREDIT DUE'
+                : 'PAID',
+          ]),
+        },
+      ],
+    });
   };
 
   return (
@@ -200,14 +241,24 @@ export const SalesLedgerTab: React.FC<SalesLedgerTabProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          disabled={filteredSales.length === 0}
-          className="px-4 py-2 bg-charcoal-900 hover:bg-charcoal-800 border border-charcoal-700 text-charcoal-200 text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-2xs self-start md:self-auto"
-        >
-          <Download className="w-4 h-4 text-forest-400" />
-          <span>Export Ledger as CSV</span>
-        </button>
+        <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+          <button
+            onClick={handleExportExcel}
+            disabled={filteredSales.length === 0}
+            className="px-3.5 py-2 bg-charcoal-900 hover:bg-charcoal-800 border border-charcoal-700 text-charcoal-200 text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-forest-400" />
+            <span>Export Excel (.xlsx)</span>
+          </button>
+          <button
+            onClick={handleExportPdf}
+            disabled={filteredSales.length === 0}
+            className="px-3.5 py-2 bg-forest-800 hover:bg-forest-700 border border-forest-600/60 text-white text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <FileText className="w-4 h-4 text-forest-200" />
+            <span>Export PDF (.pdf)</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards Row */}

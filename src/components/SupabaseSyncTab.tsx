@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
-  Download,
   Upload,
   Copy,
   ExternalLink,
@@ -15,6 +14,8 @@ import {
   Link2,
   Check,
   QrCode,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
 import {
   getSupabase,
@@ -32,6 +33,11 @@ import {
   applyPairingToken,
 } from '../services/pairingService.ts';
 import { generateQrMatrix } from '../utils/barcodeGenerator.ts';
+import {
+  exportStoreBackupToExcel,
+  exportStoreBackupToPdf,
+  restoreStoreBackupFromFile,
+} from '../utils/exportHelpers.ts';
 import { StoreConfig } from '../types/pos.ts';
 
 interface SupabaseSyncTabProps {
@@ -528,37 +534,34 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
     setTimeout(() => setCopiedSql(false), 2500);
   };
 
-  // Download Local Backup JSON
+  // Download Local Backup Excel (.xlsx)
   const handleDownloadBackup = () => {
-    const json = storageService.exportBackup();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Sappy_Stationary_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    exportStoreBackupToExcel(config);
   };
 
-  // Restore Backup JSON
-  const handleRestoreBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Download Store Snapshot PDF (.pdf)
+  const handleDownloadBackupPdf = () => {
+    exportStoreBackupToPdf(config);
+  };
+
+  // Restore Backup (.xlsx / .xls / .json)
+  const handleRestoreBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      const success = storageService.importBackup(content);
+    try {
+      const success = await restoreStoreBackupFromFile(file);
       if (success) {
         setImportStatus('Backup successfully restored! Refreshing data...');
         onRefreshData();
         setTimeout(() => setImportStatus(''), 4000);
       } else {
-        setImportStatus('Failed to restore backup. Invalid JSON file format.');
+        setImportStatus('Failed to restore backup. Please upload a valid .xlsx or .json backup.');
       }
-    };
-    reader.readAsText(file);
+    } catch {
+      setImportStatus('Error reading backup file. Please upload a valid .xlsx or .json backup.');
+    }
+    e.target.value = '';
   };
 
   const activeHostname = (() => {
@@ -982,9 +985,9 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
       {/* Manual Backup & Migration Tools */}
       <div className="bg-charcoal-900 p-6 rounded-2xl border border-charcoal-800 shadow-2xs space-y-4 text-charcoal-100">
         <div>
-          <h3 className="text-sm font-bold text-white">Cross-Device JSON Backup & Restore</h3>
+          <h3 className="text-sm font-bold text-white">Cross-Device Excel & PDF Backup & Restore</h3>
           <p className="text-xs text-charcoal-400">
-            Export a full standalone snapshot of your products, sales, customers, and expenses for manual transfer.
+            Export a full standalone Excel workbook (restorable) or PDF executive snapshot of your products, sales, customers, and expenses.
           </p>
         </div>
 
@@ -993,16 +996,24 @@ GRANT ALL ON TABLE public.app_users TO anon, authenticated, service_role;
             onClick={handleDownloadBackup}
             className="px-4 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-200 border border-charcoal-700 text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
           >
-            <Download className="w-4 h-4 text-forest-400" />
-            <span>Download Store Backup (.JSON)</span>
+            <FileSpreadsheet className="w-4 h-4 text-forest-400" />
+            <span>Download Store Backup (.xlsx)</span>
+          </button>
+
+          <button
+            onClick={handleDownloadBackupPdf}
+            className="px-4 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-200 border border-charcoal-700 text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <FileText className="w-4 h-4 text-rose-400" />
+            <span>Download Store Snapshot (.pdf)</span>
           </button>
 
           <label className="px-4 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-200 border border-charcoal-700 text-xs font-semibold rounded-xl flex items-center gap-2 transition-colors cursor-pointer">
             <Upload className="w-4 h-4 text-forest-400" />
-            <span>Restore Backup (.JSON)</span>
+            <span>Restore Backup (.xlsx / .json)</span>
             <input
               type="file"
-              accept=".json"
+              accept=".xlsx,.xls,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json"
               onChange={handleRestoreBackup}
               className="hidden"
             />

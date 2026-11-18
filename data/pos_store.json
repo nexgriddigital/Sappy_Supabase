@@ -148,11 +148,11 @@
       "category": "Writing & Pens",
       "costPrice": 260,
       "sellingPrice": 380,
-      "stockLevel": 40,
+      "stockLevel": 39,
       "lowStockThreshold": 10,
       "unit": "pack",
       "description": "Soft pastel water-resistant ink with chisel and bullet tips for reading, journals, and notes.",
-      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
+      "updatedAt": "2026-11-18T08:48:54.867+00:00"
     },
     {
       "id": "prod-stn-init-004",
@@ -4073,6 +4073,40 @@
   ],
   "sales": [
     {
+      "id": "sale-1794991734867",
+      "invoiceNumber": "INV-2026-0004",
+      "timestamp": "2026-11-18T08:48:54.867+00:00",
+      "customerName": "Walk-in Retail Customer",
+      "subtotal": 380,
+      "taxRate": 0,
+      "taxAmount": 0,
+      "discountAmount": 0,
+      "totalAmount": 380,
+      "totalCost": 260,
+      "grossProfit": 120,
+      "paymentMethod": "digital",
+      "amountTendered": 380,
+      "changeGiven": 0,
+      "isCreditPaid": true,
+      "paidAmount": 380,
+      "notes": "Paid via Telebirr (0980442353 · Yohannes Leulseged)",
+      "items": [
+        {
+          "sku": "PEN-ZEB-005",
+          "name": "Zebra Mildliner Pastel Double-Ended Highlighters (Pack of 5)",
+          "unit": "pack",
+          "category": "Writing & Pens",
+          "quantity": 1,
+          "unitCost": 260,
+          "lineTotal": 380,
+          "productId": "prod-stn-init-003",
+          "unitPrice": 380,
+          "lineCostTotal": 260,
+          "discountPercent": 0
+        }
+      ]
+    },
+    {
       "id": "sale-1794573594962",
       "invoiceNumber": "INV-2026-0003",
       "timestamp": "2026-11-13T12:39:54.962+00:00",
@@ -4295,7 +4329,7 @@
       "updatedAt": "2026-11-10T17:34:06.019+00:00"
     }
   ],
-  "lastSyncedAt": "2026-11-18T08:49:49.503Z",
-  "version": 35191,
+  "lastSyncedAt": "2026-11-18T10:18:22.764Z",
+  "version": 35519,
   "isReset": false
 }

@@ -1,15 +1,11 @@
 import React, { useMemo } from 'react';
 import {
   TrendingUp,
-  TrendingDown,
   DollarSign,
   ShoppingCart,
   Users,
-  AlertTriangle,
   Package,
   Clock,
-  ArrowUpRight,
-  ShieldCheck,
   CheckCircle,
   FileText,
   QrCode,
@@ -21,6 +17,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { Sale, Product, Customer, Expense, StoreConfig } from '../types/pos.ts';
+import { ReorderAlertsWidget } from './ReorderAlertsWidget.tsx';
 
 interface DashboardTabProps {
   sales: Sale[];
@@ -30,6 +27,8 @@ interface DashboardTabProps {
   config: StoreConfig;
   onNavigate: (tab: any) => void;
   onOpenInvoice: (sale: Sale) => void;
+  onAdjustStock?: (productId: string, delta: number) => void;
+  onSaveProduct?: (product: Product) => void;
 }
 
 export const DashboardTab: React.FC<DashboardTabProps> = ({
@@ -40,6 +39,8 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   config,
   onNavigate,
   onOpenInvoice,
+  onAdjustStock,
+  onSaveProduct,
 }) => {
   // Current date calculations
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -61,9 +62,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
   // Inventory stats
   const totalCatalogItems = products.length;
-  const totalStockUnits = products.reduce((acc, p) => acc + p.stockLevel, 0);
-  const lowStockProducts = products.filter((p) => p.stockLevel <= p.lowStockThreshold);
-  const totalInventoryValuation = products.reduce((acc, p) => acc + p.stockLevel * p.sellingPrice, 0);
 
   // Debtor stats
   const debtorCustomers = customers.filter((c) => c.creditBalance > 0);
@@ -212,9 +210,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       {/* Main 2-Column Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Left 8 Cols: Recent Invoices & Quick Inventory Alerts */}
+        {/* Left 8 Cols: Supply Chain Reorder Point Alerts & Recent Invoices */}
         <div className="lg:col-span-8 space-y-6">
-          
+
+          {/* Proactive Supply Chain Reorder Point Widget */}
+          <ReorderAlertsWidget
+            products={products}
+            config={config}
+            onAdjustStock={onAdjustStock}
+            onSaveProduct={onSaveProduct}
+            onNavigateToInventory={() => onNavigate('inventory')}
+          />
+
           {/* Recent Sales Ledger Card */}
           <div className="bg-charcoal-900 rounded-2xl border border-charcoal-800 overflow-hidden shadow-md">
             <div className="p-4 sm:p-5 border-b border-charcoal-800 flex items-center justify-between">
@@ -316,46 +323,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </table>
             </div>
           </div>
-
-          {/* Low Stock Warning Banner */}
-          {lowStockProducts.length > 0 && (
-            <div className="bg-charcoal-900 rounded-2xl border border-amber-900/60 p-5 shadow-md">
-              <div className="flex items-center justify-between pb-3 border-b border-charcoal-800">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-950 border border-amber-800 flex items-center justify-center text-amber-400">
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white">Low Stock Reorder Alerts ({lowStockProducts.length})</h3>
-                    <p className="text-xs text-charcoal-400">Stationery items at or below minimum threshold.</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => onNavigate('inventory')}
-                  className="text-xs text-forest-400 hover:text-forest-300 font-bold underline cursor-pointer"
-                >
-                  Manage Stock
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
-                {lowStockProducts.slice(0, 4).map((p) => (
-                  <div key={p.id} className="p-3 rounded-xl bg-charcoal-950 border border-charcoal-800 flex items-center justify-between text-xs">
-                    <div>
-                      <p className="font-semibold text-white truncate max-w-[180px]">{p.name}</p>
-                      <p className="text-[10px] text-charcoal-400 font-mono">SKU: {p.sku}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-950 border border-rose-800 text-rose-300">
-                        {p.stockLevel} {p.unit} left
-                      </span>
-                      <p className="text-[10px] text-charcoal-500 mt-0.5">Min: {p.lowStockThreshold}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
         </div>
 

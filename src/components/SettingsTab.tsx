@@ -20,12 +20,18 @@ import {
   KeyRound,
   Lock,
   Sparkles,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { StoreConfig, Sale, Expense, Product, Customer, AppUser } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
 import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase.ts';
 import { MasterPasscodeModal, ChangeMasterPasscodeModal } from './MasterPasscodeModal.tsx';
+import {
+  exportStoreBackupToExcel,
+  exportStoreBackupToPdf,
+  restoreStoreBackupFromFile,
+} from '../utils/exportHelpers.ts';
 
 interface SettingsTabProps {
   config: StoreConfig;
@@ -98,41 +104,32 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setTimeout(() => setSavedSuccess(false), 3500);
   };
 
-  // Export full backup
+  // Export full backup in Excel (.xlsx)
   const handleExportBackup = () => {
-    const backupJson = storageService.exportBackup();
-    const blob = new Blob([backupJson], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `sappy_stationary_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    exportStoreBackupToExcel(formData);
   };
 
-  // Import backup
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Export executive store snapshot in PDF (.pdf)
+  const handleExportBackupPdf = () => {
+    exportStoreBackupToPdf(formData);
+  };
+
+  // Import backup (.xlsx / .xls / .json)
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const ok = storageService.importBackup(text);
-        if (ok) {
-          setImportStatus('Backup restored successfully!');
-          onDataReset();
-          setTimeout(() => setImportStatus(null), 4000);
-        } else {
-          setImportStatus('Failed: Invalid backup JSON structure');
-        }
-      } catch {
-        setImportStatus('Error reading file. Ensure valid JSON.');
+    try {
+      const ok = await restoreStoreBackupFromFile(file);
+      if (ok) {
+        setImportStatus('Backup restored successfully!');
+        onDataReset();
+        setTimeout(() => setImportStatus(null), 4000);
+      } else {
+        setImportStatus('Failed: Invalid backup file structure. Upload an exported .xlsx or .json backup.');
       }
-    };
-    reader.readAsText(file);
+    } catch {
+      setImportStatus('Error reading backup file. Ensure valid Excel (.xlsx) or JSON backup.');
+    }
     e.target.value = '';
   };
 
@@ -259,13 +256,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
 
         {/* Global Quick Action: Download Backup */}
-        <button
-          onClick={handleExportBackup}
-          className="px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-600 text-white font-bold text-xs flex items-center gap-2 border border-forest-500 shadow-md transition-all cursor-pointer shrink-0 active:scale-95"
-        >
-          <Download className="w-4 h-4 text-forest-200" />
-          <span>Export Full System Backup</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={handleExportBackup}
+            className="px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-600 text-white font-bold text-xs flex items-center gap-2 border border-forest-500 shadow-md transition-all cursor-pointer active:scale-95"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-forest-200" />
+            <span>Export Backup (Excel)</span>
+          </button>
+          <button
+            onClick={handleExportBackupPdf}
+            className="px-4 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-white font-bold text-xs flex items-center gap-2 border border-charcoal-700 shadow-md transition-all cursor-pointer active:scale-95"
+          >
+            <FileText className="w-4 h-4 text-rose-400" />
+            <span>Store Snapshot (PDF)</span>
+          </button>
+        </div>
       </div>
 
       {/* Success / Notification Banners */}
@@ -451,31 +457,39 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <div className="bg-charcoal-900 rounded-2xl border border-charcoal-800 p-6 shadow-md space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-charcoal-800">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-forest-400" />
+                <FileSpreadsheet className="w-5 h-5 text-forest-400" />
                 <h2 className="text-base font-bold text-white">Data Backup & Migration</h2>
               </div>
-              <span className="text-[10px] font-mono text-charcoal-400">JSON Archive</span>
+              <span className="text-[10px] font-mono text-charcoal-400">Excel & PDF Archive</span>
             </div>
 
             <p className="text-xs text-charcoal-300 leading-relaxed">
-              Maintain full offline control of your stationery database. Download a timestamped snapshot of all products, stock levels, sales ledger, customers, and expenses, or restore previous backups.
+              Maintain full offline control of your stationery database. Download a timestamped Excel workbook (restorable) or a formatted PDF executive snapshot, or restore from previous backups.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <button
                 onClick={handleExportBackup}
                 className="p-3.5 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-white text-xs font-semibold flex items-center justify-center gap-2 border border-charcoal-700 transition-colors cursor-pointer"
               >
-                <Download className="w-4 h-4 text-forest-400" />
-                <span>Download Full Backup (.json)</span>
+                <FileSpreadsheet className="w-4 h-4 text-forest-400" />
+                <span>Backup (.xlsx)</span>
+              </button>
+
+              <button
+                onClick={handleExportBackupPdf}
+                className="p-3.5 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-white text-xs font-semibold flex items-center justify-center gap-2 border border-charcoal-700 transition-colors cursor-pointer"
+              >
+                <FileText className="w-4 h-4 text-rose-400" />
+                <span>Snapshot (.pdf)</span>
               </button>
 
               <label className="p-3.5 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-white text-xs font-semibold flex items-center justify-center gap-2 border border-charcoal-700 transition-colors cursor-pointer">
                 <Upload className="w-4 h-4 text-forest-400" />
-                <span>Restore Backup from File</span>
+                <span>Restore Backup</span>
                 <input
                   type="file"
-                  accept=".json,application/json"
+                  accept=".xlsx,.xls,.json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/json"
                   onChange={handleImportFile}
                   className="hidden"
                 />
@@ -766,7 +780,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </p>
 
             <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 text-xs space-y-1 font-mono">
-              <p className="text-forest-400">✓ Automatic JSON backup will download first.</p>
+              <p className="text-forest-400">✓ Automatic Excel (.xlsx) backup will download first.</p>
               <p className="text-forest-400">✓ All {products.length} products & stock levels are safe.</p>
               <p className="text-forest-400">
                 {carryDebt
