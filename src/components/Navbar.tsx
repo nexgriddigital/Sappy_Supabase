@@ -27,6 +27,7 @@ import {
   ChevronRight,
   ShieldCheck,
   Smartphone,
+  KeyRound,
 } from 'lucide-react';
 import { AppUser } from '../types/pos.ts';
 import { SappyLogo } from './SappyLogo.tsx';
@@ -64,6 +65,7 @@ interface NavbarProps {
   onToggleSound?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  onOpenChangeCredentials?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -85,6 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleSound,
   isFullscreen = false,
   onToggleFullscreen,
+  onOpenChangeCredentials,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -262,6 +265,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </button>
 
+                  {onOpenChangeCredentials && (
+                    <button
+                      type="button"
+                      onClick={onOpenChangeCredentials}
+                      className="p-1.5 text-charcoal-400 hover:text-amber-400 hover:bg-charcoal-800 rounded-lg transition-colors cursor-pointer"
+                      title="Change My Password (PW) & 4-Digit PIN"
+                      aria-label="Change Password and PIN"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
                   <button
                     onClick={onSignOut}
                     className="p-1.5 text-charcoal-400 hover:text-rose-400 hover:bg-charcoal-800 rounded-lg transition-colors cursor-pointer"
@@ -432,16 +447,31 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      onSignOut();
-                    }}
-                    className="p-1.5 text-charcoal-400 hover:text-rose-400 bg-charcoal-900 rounded-lg border border-charcoal-700 cursor-pointer"
-                    title="Sign out / Switch Staff"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {onOpenChangeCredentials && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          onOpenChangeCredentials();
+                        }}
+                        className="p-1.5 text-amber-400 hover:text-amber-300 bg-charcoal-900 rounded-lg border border-charcoal-700 cursor-pointer"
+                        title="Change Password & PIN"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        onSignOut();
+                      }}
+                      className="p-1.5 text-charcoal-400 hover:text-rose-400 bg-charcoal-900 rounded-lg border border-charcoal-700 cursor-pointer"
+                      title="Sign out / Switch Staff"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button

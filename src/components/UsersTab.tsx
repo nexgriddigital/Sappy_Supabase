@@ -38,6 +38,7 @@ import { AppUser, UserRole, UserStatus, StoreConfig } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from '../services/crossDeviceSyncService.ts';
 import { MasterPasscodeModal, ChangeMasterPasscodeModal } from './MasterPasscodeModal.tsx';
+import { ChangeCredentialsModal } from './ChangeCredentialsModal.tsx';
 
 interface UsersTabProps {
   currentUser: AppUser | null;
@@ -105,6 +106,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
     onExecute: () => void;
   } | null>(null);
   const [isChangePasscodeOpen, setIsChangePasscodeOpen] = useState(false);
+  const [credentialsTargetUser, setCredentialsTargetUser] = useState<AppUser | null>(null);
 
   // Delete Confirmation State
   const [deleteTargetUser, setDeleteTargetUser] = useState<AppUser | null>(null);
@@ -122,6 +124,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
     storeName: string;
     status: UserStatus;
     pinCode: string;
+    password: string;
     notes: string;
   }>({
     fullName: '',
@@ -131,6 +134,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
     storeName: config.storeName || 'Sappy Stationary',
     status: 'active',
     pinCode: '',
+    password: '',
     notes: '',
   });
 
@@ -236,6 +240,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
       storeName: config.storeName || 'Sappy Stationary',
       status: 'active',
       pinCode: '',
+      password: '',
       notes: '',
     });
     setIsAddEditModalOpen(true);
@@ -252,6 +257,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
       storeName: user.storeName || config.storeName || 'Sappy Stationary',
       status: user.status || 'active',
       pinCode: user.pinCode || '',
+      password: '',
       notes: user.notes || '',
     });
     setIsAddEditModalOpen(true);
@@ -275,6 +281,12 @@ export const UsersTab: React.FC<UsersTabProps> = ({
     // PIN validation if provided: must be 4 digits
     if (formData.pinCode && !/^\d{4}$/.test(formData.pinCode.trim())) {
       showError('Quick Terminal PIN must be exactly 4 numeric digits (e.g., 1234).');
+      return;
+    }
+
+    // Password validation if provided: min 6 chars
+    if (formData.password.trim() && formData.password.trim().length < 6) {
+      showError('Account Password (PW) must be at least 6 characters long.');
       return;
     }
 
@@ -306,6 +318,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
         storeName: formData.storeName.trim() || config.storeName,
         status: formData.status,
         pinCode: formData.pinCode.trim() || undefined,
+        password: formData.password.trim() || editingUser.password,
         notes: formData.notes.trim() || undefined,
       };
 
@@ -325,6 +338,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
         storeName: formData.storeName.trim() || config.storeName,
         status: formData.status,
         pinCode: formData.pinCode.trim() || undefined,
+        password: formData.password.trim() || undefined,
         notes: formData.notes.trim() || undefined,
         createdAt: new Date().toISOString(),
         lastLoginAt: undefined,
@@ -635,14 +649,28 @@ export const UsersTab: React.FC<UsersTabProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsSwitchModalOpen(true)}
-            className="px-3 py-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-xs font-bold text-charcoal-200 hover:text-white border border-charcoal-700 transition-colors cursor-pointer shrink-0"
-            title="Switch cashier or manager on this POS terminal"
-          >
-            Switch User
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {currentUser && (
+              <button
+                type="button"
+                onClick={() => setCredentialsTargetUser(currentUser)}
+                className="px-3 py-2 rounded-xl bg-forest-800/80 hover:bg-forest-700 text-xs font-bold text-white border border-forest-600/70 transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Change your own Password (PW) & 4-Digit Quick PIN"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-amber-300" />
+                <span>PW & PIN</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsSwitchModalOpen(true)}
+              className="px-3 py-2 rounded-xl bg-charcoal-950 hover:bg-charcoal-800 text-xs font-bold text-charcoal-200 hover:text-white border border-charcoal-700 transition-colors cursor-pointer shrink-0"
+              title="Switch cashier or manager on this POS terminal"
+            >
+              Switch User
+            </button>
+          </div>
         </div>
 
         {/* Staff Metrics KPI Cards (7 Cols) */}
@@ -871,21 +899,17 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                         {getRoleBadge(user.role)}
                       </td>
 
-                      {/* Column 3: Terminal PIN */}
+                      {/* Column 3: Terminal PIN & PW */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={() => {
-                            setPinTargetUser(user);
-                            setNewPinCode(user.pinCode || '');
-                            setIsPinModalOpen(true);
-                          }}
+                          onClick={() => setCredentialsTargetUser(user)}
                           className="flex items-center gap-1.5 text-xs text-charcoal-300 hover:text-white group cursor-pointer"
-                          title="Click to view or change 4-digit POS register PIN"
+                          title="Click to change Password (PW) or 4-digit POS register PIN"
                         >
                           <KeyRound className="w-3.5 h-3.5 text-forest-400 group-hover:scale-110 transition-transform" />
                           <span className="font-mono">
-                            {user.pinCode ? `•••• (${user.pinCode})` : 'Set PIN'}
+                            {user.pinCode ? '•••• (PIN Active)' : 'Set PIN / PW'}
                           </span>
                         </button>
                       </td>
@@ -960,6 +984,17 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                               title={`Preview Welcome Animation for ${user.fullName}`}
                             >
                               <Sparkles className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {(isCurrent || currentUser?.role === 'owner') && (
+                            <button
+                              type="button"
+                              onClick={() => setCredentialsTargetUser(user)}
+                              className="p-1.5 rounded-lg text-amber-400/80 hover:text-amber-300 hover:bg-charcoal-800 transition-colors cursor-pointer"
+                              title={`Change Password (PW) & PIN for ${user.fullName}`}
+                            >
+                              <KeyRound className="w-3.5 h-3.5" />
                             </button>
                           )}
 
@@ -1117,21 +1152,36 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                 </div>
               </div>
 
-              {/* Quick Terminal PIN & Phone */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Login Password, Quick Terminal PIN & Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
-                    Terminal Quick PIN (4 Digits)
+                    {editingUser ? 'New Password (Optional)' : 'Account Password (PW)'}
                   </label>
                   <input
                     type="password"
+                    placeholder={editingUser ? 'Leave blank to keep' : 'Min 6 characters'}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs text-white placeholder-charcoal-500 focus:outline-hidden focus:border-forest-500 font-mono"
+                  />
+                  <p className="text-[10px] text-charcoal-500 mt-1">Account login password</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Quick PIN (4 Digits)
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
                     maxLength={4}
                     placeholder="e.g. 1234"
                     value={formData.pinCode}
-                    onChange={(e) => setFormData({ ...formData, pinCode: e.target.value.replace(/\D/g, '') })}
-                    className="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-charcoal-500 focus:outline-hidden focus:border-forest-500 font-mono tracking-widest"
+                    onChange={(e) => setFormData({ ...formData, pinCode: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                    className="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs text-white placeholder-charcoal-500 focus:outline-hidden focus:border-forest-500 font-mono tracking-widest"
                   />
-                  <p className="text-[10px] text-charcoal-500 mt-1">For instant counter register switching</p>
+                  <p className="text-[10px] text-charcoal-500 mt-1">Fast terminal sign-in</p>
                 </div>
 
                 <div>
@@ -1143,7 +1193,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({
                     placeholder="+251 91 123 4567"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-charcoal-500 focus:outline-hidden focus:border-forest-500 font-mono"
+                    className="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs text-white placeholder-charcoal-500 focus:outline-hidden focus:border-forest-500 font-mono"
                   />
                 </div>
               </div>
@@ -1507,6 +1557,23 @@ export const UsersTab: React.FC<UsersTabProps> = ({
           onClose={() => setIsChangePasscodeOpen(false)}
           onSuccess={() => {
             showSuccess('Store Master Passcode updated successfully.');
+            reloadUserList();
+          }}
+        />
+      )}
+
+      {/* Unified Change Password (PW) & 4-Digit Quick PIN Modal */}
+      {credentialsTargetUser && (
+        <ChangeCredentialsModal
+          isOpen={Boolean(credentialsTargetUser)}
+          targetUser={credentialsTargetUser}
+          currentUser={currentUser}
+          onClose={() => setCredentialsTargetUser(null)}
+          onSuccess={(updatedUser) => {
+            if (currentUser && currentUser.id === updatedUser.id) {
+              onUserChanged(updatedUser);
+            }
+            showSuccess(`Password / PIN updated for ${updatedUser.fullName}.`);
             reloadUserList();
           }}
         />

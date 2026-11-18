@@ -23,10 +23,11 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { StoreConfig, Sale, Expense, Product, Customer, AppUser } from '../types/pos.ts';
-import { storageService } from '../services/storageService.ts';
+import { storageService, DEFAULT_MASTER_PASSCODE } from '../services/storageService.ts';
 import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase.ts';
 import { MasterPasscodeModal, ChangeMasterPasscodeModal } from './MasterPasscodeModal.tsx';
+import { ChangeCredentialsModal } from './ChangeCredentialsModal.tsx';
 import {
   exportStoreBackupToExcel,
   exportStoreBackupToPdf,
@@ -65,6 +66,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     onExecute: () => void;
   } | null>(null);
   const [showChangePasscodeModal, setShowChangePasscodeModal] = useState(false);
+  const [showChangeCredentialsModal, setShowChangeCredentialsModal] = useState(false);
+  const [credentialsUpdatedMsg, setCredentialsUpdatedMsg] = useState<string | null>(null);
   // Form State
   const [formData, setFormData] = useState<StoreConfig>({ ...config });
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -537,6 +540,58 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
 
+          {/* Account Login Password (PW) & 4-Digit Quick PIN Panel */}
+          {currentUser && (
+            <div className="bg-charcoal-900 rounded-2xl border border-forest-700/60 p-6 shadow-md space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-charcoal-800">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-5 h-5 text-forest-400" />
+                  <h2 className="text-base font-bold text-white">My Account Password & Quick PIN</h2>
+                </div>
+                <span className="text-[10px] font-mono text-forest-300 font-semibold px-2 py-0.5 rounded-full bg-forest-950 border border-forest-700/70">
+                  {currentUser.fullName}
+                </span>
+              </div>
+
+              <p className="text-xs text-charcoal-300 leading-relaxed">
+                Update your personal login Password (PW) or 4-digit Quick Terminal PIN for <strong className="text-white font-mono">{currentUser.email}</strong>. Changes synchronize across all paired terminals.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 flex items-center justify-between">
+                  <span className="text-charcoal-400">Login Password:</span>
+                  <span className={currentUser.password ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                    {currentUser.password ? 'Custom PW Active' : 'Default Fallback'}
+                  </span>
+                </div>
+                <div className="p-3 bg-charcoal-950 rounded-xl border border-charcoal-800 flex items-center justify-between">
+                  <span className="text-charcoal-400">Terminal PIN:</span>
+                  <span className={currentUser.pinCode ? 'text-emerald-400 font-bold' : 'text-charcoal-400 font-bold'}>
+                    {currentUser.pinCode ? '•••• (Active)' : 'Not Set'}
+                  </span>
+                </div>
+              </div>
+
+              {credentialsUpdatedMsg && (
+                <div className="p-3 rounded-xl bg-forest-950 border border-forest-600 text-forest-200 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-forest-400 shrink-0" />
+                  <span>{credentialsUpdatedMsg}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowChangeCredentialsModal(true)}
+                  className="px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-600 text-white font-bold text-xs flex items-center gap-2 border border-forest-500 shadow-md transition-all cursor-pointer active:scale-95"
+                >
+                  <KeyRound className="w-4 h-4 text-forest-200" />
+                  <span>Change Password & PIN</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Master Security Passcode Panel */}
           <div className="bg-charcoal-900 rounded-2xl border border-amber-600/50 p-6 shadow-md space-y-4 relative overflow-hidden">
             <div className="flex items-center justify-between pb-3 border-b border-charcoal-800">
@@ -557,7 +612,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <div className="flex items-center gap-2">
                 <Lock className="w-4 h-4 text-amber-400 shrink-0" />
                 <span className="text-charcoal-400">Current Status:</span>
-                <span className="text-white font-bold">Passcode Active (Default: Sappy#1313)</span>
+                <span className="text-white font-bold">
+                  {storageService.getMasterPasscode() === DEFAULT_MASTER_PASSCODE
+                    ? 'Passcode Active (Default)'
+                    : 'Custom Master Passcode Active'}
+                </span>
               </div>
               {currentUser?.role === 'owner' ? (
                 <span className="text-[10px] text-forest-400 font-bold">Authorized Owner</span>
@@ -957,6 +1016,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           onClose={() => setShowChangePasscodeModal(false)}
           onSuccess={() => {
             onDataReset();
+          }}
+        />
+      )}
+
+      {/* --- MODAL 6: Change Account Password & PIN Modal --- */}
+      {showChangeCredentialsModal && currentUser && (
+        <ChangeCredentialsModal
+          isOpen={showChangeCredentialsModal}
+          targetUser={currentUser}
+          currentUser={currentUser}
+          onClose={() => setShowChangeCredentialsModal(false)}
+          onSuccess={() => {
+            setCredentialsUpdatedMsg('Password / 4-digit PIN updated successfully!');
+            onDataReset();
+            setTimeout(() => setCredentialsUpdatedMsg(null), 5000);
           }}
         />
       )}

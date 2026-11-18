@@ -208,6 +208,7 @@ export interface AppUser {
   lastLoginAt?: string;
   status?: UserStatus;
   pinCode?: string; // 4-digit quick terminal PIN
+  password?: string; // Account login password (PW)
   notes?: string;
   updatedAt?: string;
 }

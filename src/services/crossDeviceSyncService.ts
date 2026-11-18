@@ -731,6 +731,7 @@ class CrossDeviceSyncService {
                   storeName: u.store_name || u.storeName || 'Sappy Stationary',
                   phone: u.phone || undefined,
                   pinCode: u.pin_code || u.pinCode || undefined,
+                  password: u.password !== undefined ? u.password : undefined,
                   status: u.status || 'active',
                   createdAt: u.created_at || u.createdAt || new Date().toISOString(),
                   updatedAt: u.updated_at || u.updatedAt || undefined,

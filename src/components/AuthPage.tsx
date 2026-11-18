@@ -71,6 +71,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [taxRate, setTaxRate] = useState('15');
   const [role, setRole] = useState<UserRole>('owner');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [pinCode, setPinCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +168,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         defaultTaxRate: parseFloat(taxRate) || 15,
       });
 
+      if (pinCode.trim() && !/^\d{4}$/.test(pinCode.trim())) {
+        setError('Quick Terminal PIN must be exactly 4 numeric digits.');
+        setLoading(false);
+        return;
+      }
+
       // 2. Register master Store Owner user
       const ownerUser = storageService.registerUser({
         email: cleanEmail,
@@ -174,6 +181,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         role: 'owner',
         storeName: storeName.trim() || 'Sappy Stationary',
         phone: phone.trim() || undefined,
+        password: password,
+        pinCode: pinCode.trim() || undefined,
       });
 
       // 3. Set active session
@@ -272,13 +281,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         return;
       }
 
-      // Strictly verify PIN code or Master Passcode
-      const isMaster = storageService.verifyMasterPasscode(enteredPass);
-      const isPinMatch = Boolean(user.pinCode && user.pinCode === enteredPass);
-      const isPasswordMatch = enteredPass === '1313' || enteredPass === 'Sappy#1313';
+      // Verify personal Password, 4-digit PIN, or (if no personal PW is set) Master Passcode
+      const isCredentialValid = storageService.verifyUserLoginCredential(user, enteredPass);
 
-      if (!isPinMatch && !isMaster && !isPasswordMatch) {
-        setError(`Incorrect PIN or password for ${user.fullName}. Enter your 4-digit PIN (1313) or password.`);
+      if (!isCredentialValid) {
+        setError(`Incorrect PIN or password for ${user.fullName}. Please verify your 4-digit PIN or account password.`);
         setLoading(false);
         return;
       }
@@ -322,6 +329,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       return;
     }
 
+    if (pinCode.trim() && !/^\d{4}$/.test(pinCode.trim())) {
+      setError('Quick Terminal PIN must be exactly 4 numeric digits.');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Register user locally in storageService
       const newUser = storageService.registerUser({
@@ -330,6 +343,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         role: role,
         storeName: storeName.trim() || 'Sappy Stationary',
         phone: phone.trim() || undefined,
+        password: password,
+        pinCode: pinCode.trim() || undefined,
       });
 
       storageService.setCurrentUser(newUser);
@@ -615,6 +630,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Quick 4-Digit Terminal PIN (Optional)
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="e.g. 2468"
+                  value={pinCode}
+                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono tracking-widest focus:border-forest-500"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
@@ -778,7 +808,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   </button>
                 </div>
                 <p className="text-[10px] text-charcoal-400 mt-1 font-mono">
-                  Store Owner: Amanuel Hailu · 4-Digit PIN: 1313 or Password
+                  {selectedStaffUser
+                    ? `Signing in as ${selectedStaffUser.fullName} · Enter your 4-digit PIN or Account Password`
+                    : 'Enter your 4-digit Quick Terminal PIN or Account Password'}
                 </p>
               </div>
 
@@ -943,6 +975,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Quick 4-Digit Terminal PIN (Optional)
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="4-digit numeric PIN for fast register sign-in"
+                  value={pinCode}
+                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono tracking-widest focus:border-forest-500"
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={loading}
@@ -1038,7 +1085,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       setPairInput('');
                       crossDeviceSyncService.broadcastLocalChange();
                       crossDeviceSyncService.syncNow();
-                      setSuccessMsg('Database paired! Please enter your 4-digit PIN (1313) to sign in.');
+                      setSuccessMsg('Database paired! Enter your 4-digit PIN or password to sign in.');
                     } else {
                       setPairError(res.message);
                     }

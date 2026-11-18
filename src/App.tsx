@@ -26,6 +26,7 @@ import { MasterPasscodeModal } from './components/MasterPasscodeModal.tsx';
 import { CustomerDisplayModal } from './components/CustomerDisplayModal.tsx';
 import { CommandPaletteModal } from './components/CommandPaletteModal.tsx';
 import { WelcomeAnimationModal } from './components/WelcomeAnimationModal.tsx';
+import { ChangeCredentialsModal } from './components/ChangeCredentialsModal.tsx';
 import { InvoiceVerificationPage } from './components/InvoiceVerificationPage.tsx';
 import { extractVerifyToken } from './utils/invoiceAuth.ts';
 import {
@@ -45,6 +46,7 @@ export default function App() {
   const [welcomeUser, setWelcomeUser] = useState<AppUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState<boolean>(false);
+  const [isChangeCredentialsOpen, setIsChangeCredentialsOpen] = useState<boolean>(false);
   const [criticalChallenge, setCriticalChallenge] = useState<{
     actionName: string;
     actionDescription: string;
@@ -188,6 +190,11 @@ export default function App() {
     // If all users have been wiped (e.g. Reset Everything), sign out immediately to prompt First-Time Setup
     if (usrs.length === 0) {
       setCurrentUser(null);
+    } else {
+      const freshSession = storageService.getCurrentUser();
+      if (freshSession) {
+        setCurrentUser(freshSession);
+      }
     }
   }, []);
 
@@ -537,6 +544,7 @@ export default function App() {
         onToggleSound={handleToggleSound}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
+        onOpenChangeCredentials={currentUser ? () => setIsChangeCredentialsOpen(true) : undefined}
       />
 
       {/* Main Tab Content */}
@@ -705,6 +713,26 @@ export default function App() {
           syncState={syncState}
           onNavigateToSyncTab={() => setActiveTab('sync')}
           onRefreshData={reloadData}
+        />
+      )}
+
+      {/* Change Password (PW) & 4-Digit Quick PIN Modal */}
+      {isChangeCredentialsOpen && currentUser && (
+        <ChangeCredentialsModal
+          isOpen={isChangeCredentialsOpen}
+          targetUser={currentUser}
+          currentUser={currentUser}
+          onClose={() => setIsChangeCredentialsOpen(false)}
+          onSuccess={(updatedUser) => {
+            setCurrentUser(updatedUser);
+            reloadData();
+            showToast(
+              'Security Credentials Updated',
+              `Password / 4-digit PIN updated for ${updatedUser.fullName}.`,
+              'success',
+              3500
+            );
+          }}
         />
       )}
 

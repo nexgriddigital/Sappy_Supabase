@@ -1180,6 +1180,138 @@ class StorageService {
     return updated;
   }
 
+  verifyUserLoginCredential(user: AppUser, entered: string): boolean {
+    const clean = (entered || '').trim();
+    if (!clean || !user) return false;
+
+    // 1. User's 4-digit PIN (if set)
+    if (user.pinCode && user.pinCode === clean) {
+      return true;
+    }
+
+    // 2. User's personal Password (PW)
+    if (user.password) {
+      return user.password === clean;
+    }
+
+    // 3. Legacy fallback before user sets a personal PW: current Store Master Passcode
+    return this.verifyMasterPasscode(clean);
+  }
+
+  updateUserCredentials(
+    userId: string,
+    options: {
+      currentCredential?: string;
+      newPassword?: string;
+      clearPassword?: boolean;
+      newPin?: string;
+      clearPin?: boolean;
+      actingUser?: AppUser | null;
+    }
+  ): { success: boolean; error?: string; user?: AppUser } {
+    const users = this.getUsers();
+    const target = users.find((u) => u.id === userId);
+    if (!target) {
+      return { success: false, error: 'User account not found.' };
+    }
+
+    const actingUser = options.actingUser ?? this.getCurrentUser();
+    const isSelf = actingUser?.id === target.id;
+    const isOwnerActing = actingUser?.role === 'owner';
+
+    if (!isSelf && !isOwnerActing) {
+      return {
+        success: false,
+        error: 'Permission denied. Only Store Owners can modify another staff member’s password or PIN.',
+      };
+    }
+
+    // Verify authorization credential
+    const enteredAuth = (options.currentCredential || '').trim();
+    if (!enteredAuth) {
+      return {
+        success: false,
+        error: isSelf
+          ? 'Please enter your current Password or 4-digit PIN to authorize changes.'
+          : 'Please enter your Owner Password, Owner PIN, or Master Passcode to authorize changes.',
+      };
+    }
+
+    const isSelfValid = isSelf && this.verifyUserLoginCredential(target, enteredAuth);
+    const isOwnerAuthValid =
+      isOwnerActing &&
+      actingUser &&
+      (this.verifyMasterPasscode(enteredAuth) || this.verifyUserLoginCredential(actingUser, enteredAuth));
+
+    if (!isSelfValid && !isOwnerAuthValid) {
+      return {
+        success: false,
+        error: isSelf
+          ? 'Current Password / PIN is incorrect.'
+          : 'Owner authorization credential or Master Passcode is incorrect.',
+      };
+    }
+
+    const wantPasswordChange = Boolean(options.clearPassword || (options.newPassword !== undefined && options.newPassword.trim().length > 0));
+    const wantPinChange = Boolean(options.clearPin || (options.newPin !== undefined && options.newPin.trim().length > 0));
+
+    if (!wantPasswordChange && !wantPinChange) {
+      return { success: false, error: 'Please provide a new Password or a new 4-digit PIN to update.' };
+    }
+
+    let nextPassword = target.password;
+    if (options.clearPassword) {
+      nextPassword = undefined;
+    } else if (options.newPassword && options.newPassword.trim().length > 0) {
+      const cleanPw = options.newPassword.trim();
+      if (cleanPw.length < 6) {
+        return { success: false, error: 'New Password must be at least 6 characters long.' };
+      }
+      nextPassword = cleanPw;
+    }
+
+    let nextPin = target.pinCode;
+    if (options.clearPin) {
+      nextPin = undefined;
+    } else if (options.newPin && options.newPin.trim().length > 0) {
+      const cleanPin = options.newPin.trim();
+      if (!/^\d{4}$/.test(cleanPin)) {
+        return { success: false, error: 'Quick Terminal PIN must be exactly 4 numeric digits.' };
+      }
+      // Prevent accidental collision with a different active user who already claimed this custom PIN
+      if (cleanPin !== target.pinCode) {
+        const collision = users.find(
+          (u) => u.id !== target.id && u.status !== 'suspended' && u.pinCode === cleanPin && cleanPin !== '1313'
+        );
+        if (collision) {
+          return {
+            success: false,
+            error: `PIN "${cleanPin}" is already in use by ${collision.fullName}. Please choose a unique 4-digit PIN.`,
+          };
+        }
+      }
+      nextPin = cleanPin;
+    }
+
+    const now = new Date().toISOString();
+    const updatedUser: AppUser = {
+      ...target,
+      password: nextPassword,
+      pinCode: nextPin,
+      updatedAt: now,
+    };
+
+    const updatedList = users.map((u) => (u.id === target.id ? updatedUser : u));
+    this.set(STORAGE_KEYS.USERS, updatedList);
+
+    const current = this.getCurrentUser();
+    if (current && current.id === updatedUser.id) {
+      this.setCurrentUser({ ...current, ...updatedUser });
+    }
+
+    return { success: true, user: updatedUser };
+  }
+
   verifyUserPin(pin: string): AppUser | null {
     if (!pin) return null;
     const cleanPin = pin.trim();
@@ -1235,11 +1367,27 @@ class StorageService {
       } else {
         const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
         const incomingTime = inc.updatedAt ? new Date(inc.updatedAt).getTime() : 0;
-        const mergedPin = inc.pinCode || existing.pinCode;
-        if (incomingTime >= existingTime) {
-          userMap.set(key, { ...existing, ...inc, pinCode: mergedPin });
+        if (incomingTime > existingTime) {
+          userMap.set(key, {
+            ...existing,
+            ...inc,
+            pinCode: inc.pinCode !== undefined ? inc.pinCode : existing.pinCode,
+            password: inc.password !== undefined ? inc.password : existing.password,
+          });
+        } else if (incomingTime === existingTime) {
+          userMap.set(key, {
+            ...existing,
+            ...inc,
+            pinCode: inc.pinCode || existing.pinCode,
+            password: inc.password !== undefined ? inc.password : existing.password,
+          });
         } else {
-          userMap.set(key, { ...inc, ...existing, pinCode: mergedPin });
+          userMap.set(key, {
+            ...inc,
+            ...existing,
+            pinCode: existing.pinCode,
+            password: existing.password !== undefined ? existing.password : inc.password,
+          });
         }
       }
     }
