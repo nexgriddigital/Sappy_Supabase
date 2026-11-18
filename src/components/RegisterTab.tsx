@@ -42,6 +42,7 @@ import { STORE_PAYMENT_ACCOUNTS } from '../data/seedData.ts';
 import { PaymentProcessingLoader } from './LoadingAnimation.tsx';
 import { soundEffects } from '../utils/soundEffects.ts';
 import { BarcodeScannerModal } from './BarcodeScannerModal.tsx';
+import { extractVerifyToken } from '../utils/invoiceAuth.ts';
 
 interface RegisterTabProps {
   products: Product[];
@@ -61,6 +62,7 @@ interface RegisterTabProps {
   }) => void;
   onOpenCustomerDisplay?: () => void;
   onLoadStarterPack?: () => void;
+  onVerifyInvoiceToken?: (token: string) => void;
 }
 
 const CATEGORIES: (ProductCategory | 'All')[] = [
@@ -84,6 +86,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   onCartChange,
   onOpenCustomerDisplay,
   onLoadStarterPack,
+  onVerifyInvoiceToken,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -409,6 +412,20 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
       const candidate = rawCode.trim();
       if (!candidate) return;
 
+      // Intercept SAPPY POS Invoice Verification QR codes so staff can authenticate sales via scanner
+      const verifyToken = extractVerifyToken(candidate);
+      if (verifyToken) {
+        soundEffects.playBeep();
+        setIsScannerOpen(false);
+        setScannerInput('');
+        if (onVerifyInvoiceToken) {
+          onVerifyInvoiceToken(verifyToken);
+        } else if (typeof window !== 'undefined') {
+          window.location.hash = `#verify=${verifyToken}`;
+        }
+        return;
+      }
+
       const lowerCandidate = candidate.toLowerCase();
       const matched = products.find(
         (p) =>
@@ -465,7 +482,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         setScannerNotification((prev) => (prev?.barcode === candidate ? null : prev));
       }, 4000);
     },
-    [products, cart, config.currencySymbol, focusScannerInput, handleScanAddToCart, isBulkScanMode, isSameProductOrSku]
+    [products, cart, config.currencySymbol, focusScannerInput, handleScanAddToCart, isBulkScanMode, isSameProductOrSku, onVerifyInvoiceToken]
   );
 
   // Hook listening for external USB/Bluetooth barcode scanner input sequences

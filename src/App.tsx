@@ -26,6 +26,8 @@ import { MasterPasscodeModal } from './components/MasterPasscodeModal.tsx';
 import { CustomerDisplayModal } from './components/CustomerDisplayModal.tsx';
 import { CommandPaletteModal } from './components/CommandPaletteModal.tsx';
 import { WelcomeAnimationModal } from './components/WelcomeAnimationModal.tsx';
+import { InvoiceVerificationPage } from './components/InvoiceVerificationPage.tsx';
+import { extractVerifyToken } from './utils/invoiceAuth.ts';
 import {
   Customer,
   CreditPayment,
@@ -62,6 +64,10 @@ export default function App() {
 
   // Invoice Modal State
   const [activeInvoice, setActiveInvoice] = useState<Sale | null>(null);
+  const [verifyToken, setVerifyToken] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return extractVerifyToken(window.location.hash || window.location.search);
+  });
 
   // UI/UX Upgrades State
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
@@ -266,6 +272,32 @@ export default function App() {
     };
   }, [reloadData, showToast]);
 
+  // Listen for QR verification URL hash changes (#verify=...)
+  useEffect(() => {
+    const syncVerifyFromUrl = () => {
+      const token = extractVerifyToken(window.location.hash || window.location.search);
+      if (token) {
+        setVerifyToken(token);
+      }
+    };
+    window.addEventListener('hashchange', syncVerifyFromUrl);
+    return () => window.removeEventListener('hashchange', syncVerifyFromUrl);
+  }, []);
+
+  const handleExitVerification = useCallback(() => {
+    setVerifyToken(null);
+    try {
+      if (
+        typeof window !== 'undefined' &&
+        (window.location.hash.includes('verify=') || window.location.search.includes('verify='))
+      ) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch {
+      // Ignore history errors
+    }
+  }, []);
+
   // Complete Sale
   const handleCompleteSale = (
     saleData: Omit<Sale, 'id' | 'invoiceNumber' | 'timestamp'>
@@ -444,6 +476,22 @@ export default function App() {
     setIsAuthModalOpen(true);
   };
 
+  // Public / In-App Invoice QR Verification View (accessible directly on customer smartphones without POS login)
+  if (verifyToken) {
+    return (
+      <InvoiceVerificationPage
+        tokenOrUrl={verifyToken}
+        localSales={sales}
+        isLoggedIn={Boolean(currentUser)}
+        onExit={handleExitVerification}
+        onOpenFullInvoice={(sale) => {
+          handleExitVerification();
+          setActiveInvoice(sale);
+        }}
+      />
+    );
+  }
+
   // Initial startup loading screen with golden SAPPY branding
   if (isInitialLoading) {
     return (
@@ -516,6 +564,7 @@ export default function App() {
             onCartChange={setActiveCartData}
             onOpenCustomerDisplay={() => setIsCustomerDisplayOpen(true)}
             onLoadStarterPack={handleLoadStarterPack}
+            onVerifyInvoiceToken={(token) => setVerifyToken(token)}
           />
         )}
 
@@ -629,6 +678,10 @@ export default function App() {
           sale={activeInvoice}
           config={config}
           onClose={() => setActiveInvoice(null)}
+          onVerifyPreview={(tokenOrUrl) => {
+            const token = extractVerifyToken(tokenOrUrl);
+            if (token) setVerifyToken(token);
+          }}
         />
       )}
 

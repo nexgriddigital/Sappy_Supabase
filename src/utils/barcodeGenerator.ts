@@ -104,12 +104,20 @@ import QRCode from 'qrcode';
  * Standards-compliant 2D QR matrix generator (ISO/IEC 18004) with Reed-Solomon error correction.
  * Produces verified, camera-scannable 4-sided square matrix with quiet margins on all sides.
  */
-export function generateQrMatrix(text: string, margin: number = 2): boolean[][] {
+export function generateQrMatrix(
+  text: string,
+  margin: number = 2,
+  errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H' = 'M'
+): boolean[][] {
   try {
     const raw = String(text || '').trim() || '0000';
-    const qr = QRCode.create(raw, {
-      errorCorrectionLevel: 'M',
-    });
+    let qr;
+    try {
+      qr = QRCode.create(raw, { errorCorrectionLevel });
+    } catch {
+      // Fallback to 'L' if payload exceeds requested ECC level capacity
+      qr = QRCode.create(raw, { errorCorrectionLevel: 'L' });
+    }
     const coreSize = qr.modules.size;
     const totalSize = coreSize + margin * 2;
     const matrix: boolean[][] = Array.from({ length: totalSize }, () => Array(totalSize).fill(false));
@@ -127,4 +135,40 @@ export function generateQrMatrix(text: string, margin: number = 2): boolean[][] 
     return Array.from({ length: 25 }, () => Array(25).fill(false));
   }
 }
+
+/**
+ * Generates a compact single-path SVG representation of a QR code matrix
+ * for ultra-sharp printing and PDF export without thousands of DOM nodes.
+ */
+export function generateQrSvgPath(
+  text: string,
+  margin: number = 2,
+  errorCorrectionLevel: 'L' | 'M' | 'Q' | 'H' = 'M'
+): { pathData: string; size: number } {
+  const matrix = generateQrMatrix(text, margin, errorCorrectionLevel);
+  const size = matrix.length || 25;
+  const segments: string[] = [];
+
+  for (let r = 0; r < size; r++) {
+    let c = 0;
+    while (c < size) {
+      if (matrix[r][c]) {
+        const start = c;
+        while (c < size && matrix[r][c]) {
+          c++;
+        }
+        const runWidth = c - start;
+        segments.push(`M${start},${r}h${runWidth}v1h-${runWidth}z`);
+      } else {
+        c++;
+      }
+    }
+  }
+
+  return {
+    pathData: segments.join(''),
+    size,
+  };
+}
+
 
