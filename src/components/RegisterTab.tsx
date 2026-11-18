@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Search,
   Plus,
@@ -41,10 +41,7 @@ import {
 import { STORE_PAYMENT_ACCOUNTS } from '../data/seedData.ts';
 import { PaymentProcessingLoader } from './LoadingAnimation.tsx';
 import { soundEffects } from '../utils/soundEffects.ts';
-
-const BarcodeScannerModal = lazy(() =>
-  import('./BarcodeScannerModal.tsx').then((m) => ({ default: m.BarcodeScannerModal }))
-);
+import { BarcodeScannerModal } from './BarcodeScannerModal.tsx';
 
 interface RegisterTabProps {
   products: Product[];
@@ -1708,15 +1705,13 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
 
       {/* Live Camera QR code & Barcode Scanner Modal */}
       {isScannerOpen && (
-        <Suspense fallback={null}>
-          <BarcodeScannerModal
-            isOpen={isScannerOpen}
-            onClose={() => setIsScannerOpen(false)}
-            products={products}
-            onAddToCart={handleScanAddToCart}
-            config={config}
-          />
-        </Suspense>
+        <BarcodeScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          products={products}
+          onAddToCart={handleScanAddToCart}
+          config={config}
+        />
       )}
 
     </div>

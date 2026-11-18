@@ -123,7 +123,8 @@
       "stockLevel": 35,
       "lowStockThreshold": 8,
       "unit": "pcs",
-      "description": "Iconic classic refillable ballpoint pen with signature arrow clip and smooth Quinkflow ink."
+      "description": "Iconic classic refillable ballpoint pen with signature arrow clip and smooth Quinkflow ink.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-002",
@@ -136,7 +137,8 @@
       "stockLevel": 24,
       "lowStockThreshold": 5,
       "unit": "box",
-      "description": "The world reliable everyday pen, 1.0mm medium point, crystal clear barrel with blue caps."
+      "description": "The world reliable everyday pen, 1.0mm medium point, crystal clear barrel with blue caps.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-003",
@@ -149,7 +151,8 @@
       "stockLevel": 40,
       "lowStockThreshold": 10,
       "unit": "pack",
-      "description": "Soft pastel water-resistant ink with chisel and bullet tips for reading, journals, and notes."
+      "description": "Soft pastel water-resistant ink with chisel and bullet tips for reading, journals, and notes.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-004",
@@ -162,7 +165,8 @@
       "stockLevel": 80,
       "lowStockThreshold": 20,
       "unit": "ream",
-      "description": "Ultra-smooth high opacity paper engineered for jam-free printing and sharp monochrome photocopying."
+      "description": "Ultra-smooth high opacity paper engineered for jam-free printing and sharp monochrome photocopying.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-005",
@@ -175,7 +179,8 @@
       "stockLevel": 45,
       "lowStockThreshold": 10,
       "unit": "pcs",
-      "description": "Premium 90gsm Optik paper notebook with durable wipe-clean hard cover and red ribbon marker."
+      "description": "Premium 90gsm Optik paper notebook with durable wipe-clean hard cover and red ribbon marker.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-006",
@@ -188,7 +193,8 @@
       "stockLevel": 55,
       "lowStockThreshold": 12,
       "unit": "pcs",
-      "description": "Reliable adhesive note cube for quick desk reminders, bookmarks, and memo messages."
+      "description": "Reliable adhesive note cube for quick desk reminders, bookmarks, and memo messages.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-007",
@@ -201,7 +207,8 @@
       "stockLevel": 30,
       "lowStockThreshold": 6,
       "unit": "set",
-      "description": "All-metal construction with quick-load mechanism, staples up to 25 sheets effortlessly."
+      "description": "All-metal construction with quick-load mechanism, staples up to 25 sheets effortlessly.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-008",
@@ -214,7 +221,8 @@
       "stockLevel": 22,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": "Solar & battery dual power with durable plastic buttons, grand total and tax calculation keys."
+      "description": "Solar & battery dual power with durable plastic buttons, grand total and tax calculation keys.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-009",
@@ -227,7 +235,8 @@
       "stockLevel": 65,
       "lowStockThreshold": 15,
       "unit": "pcs",
-      "description": "Strong solvent-free hot melt adhesive tape for secure parcel sealing and office carton packing."
+      "description": "Strong solvent-free hot melt adhesive tape for secure parcel sealing and office carton packing.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-010",
@@ -240,7 +249,8 @@
       "stockLevel": 50,
       "lowStockThreshold": 12,
       "unit": "pcs",
-      "description": "Heavy duty cardboard laminated binder with metal finger pull ring and edge protector shoes."
+      "description": "Heavy duty cardboard laminated binder with metal finger pull ring and edge protector shoes.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-011",
@@ -253,7 +263,8 @@
       "stockLevel": 70,
       "lowStockThreshold": 15,
       "unit": "pack",
-      "description": "Waterproof polypropylene folders with press-stud snap closure for homework and business reports."
+      "description": "Waterproof polypropylene folders with press-stud snap closure for homework and business reports.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-012",
@@ -266,7 +277,8 @@
       "stockLevel": 28,
       "lowStockThreshold": 6,
       "unit": "set",
-      "description": "Hexagonal coloured pencils with SV bonding against lead breakage, vibrant brilliant pigments."
+      "description": "Hexagonal coloured pencils with SV bonding against lead breakage, vibrant brilliant pigments.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-013",
@@ -279,7 +291,8 @@
       "stockLevel": 60,
       "lowStockThreshold": 15,
       "unit": "pcs",
-      "description": "Clean solvent-free adhesive formulated from 97% natural ingredients, washable at 20°C."
+      "description": "Clean solvent-free adhesive formulated from 97% natural ingredients, washable at 20°C.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-254-0yqq",
@@ -292,7 +305,8 @@
       "stockLevel": 8,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-90-jba7",
@@ -305,7 +319,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-89-egfg",
@@ -318,7 +333,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-88-a78s",
@@ -331,7 +347,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-87-wc4k",
@@ -344,7 +361,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-86-cjpy",
@@ -357,7 +375,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-85-eucn",
@@ -370,7 +389,8 @@
       "stockLevel": 120,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-84-qt4w",
@@ -383,7 +403,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-83-lxq1",
@@ -396,7 +417,8 @@
       "stockLevel": 16,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-82-iwia",
@@ -409,7 +431,8 @@
       "stockLevel": 4,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-81-14p6",
@@ -422,7 +445,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-80-50py",
@@ -435,7 +459,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-79-z7fi",
@@ -448,7 +473,8 @@
       "stockLevel": 7,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-78-6jfi",
@@ -461,7 +487,8 @@
       "stockLevel": 14,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-77-8ovd",
@@ -474,7 +501,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-76-535t",
@@ -487,7 +515,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-75-0gow",
@@ -500,7 +529,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-74-kyr2",
@@ -513,7 +543,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-73-knr4",
@@ -526,7 +557,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-72-jzd1",
@@ -539,7 +571,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-71-f21k",
@@ -552,7 +585,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-014",
@@ -565,7 +599,8 @@
       "stockLevel": 18,
       "lowStockThreshold": 4,
       "unit": "pcs",
-      "description": "High-resolution Natural Textbook Display with 552 functions, matrix, equation, and spreadsheet solver."
+      "description": "High-resolution Natural Textbook Display with 552 functions, matrix, equation, and spreadsheet solver.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-015",
@@ -578,7 +613,8 @@
       "stockLevel": 35,
       "lowStockThreshold": 8,
       "unit": "set",
-      "description": "Traditional embossed metal tin containing compass, 45° and 60° set squares, 180° protractor, ruler, and eraser."
+      "description": "Traditional embossed metal tin containing compass, 45° and 60° set squares, 180° protractor, ruler, and eraser.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-stn-init-016",
@@ -591,7 +627,8 @@
       "stockLevel": 999,
       "lowStockThreshold": 50,
       "unit": "pcs",
-      "description": "High-definition color laser reproduction for certificates, brochures, project covers, and photos."
+      "description": "High-definition color laser reproduction for certificates, brochures, project covers, and photos.",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-70-t94m",
@@ -604,7 +641,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-69-rj4e",
@@ -617,7 +655,8 @@
       "stockLevel": 24,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-68-jlmg",
@@ -630,7 +669,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-67-x6e9",
@@ -643,7 +683,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-66-b6lx",
@@ -656,7 +697,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-65-dbuf",
@@ -669,7 +711,8 @@
       "stockLevel": 4,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-64-yr1w",
@@ -682,7 +725,8 @@
       "stockLevel": 17,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-63-3dav",
@@ -695,7 +739,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-62-ebzx",
@@ -708,7 +753,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-61-o8la",
@@ -721,7 +767,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-60-m6pr",
@@ -734,7 +781,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-59-oecz",
@@ -747,7 +795,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-58-hd83",
@@ -760,7 +809,8 @@
       "stockLevel": 5,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-57-lhen",
@@ -773,7 +823,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-182-iugk",
@@ -786,7 +837,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-181-9488",
@@ -799,7 +851,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-170-yucj",
@@ -812,7 +865,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-169-9qn1",
@@ -825,7 +879,8 @@
       "stockLevel": 21,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-168-angp",
@@ -838,7 +893,8 @@
       "stockLevel": 13,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-167-gjk3",
@@ -851,7 +907,8 @@
       "stockLevel": 3,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-166-ghje",
@@ -864,7 +921,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-165-rofe",
@@ -877,7 +935,8 @@
       "stockLevel": 96,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-164-0mtw",
@@ -890,7 +949,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-56-b47w",
@@ -903,7 +963,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-55-bw4f",
@@ -916,7 +977,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-54-7cdj",
@@ -929,7 +991,8 @@
       "stockLevel": 4,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-53-46vy",
@@ -942,7 +1005,8 @@
       "stockLevel": 7,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-52-d450",
@@ -955,7 +1019,8 @@
       "stockLevel": 13,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-49-72pk",
@@ -968,7 +1033,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-48-kac9",
@@ -981,7 +1047,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-47-p97a",
@@ -994,7 +1061,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-46-aiiz",
@@ -1007,7 +1075,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-45-yqib",
@@ -1020,7 +1089,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-44-pmyr",
@@ -1033,7 +1103,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-43-ovn9",
@@ -1046,7 +1117,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-42-wowl",
@@ -1059,7 +1131,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-41-p7ut",
@@ -1072,7 +1145,8 @@
       "stockLevel": 1,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-40-z7n7",
@@ -1085,7 +1159,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-39-llbs",
@@ -1098,7 +1173,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-248-tiws",
@@ -1111,7 +1187,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-247-tlnw",
@@ -1124,7 +1201,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-246-7dtl",
@@ -1137,7 +1215,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-245-0tml",
@@ -1150,7 +1229,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-244-g8cm",
@@ -1163,7 +1243,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-243-y9fn",
@@ -1176,7 +1257,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-242-wcum",
@@ -1189,7 +1271,8 @@
       "stockLevel": 1,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-241-s4ux",
@@ -1202,7 +1285,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-240-elvz",
@@ -1215,7 +1299,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-239-mwa0",
@@ -1228,7 +1313,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-238-j3h4",
@@ -1241,7 +1327,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-237-foqg",
@@ -1254,7 +1341,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-236-z0el",
@@ -1267,7 +1355,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-122-mb6r",
@@ -1280,7 +1369,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-121-19lk",
@@ -1293,7 +1383,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-120-mhwi",
@@ -1306,7 +1397,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-119-peo2",
@@ -1319,7 +1411,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-118-t274",
@@ -1332,7 +1425,8 @@
       "stockLevel": 29,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-117-lwfa",
@@ -1345,7 +1439,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-116-4tv7",
@@ -1358,7 +1453,8 @@
       "stockLevel": 5,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-115-on8y",
@@ -1371,7 +1467,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-114-y9xv",
@@ -1384,7 +1481,8 @@
       "stockLevel": 3,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-113-ihoq",
@@ -1397,7 +1495,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-112-x37j",
@@ -1410,7 +1509,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-111-41of",
@@ -1423,7 +1523,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-110-h6v3",
@@ -1436,7 +1537,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-263-z1mq",
@@ -1449,7 +1551,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-262-2zk6",
@@ -1462,7 +1565,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-261-e3v3",
@@ -1475,7 +1579,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-253-oxuf",
@@ -1488,7 +1593,8 @@
       "stockLevel": 6,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-235-khvp",
@@ -1501,7 +1607,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-234-pv3z",
@@ -1514,7 +1621,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-233-98ph",
@@ -1527,7 +1635,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-232-9qa0",
@@ -1540,7 +1649,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-109-ey85",
@@ -1553,7 +1663,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-108-qu7i",
@@ -1566,7 +1677,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-107-dl5v",
@@ -1579,7 +1691,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-106-nvgw",
@@ -1592,7 +1705,8 @@
       "stockLevel": 6,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-105-ce7d",
@@ -1605,7 +1719,8 @@
       "stockLevel": 36,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-104-1j9s",
@@ -1618,7 +1733,8 @@
       "stockLevel": 80,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-103-s4g1",
@@ -1631,7 +1747,8 @@
       "stockLevel": 14,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-102-5zoh",
@@ -1644,7 +1761,8 @@
       "stockLevel": 1,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-33-ocyu",
@@ -1657,7 +1775,8 @@
       "stockLevel": 5,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-32-j78m",
@@ -1670,7 +1789,8 @@
       "stockLevel": 4,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-31-7nmj",
@@ -1683,7 +1803,8 @@
       "stockLevel": 8,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-30-rkfz",
@@ -1696,7 +1817,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-29-wv1t",
@@ -1709,7 +1831,8 @@
       "stockLevel": 6,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-28-4awr",
@@ -1722,7 +1845,8 @@
       "stockLevel": 3,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-27-kg2l",
@@ -1735,7 +1859,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-26-o3p0",
@@ -1748,7 +1873,8 @@
       "stockLevel": 4,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-25-39dp",
@@ -1761,7 +1887,8 @@
       "stockLevel": 8,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-24-m9hp",
@@ -1774,7 +1901,8 @@
       "stockLevel": 6,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-23-pq53",
@@ -1787,7 +1915,8 @@
       "stockLevel": 1,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-22-th0o",
@@ -1800,7 +1929,8 @@
       "stockLevel": 1,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-21-m51p",
@@ -1813,7 +1943,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-20-tp57",
@@ -1826,7 +1957,8 @@
       "stockLevel": 3,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-19-w93f",
@@ -1839,7 +1971,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-38-1qlg",
@@ -1852,7 +1985,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-37-rf05",
@@ -1865,7 +1999,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-36-tlgq",
@@ -1878,7 +2013,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-35-b3u4",
@@ -1891,7 +2027,8 @@
       "stockLevel": 7,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-34-k9rw",
@@ -1904,7 +2041,8 @@
       "stockLevel": 9,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-163-mvvl",
@@ -1917,7 +2055,8 @@
       "stockLevel": 4,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-162-92os",
@@ -1930,7 +2069,8 @@
       "stockLevel": 39,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-161-n43p",
@@ -1943,7 +2083,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-160-oy0j",
@@ -1956,7 +2097,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-159-bypo",
@@ -1969,7 +2111,8 @@
       "stockLevel": 40,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-158-9qvl",
@@ -1982,7 +2125,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-157-jcve",
@@ -1995,7 +2139,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-156-cpea",
@@ -2008,7 +2153,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-155-pt1m",
@@ -2021,7 +2167,8 @@
       "stockLevel": 14,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-154-ibl3",
@@ -2034,7 +2181,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-153-2pu8",
@@ -2047,7 +2195,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-152-pghd",
@@ -2060,7 +2209,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-151-lp85",
@@ -2073,7 +2223,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-150-5yjp",
@@ -2086,7 +2237,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-149-dbb9",
@@ -2099,7 +2251,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-142-pkjd",
@@ -2112,7 +2265,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-141-uho1",
@@ -2125,7 +2279,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-140-7e99",
@@ -2138,7 +2293,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-139-fe15",
@@ -2151,7 +2307,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-138-yp97",
@@ -2164,7 +2321,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-137-w6nu",
@@ -2177,7 +2335,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-136-epqd",
@@ -2190,7 +2349,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-135-roc4",
@@ -2203,7 +2363,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-134-etph",
@@ -2216,7 +2377,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-133-9hso",
@@ -2229,7 +2391,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-132-ey9s",
@@ -2242,7 +2405,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-131-3wc7",
@@ -2255,7 +2419,8 @@
       "stockLevel": 9,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-130-zq6k",
@@ -2268,7 +2433,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-129-qh4v",
@@ -2281,7 +2447,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-231-isqb",
@@ -2294,7 +2461,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-230-b1hd",
@@ -2307,7 +2475,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-229-7mlf",
@@ -2320,7 +2489,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-228-9ld6",
@@ -2333,7 +2503,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-227-aza0",
@@ -2346,7 +2517,8 @@
       "stockLevel": 19,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-226-f58m",
@@ -2359,7 +2531,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-225-kdtq",
@@ -2372,7 +2545,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-224-y4br",
@@ -2385,7 +2559,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-223-d47x",
@@ -2398,7 +2573,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-222-jn64",
@@ -2411,7 +2587,8 @@
       "stockLevel": 7,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-221-pc7u",
@@ -2424,7 +2601,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-220-37qj",
@@ -2437,7 +2615,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-219-cpm5",
@@ -2450,7 +2629,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-218-n8vu",
@@ -2463,7 +2643,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-217-l7x2",
@@ -2476,7 +2657,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-260-q1n0",
@@ -2489,7 +2671,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-259-ad90",
@@ -2502,7 +2685,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-258-hzml",
@@ -2515,7 +2699,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-257-8nwm",
@@ -2528,7 +2713,8 @@
       "stockLevel": 3,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-256-lg6l",
@@ -2541,7 +2727,8 @@
       "stockLevel": 26,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-216-swoj",
@@ -2554,7 +2741,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-215-rlbo",
@@ -2567,7 +2755,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-214-9ver",
@@ -2580,7 +2769,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-213-fisk",
@@ -2593,7 +2783,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-212-o3f1",
@@ -2606,7 +2797,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-211-qb8b",
@@ -2619,7 +2811,8 @@
       "stockLevel": 1,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-210-ai3v",
@@ -2632,7 +2825,8 @@
       "stockLevel": 6,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-209-hzbo",
@@ -2645,7 +2839,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-208-t9z0",
@@ -2658,7 +2853,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-207-2r9l",
@@ -2671,7 +2867,8 @@
       "stockLevel": 61,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-93-bz68",
@@ -2684,7 +2881,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-92-g6yi",
@@ -2697,7 +2895,8 @@
       "stockLevel": 65,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-91-ozyl",
@@ -2710,7 +2909,8 @@
       "stockLevel": 114,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-128-pxcx",
@@ -2723,7 +2923,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-127-za9o",
@@ -2736,7 +2937,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-126-qt5d",
@@ -2749,7 +2951,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-125-00c1",
@@ -2762,7 +2965,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-124-5sgu",
@@ -2775,7 +2979,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-123-u32a",
@@ -2788,7 +2993,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-101-6gh1",
@@ -2801,7 +3007,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-100-n8re",
@@ -2814,7 +3021,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785282-99-c1z1",
@@ -2827,7 +3035,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785281-98-5gwq",
@@ -2840,7 +3049,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785281-97-ck6j",
@@ -2853,7 +3063,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785281-96-5zs8",
@@ -2866,7 +3077,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785281-95-hsvb",
@@ -2879,7 +3091,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785280-94-m2mv",
@@ -2892,7 +3105,8 @@
       "stockLevel": 80,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-10-gp0z",
@@ -2905,7 +3119,8 @@
       "stockLevel": 12,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-9-vx5q",
@@ -2918,7 +3133,8 @@
       "stockLevel": 17,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-8-or3n",
@@ -2931,7 +3147,8 @@
       "stockLevel": 7,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-7-btfl",
@@ -2944,7 +3161,8 @@
       "stockLevel": 13,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-6-wr67",
@@ -2957,7 +3175,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-5-te1j",
@@ -2970,7 +3189,8 @@
       "stockLevel": 48,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-4-gvu3",
@@ -2983,7 +3203,8 @@
       "stockLevel": 9,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-3-d59v",
@@ -2996,7 +3217,8 @@
       "stockLevel": 14,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-2-fr99",
@@ -3009,7 +3231,8 @@
       "stockLevel": 23,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-1-ub2d",
@@ -3022,7 +3245,8 @@
       "stockLevel": 56,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-0-vp14",
@@ -3035,7 +3259,8 @@
       "stockLevel": 40,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-18-c71g",
@@ -3048,7 +3273,8 @@
       "stockLevel": 12,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-17-dw0y",
@@ -3061,7 +3287,8 @@
       "stockLevel": 1,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-16-qp9t",
@@ -3074,7 +3301,8 @@
       "stockLevel": 4,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-15-rzoa",
@@ -3087,7 +3315,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-14-zpon",
@@ -3100,7 +3329,8 @@
       "stockLevel": 5,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-13-7nro",
@@ -3113,7 +3343,8 @@
       "stockLevel": 12,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-12-3v25",
@@ -3126,7 +3357,8 @@
       "stockLevel": 5,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785278-11-9ml0",
@@ -3139,7 +3371,8 @@
       "stockLevel": 23,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-206-hlr1",
@@ -3152,7 +3385,8 @@
       "stockLevel": 4,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-205-dwye",
@@ -3165,7 +3399,8 @@
       "stockLevel": 2,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-204-7jaa",
@@ -3178,7 +3413,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-203-cc03",
@@ -3191,7 +3427,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-202-5cb1",
@@ -3204,7 +3441,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-201-4u6b",
@@ -3217,7 +3455,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-200-7aks",
@@ -3230,7 +3469,8 @@
       "stockLevel": 22,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-199-wf5a",
@@ -3243,7 +3483,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-198-mdwt",
@@ -3256,7 +3497,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-197-5enu",
@@ -3269,7 +3511,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-196-lwuo",
@@ -3282,7 +3525,8 @@
       "stockLevel": 34,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-195-v3be",
@@ -3295,7 +3539,8 @@
       "stockLevel": 54,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-194-byhf",
@@ -3308,7 +3553,8 @@
       "stockLevel": 94,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-193-xkun",
@@ -3321,7 +3567,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-192-32ku",
@@ -3334,7 +3581,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-191-fsah",
@@ -3347,7 +3595,8 @@
       "stockLevel": 53,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-190-7ene",
@@ -3360,7 +3609,8 @@
       "stockLevel": 11,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-189-2iye",
@@ -3373,7 +3623,8 @@
       "stockLevel": 34,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-188-hypy",
@@ -3386,7 +3637,8 @@
       "stockLevel": 60,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-187-qdch",
@@ -3399,7 +3651,8 @@
       "stockLevel": 7,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-186-7o0j",
@@ -3412,7 +3665,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-185-csa1",
@@ -3425,7 +3679,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-184-ndgz",
@@ -3438,7 +3693,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-183-l8jd",
@@ -3451,7 +3707,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785286-255-68c9",
@@ -3464,7 +3721,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-252-adur",
@@ -3477,7 +3735,8 @@
       "stockLevel": 6,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-251-zj9c",
@@ -3490,7 +3749,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-250-uoll",
@@ -3503,7 +3763,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785285-249-osk6",
@@ -3516,7 +3777,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-180-e66m",
@@ -3529,7 +3791,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-179-dd7x",
@@ -3542,7 +3805,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-178-qbpn",
@@ -3555,7 +3819,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-177-jwcq",
@@ -3568,7 +3833,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-176-ir9t",
@@ -3581,7 +3847,8 @@
       "stockLevel": 5,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-175-gg2g",
@@ -3594,7 +3861,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-174-lhh7",
@@ -3607,7 +3875,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-173-mvwg",
@@ -3620,7 +3889,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-172-vmwl",
@@ -3633,7 +3903,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785284-171-wtr7",
@@ -3646,7 +3917,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-148-h6oo",
@@ -3659,7 +3931,8 @@
       "stockLevel": 7,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-147-ktep",
@@ -3672,7 +3945,8 @@
       "stockLevel": 8,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-146-geij",
@@ -3685,7 +3959,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-145-e11n",
@@ -3698,7 +3973,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-144-znvq",
@@ -3711,7 +3987,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785283-143-j5gj",
@@ -3724,7 +4001,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-51-u5gc",
@@ -3737,7 +4015,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-import-1794085785279-50-qald",
@@ -3750,7 +4029,8 @@
       "stockLevel": 0,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     },
     {
       "id": "prod-1794339671174",
@@ -3763,7 +4043,8 @@
       "stockLevel": 25,
       "lowStockThreshold": 5,
       "unit": "pcs",
-      "description": ""
+      "description": "",
+      "updatedAt": "2026-11-11T11:59:59.575096+00:00"
     }
   ],
   "customers": [
@@ -3791,6 +4072,39 @@
     }
   ],
   "sales": [
+    {
+      "id": "sale-1794573594962",
+      "invoiceNumber": "INV-2026-0003",
+      "timestamp": "2026-11-13T12:39:54.962+00:00",
+      "customerName": "Walk-in Retail Customer",
+      "subtotal": 85,
+      "taxRate": 0,
+      "taxAmount": 0,
+      "discountAmount": 0,
+      "totalAmount": 85,
+      "totalCost": 0,
+      "grossProfit": 85,
+      "paymentMethod": "cash",
+      "amountTendered": 85,
+      "changeGiven": 0,
+      "isCreditPaid": true,
+      "paidAmount": 85,
+      "items": [
+        {
+          "sku": "MAR-1177",
+          "name": "Whiteboard Marker",
+          "unit": "pcs",
+          "category": "Writing & Pens",
+          "quantity": 1,
+          "unitCost": 0,
+          "lineTotal": 85,
+          "productId": "prod-import-1794296583963-492-pxwd",
+          "unitPrice": 85,
+          "lineCostTotal": 0,
+          "discountPercent": 0
+        }
+      ]
+    },
     {
       "id": "sale-1794405022051",
       "invoiceNumber": "INV-2026-0002",
@@ -3884,24 +4198,75 @@
     "currencyCode": "ETB",
     "defaultTaxRate": 15,
     "receiptFooter": "Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com",
-    "bankDetails": "Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567",
+    "bankDetails": "CBE: 1000452354504 (Yohannes Leulseged) / 1000126845883 (Azeb Eshetu) | Awash: 013201292764800 (Yohannes Leulseged) | Telebirr: 0980442353 (Yohannes Leulseged) | Abyssinia: 194809058 (Yohannes Leulseged) | Dashen: 5889696877011 (Yohannes Leulseged)",
     "masterPasscode": "Sappy#1313",
     "supabaseUrl": "https://fegfrjhxxpojmalytbku.supabase.co",
-    "supabaseAnonKey": "sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2"
+    "supabaseAnonKey": "sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2",
+    "databaseUrl": "https://fegfrjhxxpojmalytbku.supabase.co",
+    "paymentAccounts": [
+      {
+        "id": "cbe-yohannes",
+        "provider": "Commercial Bank of Ethiopia (CBE)",
+        "shortLabel": "CBE",
+        "accountNumber": "1000452354504",
+        "accountHolder": "Yohannes Leulseged",
+        "type": "bank"
+      },
+      {
+        "id": "cbe-azeb",
+        "provider": "Commercial Bank of Ethiopia (CBE)",
+        "shortLabel": "CBE",
+        "accountNumber": "1000126845883",
+        "accountHolder": "Azeb Eshetu",
+        "type": "bank"
+      },
+      {
+        "id": "awash-yohannes",
+        "provider": "Awash Bank",
+        "shortLabel": "Awash",
+        "accountNumber": "013201292764800",
+        "accountHolder": "Yohannes Leulseged",
+        "type": "bank"
+      },
+      {
+        "id": "telebirr-yohannes",
+        "provider": "Telebirr",
+        "shortLabel": "Telebirr",
+        "accountNumber": "0980442353",
+        "accountHolder": "Yohannes Leulseged",
+        "type": "mobile"
+      },
+      {
+        "id": "abyssinia-yohannes",
+        "provider": "Bank of Abyssinia",
+        "shortLabel": "Abyssinia",
+        "accountNumber": "194809058",
+        "accountHolder": "Yohannes Leulseged",
+        "type": "bank"
+      },
+      {
+        "id": "dashen-yohannes",
+        "provider": "Dashen Bank",
+        "shortLabel": "Dashen",
+        "accountNumber": "5889696877011",
+        "accountHolder": "Yohannes Leulseged",
+        "type": "bank"
+      }
+    ]
   },
   "users": [
     {
       "id": "usr-owner-amanuel",
       "email": "amanuealhailu007@gmail.com",
-      "fullName": "Amanuel Hailu",
+      "fullName": "Amanueal Hailu",
       "role": "owner",
       "storeName": "Sappy Stationary",
       "phone": "+251 91 123 4567",
       "pinCode": "1313",
       "status": "active",
-      "createdAt": "2026-01-01T08:00:00Z",
+      "createdAt": "2026-11-18T07:43:04.05229+00:00",
       "notes": "Store Owner & Commercial Administrator",
-      "updatedAt": "2026-11-08T09:42:00Z",
+      "updatedAt": "2026-11-18T07:58:32.521+00:00",
       "lastLoginAt": "2026-11-07T18:00:05.482Z"
     },
     {
@@ -3925,12 +4290,12 @@
       "phone": "+251980442353",
       "pinCode": "1313",
       "status": "active",
-      "createdAt": "2026-11-10T17:34:06.019Z",
+      "createdAt": "2026-11-18T07:43:04.05229+00:00",
       "notes": "Store Owner & Commercial Administrator",
-      "updatedAt": "2026-11-10T17:34:06.019Z"
+      "updatedAt": "2026-11-10T17:34:06.019+00:00"
     }
   ],
-  "lastSyncedAt": "2026-11-13T10:28:13.385Z",
-  "version": 33360,
+  "lastSyncedAt": "2026-11-18T08:49:49.503Z",
+  "version": 35191,
   "isReset": false
 }

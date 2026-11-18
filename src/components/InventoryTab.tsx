@@ -1,4 +1,4 @@
-import React, { useState, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Package,
   Plus,
@@ -24,10 +24,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { Product, ProductCategory, StoreConfig } from '../types/pos.ts';
-
-const BulkImportModal = lazy(() =>
-  import('./BulkImportModal.tsx').then((m) => ({ default: m.BulkImportModal }))
-);
+import { BulkImportModal } from './BulkImportModal.tsx';
 
 interface InventoryTabProps {
   products: Product[];
@@ -1210,16 +1207,14 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
       {/* BULK IMPORT MODAL */}
       {/* ========================================================================= */}
       {isBulkImportOpen && (
-        <Suspense fallback={null}>
-          <BulkImportModal
-            config={config}
-            isOpen={isBulkImportOpen}
-            onClose={() => setIsBulkImportOpen(false)}
-            onImportComplete={() => {
-              if (onRefreshData) onRefreshData();
-            }}
-          />
-        </Suspense>
+        <BulkImportModal
+          config={config}
+          isOpen={isBulkImportOpen}
+          onClose={() => setIsBulkImportOpen(false)}
+          onImportComplete={() => {
+            if (onRefreshData) onRefreshData();
+          }}
+        />
       )}
 
     </div>

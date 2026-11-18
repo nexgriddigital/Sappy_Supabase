@@ -1,6 +1,52 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
 
+const CHUNK_RELOAD_GUARD_KEY = 'sappy_chunk_reload_at';
+
+export function isModuleLoadError(error: unknown): boolean {
+  const msg = String((error as any)?.message || error || '').toLowerCase();
+  return (
+    msg.includes('importing a module script failed') ||
+    msg.includes('failed to fetch dynamically imported module') ||
+    msg.includes('error loading dynamically imported module') ||
+    msg.includes('loading chunk') ||
+    msg.includes('chunkloaderror') ||
+    msg.includes('unable to preload css')
+  );
+}
+
+export async function performCleanReload(force = false): Promise<void> {
+  try {
+    if (!force) {
+      const last = Number(sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY) || '0');
+      if (Date.now() - last < 15000) {
+        return;
+      }
+      sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, String(Date.now()));
+    }
+
+    if (typeof caches !== 'undefined' && caches.keys) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker?.getRegistrations) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch {
+    // Ignore cache/SW cleanup errors and proceed with reload
+  }
+
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('_r', String(Date.now()));
+    window.location.replace(url.toString());
+  } catch {
+    window.location.reload();
+  }
+}
+
 interface Props {
   children: ReactNode;
 }
@@ -22,10 +68,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error caught by ErrorBoundary:', error, errorInfo);
+    if (isModuleLoadError(error)) {
+      void performCleanReload(false);
+    }
   }
 
   private handleReload = () => {
-    window.location.reload();
+    void performCleanReload(true);
   };
 
   private handleResetLocal = () => {
@@ -33,11 +82,12 @@ export class ErrorBoundary extends Component<Props, State> {
       localStorage.clear();
       sessionStorage.clear();
     } catch {}
-    window.location.reload();
+    void performCleanReload(true);
   };
 
   public render() {
     if (this.state.hasError) {
+      const isModuleErr = isModuleLoadError(this.state.error);
       return (
         <div className="min-h-screen bg-charcoal-950 text-white flex flex-col items-center justify-center p-6 text-center select-none">
           <div className="max-w-md w-full bg-charcoal-900 border border-charcoal-800 rounded-2xl p-6 shadow-2xl space-y-4">
@@ -48,7 +98,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <div>
               <h2 className="text-lg font-bold text-white">SAPPY POS Recovered from an Issue</h2>
               <p className="text-xs text-charcoal-400 mt-1">
-                The terminal encountered an unexpected runtime error. Your local records are preserved.
+                {isModuleErr
+                  ? 'A newer version of SAPPY POS was deployed or the connection dropped while loading. Reload to fetch the latest terminal build — your local records are preserved.'
+                  : 'The terminal encountered an unexpected runtime error. Your local records are preserved.'}
               </p>
             </div>
 

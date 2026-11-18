@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar, TabType } from './components/Navbar.tsx';
 import { AuthPage } from './components/AuthPage.tsx';
 import { ToastNotification, ToastMessage } from './components/ToastNotification.tsx';
@@ -6,37 +6,26 @@ import { soundEffects } from './utils/soundEffects.ts';
 import { STARTER_STATIONERY_PRODUCTS } from './data/starterCatalog.ts';
 import { storageService } from './services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
-import { LoadingScreen, ModuleLoader } from './components/LoadingAnimation.tsx';
+import { LoadingScreen } from './components/LoadingAnimation.tsx';
 import { isSupabaseConfigured } from './lib/supabase.ts';
 import { checkAndApplyUrlPairing } from './services/pairingService.ts';
 import { DashboardTab } from './components/DashboardTab.tsx';
 import { RegisterTab } from './components/RegisterTab.tsx';
-
-const loadSalesLedgerTab = () => import('./components/SalesLedgerTab.tsx');
-const loadCreditDebtTab = () => import('./components/CreditDebtTab.tsx');
-const loadInventoryTab = () => import('./components/InventoryTab.tsx');
-const loadExpensesTab = () => import('./components/ExpensesTab.tsx');
-const loadReportsTab = () => import('./components/ReportsTab.tsx');
-const loadQRBarcodeStudioTab = () => import('./components/QRBarcodeStudioTab.tsx');
-const loadUsersTab = () => import('./components/UsersTab.tsx');
-const loadSettingsTab = () => import('./components/SettingsTab.tsx');
-const loadSupabaseSyncTab = () => import('./components/SupabaseSyncTab.tsx');
-
-const SalesLedgerTab = lazy(() => loadSalesLedgerTab().then((m) => ({ default: m.SalesLedgerTab })));
-const CreditDebtTab = lazy(() => loadCreditDebtTab().then((m) => ({ default: m.CreditDebtTab })));
-const InventoryTab = lazy(() => loadInventoryTab().then((m) => ({ default: m.InventoryTab })));
-const ExpensesTab = lazy(() => loadExpensesTab().then((m) => ({ default: m.ExpensesTab })));
-const ReportsTab = lazy(() => loadReportsTab().then((m) => ({ default: m.ReportsTab })));
-const QRBarcodeStudioTab = lazy(() => loadQRBarcodeStudioTab().then((m) => ({ default: m.QRBarcodeStudioTab })));
-const UsersTab = lazy(() => loadUsersTab().then((m) => ({ default: m.UsersTab })));
-const SettingsTab = lazy(() => loadSettingsTab().then((m) => ({ default: m.SettingsTab })));
-const SupabaseSyncTab = lazy(() => loadSupabaseSyncTab().then((m) => ({ default: m.SupabaseSyncTab })));
-const A4InvoiceModal = lazy(() => import('./components/A4InvoiceModal.tsx').then((m) => ({ default: m.A4InvoiceModal })));
-const CloudSyncModal = lazy(() => import('./components/CloudSyncModal.tsx').then((m) => ({ default: m.CloudSyncModal })));
-const MasterPasscodeModal = lazy(() => import('./components/MasterPasscodeModal.tsx').then((m) => ({ default: m.MasterPasscodeModal })));
-const CustomerDisplayModal = lazy(() => import('./components/CustomerDisplayModal.tsx').then((m) => ({ default: m.CustomerDisplayModal })));
-const CommandPaletteModal = lazy(() => import('./components/CommandPaletteModal.tsx').then((m) => ({ default: m.CommandPaletteModal })));
-const WelcomeAnimationModal = lazy(() => import('./components/WelcomeAnimationModal.tsx').then((m) => ({ default: m.WelcomeAnimationModal })));
+import { SalesLedgerTab } from './components/SalesLedgerTab.tsx';
+import { CreditDebtTab } from './components/CreditDebtTab.tsx';
+import { InventoryTab } from './components/InventoryTab.tsx';
+import { ExpensesTab } from './components/ExpensesTab.tsx';
+import { ReportsTab } from './components/ReportsTab.tsx';
+import { QRBarcodeStudioTab } from './components/QRBarcodeStudioTab.tsx';
+import { UsersTab } from './components/UsersTab.tsx';
+import { SettingsTab } from './components/SettingsTab.tsx';
+import { SupabaseSyncTab } from './components/SupabaseSyncTab.tsx';
+import { A4InvoiceModal } from './components/A4InvoiceModal.tsx';
+import { CloudSyncModal } from './components/CloudSyncModal.tsx';
+import { MasterPasscodeModal } from './components/MasterPasscodeModal.tsx';
+import { CustomerDisplayModal } from './components/CustomerDisplayModal.tsx';
+import { CommandPaletteModal } from './components/CommandPaletteModal.tsx';
+import { WelcomeAnimationModal } from './components/WelcomeAnimationModal.tsx';
 import {
   Customer,
   CreditPayment,
@@ -264,19 +253,6 @@ export default function App() {
       }
     });
 
-    // Background prefetch secondary tab chunks so tab switching is near-instant
-    const prefetchTimer = setTimeout(() => {
-      void loadSalesLedgerTab();
-      void loadCreditDebtTab();
-      void loadInventoryTab();
-      void loadExpensesTab();
-      void loadReportsTab();
-      void loadQRBarcodeStudioTab();
-      void loadUsersTab();
-      void loadSettingsTab();
-      void loadSupabaseSyncTab();
-    }, 150);
-
     // If background initialSync finishes after the 300ms budget, hydrate UI seamlessly
     startupPromise.then(() => {
       if (isMounted) {
@@ -286,7 +262,6 @@ export default function App() {
 
     return () => {
       isMounted = false;
-      clearTimeout(prefetchTimer);
       unsubscribe();
     };
   }, [reloadData, showToast]);
@@ -518,7 +493,6 @@ export default function App() {
 
       {/* Main Tab Content */}
       <main className="flex-1 flex flex-col pb-20 md:pb-6">
-        <Suspense fallback={<ModuleLoader />}>
         {activeTab === 'dashboard' && (
           <DashboardTab
             sales={sales}
@@ -647,18 +621,15 @@ export default function App() {
             onRefreshData={reloadData}
           />
         )}
-        </Suspense>
       </main>
 
       {/* Full-Page A4 Tax Invoice Modal */}
       {activeInvoice && (
-        <Suspense fallback={null}>
-          <A4InvoiceModal
-            sale={activeInvoice}
-            config={config}
-            onClose={() => setActiveInvoice(null)}
-          />
-        </Suspense>
+        <A4InvoiceModal
+          sale={activeInvoice}
+          config={config}
+          onClose={() => setActiveInvoice(null)}
+        />
       )}
 
       {/* Switch User / Auth Modal */}
@@ -673,85 +644,75 @@ export default function App() {
 
       {/* Cloud Sync Connection & Settings Modal */}
       {isCloudSyncModalOpen && (
-        <Suspense fallback={null}>
-          <CloudSyncModal
-            isOpen={isCloudSyncModalOpen}
-            onClose={() => setIsCloudSyncModalOpen(false)}
-            syncState={syncState}
-            onNavigateToSyncTab={() => setActiveTab('sync')}
-            onRefreshData={reloadData}
-          />
-        </Suspense>
+        <CloudSyncModal
+          isOpen={isCloudSyncModalOpen}
+          onClose={() => setIsCloudSyncModalOpen(false)}
+          syncState={syncState}
+          onNavigateToSyncTab={() => setActiveTab('sync')}
+          onRefreshData={reloadData}
+        />
       )}
 
       {/* Master Passcode Challenge Modal for Critical System Operations */}
       {criticalChallenge && (
-        <Suspense fallback={null}>
-          <MasterPasscodeModal
-            isOpen={Boolean(criticalChallenge)}
-            title="Master Passcode Required"
-            actionName={criticalChallenge.actionName}
-            actionDescription={criticalChallenge.actionDescription}
-            onSuccess={() => {
-              const action = criticalChallenge.onExecute;
-              setCriticalChallenge(null);
-              action();
-            }}
-            onCancel={() => setCriticalChallenge(null)}
-          />
-        </Suspense>
+        <MasterPasscodeModal
+          isOpen={Boolean(criticalChallenge)}
+          title="Master Passcode Required"
+          actionName={criticalChallenge.actionName}
+          actionDescription={criticalChallenge.actionDescription}
+          onSuccess={() => {
+            const action = criticalChallenge.onExecute;
+            setCriticalChallenge(null);
+            action();
+          }}
+          onCancel={() => setCriticalChallenge(null)}
+        />
       )}
 
       {/* Customer Facing Counter Display & 80mm Thermal Slip Modal */}
       {isCustomerDisplayOpen && (
-        <Suspense fallback={null}>
-          <CustomerDisplayModal
-            isOpen={isCustomerDisplayOpen}
-            onClose={() => setIsCustomerDisplayOpen(false)}
-            cart={activeCartData.cart}
-            subtotal={activeCartData.subtotal}
-            discountAmount={activeCartData.discountAmount}
-            taxAmount={activeCartData.taxAmount}
-            taxRate={activeCartData.taxRate}
-            grandTotal={activeCartData.grandTotal}
-            customer={activeCartData.customer}
-            config={config}
-            currentUser={currentUser}
-            completedSale={activeInvoice}
-          />
-        </Suspense>
+        <CustomerDisplayModal
+          isOpen={isCustomerDisplayOpen}
+          onClose={() => setIsCustomerDisplayOpen(false)}
+          cart={activeCartData.cart}
+          subtotal={activeCartData.subtotal}
+          discountAmount={activeCartData.discountAmount}
+          taxAmount={activeCartData.taxAmount}
+          taxRate={activeCartData.taxRate}
+          grandTotal={activeCartData.grandTotal}
+          customer={activeCartData.customer}
+          config={config}
+          currentUser={currentUser}
+          completedSale={activeInvoice}
+        />
       )}
 
       {/* Global Command Palette / Omni-Search Modal (Cmd+K) */}
       {isCommandPaletteOpen && (
-        <Suspense fallback={null}>
-          <CommandPaletteModal
-            isOpen={isCommandPaletteOpen}
-            onClose={() => setIsCommandPaletteOpen(false)}
-            products={products}
-            customers={customers}
-            config={config}
-            onNavigate={(tab) => setActiveTab(tab)}
-            onOpenSwitchUser={() => setIsAuthModalOpen(true)}
-            onLoadStarterPack={handleLoadStarterPack}
-            currentUser={currentUser}
-          />
-        </Suspense>
+        <CommandPaletteModal
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
+          products={products}
+          customers={customers}
+          config={config}
+          onNavigate={(tab) => setActiveTab(tab)}
+          onOpenSwitchUser={() => setIsAuthModalOpen(true)}
+          onLoadStarterPack={handleLoadStarterPack}
+          currentUser={currentUser}
+        />
       )}
 
       {/* First Login Welcome Animation Modal */}
       {welcomeUser && (
-        <Suspense fallback={null}>
-          <WelcomeAnimationModal
-            user={welcomeUser}
-            config={config}
-            isFirstLogin={!storageService.hasUserCompletedWelcome(welcomeUser.id)}
-            onComplete={() => {
-              storageService.setUserCompletedWelcome(welcomeUser.id);
-              setWelcomeUser(null);
-            }}
-          />
-        </Suspense>
+        <WelcomeAnimationModal
+          user={welcomeUser}
+          config={config}
+          isFirstLogin={!storageService.hasUserCompletedWelcome(welcomeUser.id)}
+          onComplete={() => {
+            storageService.setUserCompletedWelcome(welcomeUser.id);
+            setWelcomeUser(null);
+          }}
+        />
       )}
 
       {/* Floating System Feedback Toasts */}
