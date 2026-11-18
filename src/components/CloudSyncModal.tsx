@@ -462,17 +462,42 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
 
   const handleManualSync = async () => {
     setIsTesting(true);
+    setStatusMessage({ type: 'info', text: 'Synchronizing with cloud...' });
     const success = await crossDeviceSyncService.syncNow();
-    setIsTesting(false);
+
     if (success) {
+      setMissingTables(false);
+      setHasRlsError(false);
+      setIsTesting(false);
       setStatusMessage({ type: 'success', text: 'Synchronization completed successfully!' });
       onRefreshData();
-    } else {
-      setStatusMessage({
-        type: 'error',
-        text: 'Sync could not reach a remote cloud database. Ensure Supabase or backend is configured.',
-      });
+      return;
     }
+
+    const latest = crossDeviceSyncService.getState();
+    if (isSupabaseConfigured()) {
+      const testResult = await testSupabaseConnection(getSupabase());
+      setIsTesting(false);
+      if (testResult.success && !testResult.tableFound) {
+        setMissingTables(true);
+        setHasRlsError(false);
+        setStatusMessage({ type: 'warning', text: testResult.message });
+        return;
+      }
+      if (testResult.rlsError) {
+        setMissingTables(false);
+        setHasRlsError(true);
+        setStatusMessage({ type: 'warning', text: testResult.message });
+        return;
+      }
+    } else {
+      setIsTesting(false);
+    }
+
+    setStatusMessage({
+      type: 'error',
+      text: latest.message || 'Sync could not reach a remote cloud database. Click "Connect & Save Supabase" below.',
+    });
   };
 
   const handleDisconnect = async () => {
@@ -520,22 +545,37 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           <div className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${
             syncState.status === 'synced'
               ? 'bg-emerald-950/50 border-emerald-800 text-emerald-300'
+              : syncState.status === 'error'
+              ? 'bg-rose-950/40 border-rose-800/80 text-rose-200'
               : 'bg-amber-950/40 border-amber-800/80 text-amber-200'
           }`}>
             <div className="flex items-center gap-2.5">
               <span className={`w-3 h-3 rounded-full shrink-0 ${
-                syncState.status === 'synced' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                syncState.status === 'synced'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : syncState.status === 'error'
+                  ? 'bg-rose-400'
+                  : 'bg-amber-400 animate-pulse'
               }`} />
               <div>
                 <p className="text-xs font-bold">
-                  Status: {syncState.status === 'synced' ? 'Cloud Synced' : 'Running in Local Mode'}
+                  Status:{' '}
+                  {syncState.status === 'synced'
+                    ? 'Cloud Synced'
+                    : syncState.status === 'syncing'
+                    ? 'Syncing with Cloud...'
+                    : syncState.status === 'error'
+                    ? 'Sync Action Required'
+                    : 'Running in Local Mode'}
                 </p>
                 <p className="text-[11px] text-charcoal-300 mt-0.5">
-                  {syncState.mode === 'supabase'
+                  {syncState.status === 'error' || syncState.status === 'syncing'
+                    ? syncState.message
+                    : syncState.mode === 'supabase'
                     ? 'Connected directly to Supabase PostgreSQL'
                     : syncState.mode === 'server'
-                    ? 'Connected to Node/Express sync backend'
-                    : 'GitHub Pages is static: data is saved locally until Supabase is connected.'}
+                    ? 'Connected to Express Cloud Sync backend'
+                    : 'Data is saved locally until Supabase or Cloud Server is connected.'}
                 </p>
               </div>
             </div>

@@ -30,6 +30,7 @@ class CrossDeviceSyncService {
   private onDataChangedCallback: (() => void) | null = null;
   private syncIntervalId: any = null;
   private isSyncing = false;
+  private activeSyncPromise: Promise<boolean> | null = null;
   private syncQueued = false;
   private actionDebounceTimer: any = null;
   private broadcastChannel: any = null;
@@ -261,17 +262,24 @@ class CrossDeviceSyncService {
    * Priority 2: Direct Supabase Client (if configured).
    * Fallback: Local offline mode.
    */
-  public async syncNow(options?: { isNewSetup?: boolean }): Promise<boolean> {
-    if (this.isSyncing) {
+  public syncNow(options?: { isNewSetup?: boolean }): Promise<boolean> {
+    if (this.isSyncing && this.activeSyncPromise) {
       this.syncQueued = true;
-      return false;
+      return this.activeSyncPromise;
     }
 
     if (typeof window !== 'undefined' && !navigator.onLine) {
       this.updateState({ status: 'offline', message: 'No internet connection' });
-      return false;
+      return Promise.resolve(false);
     }
 
+    this.activeSyncPromise = this.executeSyncNow(options).finally(() => {
+      this.activeSyncPromise = null;
+    });
+    return this.activeSyncPromise;
+  }
+
+  private async executeSyncNow(options?: { isNewSetup?: boolean }): Promise<boolean> {
     const syncStartedAt = Date.now();
     this.isSyncing = true;
     this.updateState({ status: 'syncing', message: 'Connecting to cloud sync...' });
