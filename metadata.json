@@ -1,6 +1,6 @@
 {
   "name": "Sappy Stationary POS",
   "description": "Touch-optimized POS system for Sappy Stationary with inventory tracking, credit sales debt ledger, daily profit and loss reports, A4 PDF invoices, and Supabase Free Tier sync.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -50,10 +50,26 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const [manualInput, setManualInput] = useState('');
   const [manualError, setManualError] = useState<string | null>(null);
 
+  const [scanError, setScanError] = useState<string | null>(null);
+
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const startRequestIdRef = useRef<number>(0);
+  const isMountedRef = useRef<boolean>(true);
+  const selectedCameraIdRef = useRef<string>(selectedCameraId);
   const lastScanTimestamp = useRef<number>(0);
   const lastScanText = useRef<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    selectedCameraIdRef.current = selectedCameraId;
+  }, [selectedCameraId]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Helper to find a product by code (barcode, SKU, ID, or JSON payload)
   const findProductByCode = useCallback(
@@ -110,7 +126,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const handleBarcodeDecoded = useCallback(
     (decodedText: string) => {
       const now = Date.now();
-      const cleanText = decodedText.trim();
+      const cleanText = String(decodedText || '').trim();
+      if (!cleanText) return;
 
       // Debounce repetitive scan of the exact same code within 1.2 seconds
       if (lastScanText.current === cleanText && now - lastScanTimestamp.current < 1200) {
@@ -120,10 +137,17 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       lastScanTimestamp.current = now;
       lastScanText.current = cleanText;
       setLastScannedCode(cleanText);
+      setScanError(null);
 
       const matchedProduct = findProductByCode(cleanText);
 
       if (matchedProduct) {
+        if (matchedProduct.stockLevel <= 0) {
+          soundEffects.playError();
+          setLastScannedProduct(null);
+          setScanError(`"${matchedProduct.name}" is out of stock (0 available).`);
+          return;
+        }
         soundEffects.playBeep();
         onAddToCart(matchedProduct);
         setLastScannedProduct(matchedProduct);
@@ -139,46 +163,72 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           }, 350);
         }
       } else {
+        soundEffects.playError();
         setLastScannedProduct(null);
       }
     },
     [findProductByCode, onAddToCart, isContinuous, onClose]
   );
 
-  // Stop camera helper
+  const handleBarcodeDecodedRef = useRef(handleBarcodeDecoded);
+  useEffect(() => {
+    handleBarcodeDecodedRef.current = handleBarcodeDecoded;
+  }, [handleBarcodeDecoded]);
+
+  // Stop camera helper (safe against concurrent transitions)
   const stopCamera = useCallback(async () => {
-    if (scannerRef.current) {
+    const instance = scannerRef.current;
+    scannerRef.current = null;
+    if (instance) {
       try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
+        if (instance.isScanning) {
+          await instance.stop();
         }
-        scannerRef.current.clear();
-      } catch (err) {
-        console.warn('Camera stop warning:', err);
+      } catch {
+        // Ignore state transition errors when stopping an already-stopped scanner
       }
-      scannerRef.current = null;
+      try {
+        instance.clear();
+      } catch {
+        // Ignore clear DOM warnings
+      }
     }
-    setIsCameraActive(false);
-    setTorchOn(false);
+    if (isMountedRef.current) {
+      setIsCameraActive(false);
+      setTorchOn(false);
+    }
   }, []);
 
-  // Start live camera scanner
-  const startCamera = useCallback(async () => {
-    await stopCamera();
-    setCameraError(null);
-
-    const containerId = 'pos-camera-viewport';
-    const container = document.getElementById(containerId);
-    if (!container) return;
+  // Start live camera scanner with request token & device constraint fallbacks
+  const startCamera = useCallback(async (overrideCameraId?: string) => {
+    const requestId = ++startRequestIdRef.current;
 
     try {
-      // Query cameras if not yet loaded
+      await stopCamera();
+      if (!isMountedRef.current || requestId !== startRequestIdRef.current) return;
+      setCameraError(null);
+
+      const containerId = 'pos-camera-viewport';
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      // Clear any leftover HTML inside viewport before mounting a fresh scanner
+      container.innerHTML = '';
+
+      let detectedDevices: { id: string; label: string }[] = [];
       try {
         const devices = await Html5Qrcode.getCameras();
+        if (requestId !== startRequestIdRef.current || !isMountedRef.current) return;
         if (devices && devices.length > 0) {
-          setAvailableCameras(devices.map((d) => ({ id: d.id, label: d.label || `Camera ${d.id}` })));
+          detectedDevices = devices.map((d, idx) => ({
+            id: d.id,
+            label: d.label || `Camera ${idx + 1}`,
+          }));
+          setAvailableCameras(detectedDevices);
         }
-      } catch {}
+      } catch {
+        // getCameras may require active stream first on some browsers; fall through to constraint fallbacks
+      }
 
       const qrScanner = new Html5Qrcode(containerId, {
         formatsToSupport: [
@@ -195,55 +245,122 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       });
       scannerRef.current = qrScanner;
 
-      const cameraConfig = selectedCameraId
-        ? { deviceId: { exact: selectedCameraId } }
-        : { facingMode: 'environment' };
+      const desiredId = overrideCameraId !== undefined ? overrideCameraId : selectedCameraIdRef.current;
+      const validDesiredId =
+        desiredId && (detectedDevices.length === 0 || detectedDevices.some((d) => d.id === desiredId))
+          ? desiredId
+          : '';
 
-      await qrScanner.start(
-        cameraConfig,
-        {
-          fps: 15,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const boxSize = Math.max(200, Math.floor(minEdge * 0.72));
-            return { width: boxSize, height: Math.floor(boxSize * 0.65) };
-          },
-          aspectRatio: 1.0,
+      // Clear stale camera ID if it no longer exists on this device
+      if (desiredId && !validDesiredId && detectedDevices.length > 0 && isMountedRef.current) {
+        selectedCameraIdRef.current = '';
+        setSelectedCameraId('');
+        try {
+          localStorage.removeItem('sappy_preferred_camera_id');
+        } catch {}
+      }
+
+      const scanConfig = {
+        fps: 12,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.max(100, Math.min(viewfinderWidth, viewfinderHeight));
+          const boxWidth = Math.max(80, Math.min(Math.floor(minEdge * 0.78), viewfinderWidth - 16));
+          const boxHeight = Math.max(60, Math.min(Math.floor(boxWidth * 0.65), viewfinderHeight - 16));
+          return { width: boxWidth, height: boxHeight };
         },
-        (decodedText) => {
-          handleBarcodeDecoded(decodedText);
-        },
-        () => {
-          // Frame parse miss, normal during scanning
+      };
+
+      const candidateConstraints: Array<string | MediaTrackConstraints> = [];
+      if (validDesiredId) {
+        candidateConstraints.push({ deviceId: { exact: validDesiredId } });
+      }
+      candidateConstraints.push({ facingMode: 'environment' });
+      candidateConstraints.push({ facingMode: 'user' });
+      if (detectedDevices.length > 0) {
+        candidateConstraints.push(detectedDevices[0].id);
+      }
+
+      let started = false;
+      let lastErr: any = null;
+
+      for (const constraint of candidateConstraints) {
+        if (!isMountedRef.current || requestId !== startRequestIdRef.current || scannerRef.current !== qrScanner) break;
+        try {
+          await qrScanner.start(
+            constraint,
+            scanConfig,
+            (decodedText) => {
+              handleBarcodeDecodedRef.current(decodedText);
+            },
+            () => {
+              // Frame parse miss, normal during scanning
+            }
+          );
+          started = true;
+          break;
+        } catch (err: any) {
+          lastErr = err;
+          const errName = String(err?.name || err?.message || '');
+          // Don't retry other cameras if user explicitly denied camera permission
+          if (errName.includes('NotAllowedError') || errName.includes('Permission')) {
+            break;
+          }
+          try {
+            if (qrScanner.isScanning) {
+              await qrScanner.stop();
+            }
+          } catch {}
         }
-      );
+      }
+
+      if (requestId !== startRequestIdRef.current || !isMountedRef.current || scannerRef.current !== qrScanner) {
+        try {
+          if (qrScanner.isScanning) await qrScanner.stop();
+          qrScanner.clear();
+        } catch {}
+        return;
+      }
+
+      if (!started) {
+        throw lastErr || new Error('Unable to start camera stream.');
+      }
 
       setIsCameraActive(true);
+
+      // Refresh device list after permission grant so labels populate and dropdown matches active camera
+      try {
+        const devicesAfter = await Html5Qrcode.getCameras();
+        if (devicesAfter && devicesAfter.length > 0 && isMountedRef.current && requestId === startRequestIdRef.current) {
+          setAvailableCameras(
+            devicesAfter.map((d, idx) => ({ id: d.id, label: d.label || `Camera ${idx + 1}` }))
+          );
+        }
+      } catch {}
 
       // Check if torch/flashlight capability is available
       try {
         const capabilities = qrScanner.getRunningTrackCapabilities();
-        if ((capabilities as any)?.torch) {
-          setHasTorch(true);
-        } else {
-          setHasTorch(false);
-        }
+        setHasTorch(Boolean((capabilities as any)?.torch));
       } catch {
         setHasTorch(false);
       }
     } catch (err: any) {
+      if (requestId !== startRequestIdRef.current) return;
       console.warn('Camera start error:', err);
-      setIsCameraActive(false);
-      const msg = err?.message || 'Unable to access camera.';
+      await stopCamera();
+      if (!isMountedRef.current) return;
+      const msg = String(err?.message || err?.name || 'Unable to access camera.');
       if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
-        setCameraError('Camera access denied. Please allow camera permissions in your browser address bar.');
+        setCameraError(
+          'Camera access denied. Allow camera permission in your browser settings, or use Type Code / Photo.'
+        );
       } else if (msg.includes('NotFoundError') || msg.includes('DevicesNotFoundError')) {
-        setCameraError('No camera found on this device. You can scan from image or enter barcode manually.');
+        setCameraError('No camera found on this device. You can scan from a photo or enter the barcode manually.');
       } else {
-        setCameraError('Camera is busy or not supported. You can enter barcodes manually or upload an image.');
+        setCameraError(`Camera could not start (${msg}). You can enter barcodes manually or upload an image.`);
       }
     }
-  }, [selectedCameraId, handleBarcodeDecoded, stopCamera]);
+  }, [stopCamera]);
 
   // Toggle torch / flashlight
   const handleToggleTorch = async () => {
@@ -262,22 +379,27 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // Switch camera device
   const handleSwitchCamera = async () => {
     if (availableCameras.length < 2) return;
-    const currentIndex = availableCameras.findIndex((c) => c.id === selectedCameraId);
+    const currentIndex = availableCameras.findIndex((c) => c.id === selectedCameraIdRef.current);
     const nextIndex = (currentIndex + 1) % availableCameras.length;
     const nextId = availableCameras[nextIndex].id;
+    selectedCameraIdRef.current = nextId;
     setSelectedCameraId(nextId);
     try {
       localStorage.setItem('sappy_preferred_camera_id', nextId);
     } catch {}
+    await startCamera(nextId);
   };
 
   // Scan from uploaded file / photo
   const handleScanFromFile = async (file: File) => {
     try {
       setCameraError(null);
-      const html5Qr = new Html5Qrcode('pos-file-scanner-temp');
-      const decodedText = await html5Qr.scanFile(file, true);
-      html5Qr.clear();
+      setScanError(null);
+      const html5Qr = new Html5Qrcode('pos-file-scanner-temp', { verbose: false });
+      const decodedText = await html5Qr.scanFile(file, false);
+      try {
+        html5Qr.clear();
+      } catch {}
       if (decodedText) {
         handleBarcodeDecoded(decodedText);
       }
@@ -289,14 +411,21 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   // Manual code submit
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualInput.trim()) return;
+    const clean = manualInput.trim();
+    if (!clean) return;
 
-    const matched = findProductByCode(manualInput.trim());
+    const matched = findProductByCode(clean);
     if (matched) {
+      if (matched.stockLevel <= 0) {
+        soundEffects.playError();
+        setManualError(`"${matched.name}" is out of stock (0 available).`);
+        return;
+      }
       soundEffects.playBeep();
       onAddToCart(matched);
       setLastScannedProduct(matched);
-      setLastScannedCode(manualInput.trim());
+      setLastScannedCode(clean);
+      setScanError(null);
       setScannedHistory((prev) => [
         { product: matched, timestamp: new Date().toLocaleTimeString() },
         ...prev.slice(0, 7),
@@ -307,36 +436,35 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         onClose();
       }
     } else {
-      setManualError(`No product found with code "${manualInput.trim()}"`);
+      soundEffects.playError();
+      setManualError(`No product found with code "${clean}"`);
     }
   };
 
-  // Lifecycle when modal opens/closes
+  // Lifecycle when modal opens/closes or scannerMode switches
   useEffect(() => {
-    if (isOpen) {
-      if (scannerMode === 'camera') {
-        const timer = setTimeout(() => {
-          startCamera();
-        }, 150);
-        return () => clearTimeout(timer);
-      }
-    } else {
-      stopCamera();
+    if (isOpen && scannerMode === 'camera') {
+      const timer = setTimeout(() => {
+        void startCamera();
+      }, 150);
+      return () => {
+        clearTimeout(timer);
+        startRequestIdRef.current += 1;
+        void stopCamera();
+      };
+    }
+
+    startRequestIdRef.current += 1;
+    void stopCamera();
+    if (!isOpen) {
       setLastScannedProduct(null);
       setLastScannedCode(null);
       setManualError(null);
+      setScanError(null);
+      setCameraError(null);
     }
-    return () => {
-      stopCamera();
-    };
+    return undefined;
   }, [isOpen, scannerMode, startCamera, stopCamera]);
-
-  // Restart camera when camera device selection changes
-  useEffect(() => {
-    if (isOpen && isCameraActive && selectedCameraId) {
-      startCamera();
-    }
-  }, [selectedCameraId]);
 
   // Keyboard shortcut listener for Esc to close
   useEffect(() => {
@@ -507,12 +635,14 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                     <p className="text-xs text-rose-200 leading-relaxed font-semibold">{cameraError}</p>
                     <div className="flex gap-2">
                       <button
-                        onClick={startCamera}
+                        type="button"
+                        onClick={() => void startCamera()}
                         className="px-3 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-700 text-xs font-semibold text-white border border-charcoal-700 cursor-pointer"
                       >
                         Try Again
                       </button>
                       <button
+                        type="button"
                         onClick={() => setScannerMode('manual')}
                         className="px-3 py-1.5 rounded-lg bg-forest-700 hover:bg-forest-600 text-xs font-semibold text-white cursor-pointer"
                       >
@@ -534,10 +664,12 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                         value={selectedCameraId}
                         onChange={(e) => {
                           const newId = e.target.value;
+                          selectedCameraIdRef.current = newId;
                           setSelectedCameraId(newId);
                           try {
                             localStorage.setItem('sappy_preferred_camera_id', newId);
                           } catch {}
+                          void startCamera(newId);
                         }}
                         className="bg-transparent text-xs text-white focus:outline-hidden cursor-pointer py-0.5 max-w-[180px] sm:max-w-[220px] truncate"
                         title="Choose camera device"
@@ -652,8 +784,9 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    handleScanFromFile(file);
+                    void handleScanFromFile(file);
                   }
+                  e.target.value = '';
                 }}
               />
 
@@ -702,7 +835,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
               <div className="text-right shrink-0">
                 <p className="text-sm font-extrabold font-mono text-emerald-300">
-                  {config.currencySymbol}
+                  {config?.currencySymbol || 'Br '}
                   {lastScannedProduct.sellingPrice.toFixed(2)}
                 </p>
                 <p className="text-[10px] font-mono text-emerald-400/80">Stock: {lastScannedProduct.stockLevel}</p>
@@ -710,8 +843,23 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             </div>
           )}
 
+          {/* OUT OF STOCK / SCAN ERROR BANNER */}
+          {scanError && (
+            <div className="p-3 rounded-2xl bg-rose-950/80 border border-rose-800/80 flex items-center justify-between gap-2 animate-slide-up">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-rose-200">{scanError}</p>
+                  {lastScannedCode && (
+                    <p className="text-[11px] font-mono text-rose-300/80 truncate">"{lastScannedCode}"</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* UNRECOGNIZED CODE BANNER */}
-          {lastScannedCode && !lastScannedProduct && (
+          {lastScannedCode && !lastScannedProduct && !scanError && (
             <div className="p-3 rounded-2xl bg-amber-950/80 border border-amber-800/80 flex items-center justify-between gap-2 animate-slide-up">
               <div className="flex items-center gap-2.5 min-w-0">
                 <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
@@ -748,7 +896,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
                     <div className="flex items-center gap-2 shrink-0 font-mono text-xs">
                       <span className="text-forest-400 font-bold">
-                        {config.currencySymbol}
+                        {config?.currencySymbol || 'Br '}
                         {item.product.sellingPrice.toFixed(2)}
                       </span>
                       <span className="text-[10px] text-charcoal-500">{item.timestamp}</span>

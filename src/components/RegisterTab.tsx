@@ -124,9 +124,9 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
       const q = searchQuery.toLowerCase().trim();
       const matchSearch =
         !q ||
-        p.name.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q) ||
-        p.barcode.toLowerCase().includes(q);
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q) ||
+        (p.barcode || '').toLowerCase().includes(q);
       return matchCat && matchSearch;
     });
   }, [products, selectedCategory, searchQuery]);
@@ -461,7 +461,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   // Hook listening for external USB/Bluetooth barcode scanner input sequences
   const { isScanning } = useBarcodeScanner({
     enabled: !isTenderOpen && !showNewCustModal && !isScannerOpen,
-    completeOnIdleMs: isScannerMode ? 120 : 0,
+    completeOnIdleMs: isScannerMode ? 180 : 0,
     onScan: (scannedCode) => {
       processScannedCode(scannedCode);
     },

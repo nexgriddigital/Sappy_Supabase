@@ -34,7 +34,7 @@ export interface UseBarcodeScannerReturn {
 export function useBarcodeScanner({
   onScan,
   enabled = true,
-  maxIntervalMs = 55,
+  maxIntervalMs = 85,
   minBarcodeLength = 2,
   preventDefault = true,
   interceptInputs = true,
@@ -132,8 +132,8 @@ export function useBarcodeScanner({
           const totalDuration = timestamps[timestamps.length - 1] - timestamps[0];
           const avgInterval = totalDuration / (timestamps.length - 1);
 
-          // If keys arrived at scanner speed (<70ms average per key)
-          if (avgInterval <= 70 || isBurstRef.current) {
+          // If keys arrived at scanner speed (<95ms average per key)
+          if (avgInterval <= 95 || isBurstRef.current) {
             if (preventDefault) {
               e.preventDefault();
               e.stopPropagation();
@@ -186,11 +186,13 @@ export function useBarcodeScanner({
             idleCompleteTimerRef.current = setTimeout(() => {
               const candidate = bufferRef.current.trim();
               const timestamps = timestampsRef.current;
-              bufferRef.current = '';
-              timestampsRef.current = [];
-              isBurstRef.current = false;
+              const span = timestamps.length >= 2 ? timestamps[timestamps.length - 1] - timestamps[0] : 9999;
+              const avg = timestamps.length >= 2 ? span / (timestamps.length - 1) : 9999;
 
-              if (candidate.length >= Math.max(minBarcodeLength, 3) && timestamps.length >= 3) {
+              if (candidate.length >= Math.max(minBarcodeLength, 4) && timestamps.length >= 4 && avg <= 45) {
+                bufferRef.current = '';
+                timestampsRef.current = [];
+                isBurstRef.current = false;
                 lastAutoCompletedAtRef.current = performance.now();
                 dispatchCompletedScan(candidate, target, isInput);
               } else {
