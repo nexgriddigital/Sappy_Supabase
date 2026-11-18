@@ -298,8 +298,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* ROW 2: PRIMARY MODULE NAVIGATION TABS BAR (With Full Labels & Icons) */}
         {/* ========================================================================= */}
         <div className="bg-charcoal-950/95 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4">
-            <nav className="flex items-center gap-1 sm:gap-1.5 py-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="max-w-[1400px] mx-auto px-2 sm:px-4">
+            <nav
+              aria-label="Primary modules"
+              className="flex flex-wrap items-center gap-1 py-1.5"
+            >
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
@@ -309,14 +312,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button
                     key={item.id}
                     onClick={() => onTabChange(item.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-semibold tracking-wide whitespace-nowrap transition-all duration-150 cursor-pointer shrink-0 active:scale-95 ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-semibold tracking-wide whitespace-nowrap transition-all duration-150 cursor-pointer shrink-0 active:scale-95 ${
                       isActive
                         ? 'bg-forest-700 text-white shadow-md shadow-forest-950/70 border border-forest-500/80 font-bold'
                         : 'text-charcoal-400 hover:text-white hover:bg-charcoal-900 border border-transparent hover:border-charcoal-800'
                     }`}
                   >
                     <Icon
-                      className={`w-4 h-4 transition-transform ${
+                      className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${
                         isActive ? 'text-forest-100 scale-105' : 'text-charcoal-400 group-hover:text-forest-400'
                       }`}
                     />

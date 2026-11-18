@@ -172,63 +172,78 @@ class CrossDeviceSyncService {
     }
   }
 
+  private initialSyncPromise: Promise<boolean> | null = null;
+
   /**
    * Fast startup pull of canonical server state.
    * Checks primary endpoint and falls back to live Cloud Run server automatically.
    */
-  public async initialSync(): Promise<boolean> {
-    const backend = this.getBackendUrl();
-    const urlsToTry: string[] = [];
-
-    if (backend) {
-      urlsToTry.push(backend.endsWith('/') ? `${backend}api/pos/state` : `${backend}/api/pos/state`);
-    } else {
-      urlsToTry.push('/api/pos/state');
-      urlsToTry.push(`${DEFAULT_CLOUD_BACKEND_URL}/api/pos/state`);
+  public initialSync(): Promise<boolean> {
+    if (this.initialSyncPromise) {
+      return this.initialSyncPromise;
     }
 
-    for (const targetUrl of urlsToTry) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
+    this.initialSyncPromise = (async () => {
+      const backend = this.getBackendUrl();
+      const urlsToTry: string[] = [];
 
-        const response = await fetch(targetUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const contentType = response.headers.get('content-type') || '';
-          if (!contentType.includes('application/json')) {
-            continue; // Not JSON (probably HTML 404 page from static host)
-          }
-
-          const result = await response.json();
-          if (result.success && result.state) {
-            storageService.hydrateFromServer(result.state);
-            this.updateState({
-              status: 'synced',
-              mode: 'server',
-              lastSyncedAt: result.serverTime || new Date().toISOString(),
-              message: 'Server synced (Express)',
-              serverVersion: result.state.version || this.syncState.serverVersion + 1,
-            });
-
-            if (this.onDataChangedCallback) {
-              this.onDataChangedCallback();
-            }
-            this.broadcastLocalChange();
-            return true;
-          }
+      if (backend) {
+        urlsToTry.push(backend.endsWith('/') ? `${backend}api/pos/state` : `${backend}/api/pos/state`);
+      } else {
+        urlsToTry.push('/api/pos/state');
+        const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+        if (currentOrigin !== DEFAULT_CLOUD_BACKEND_URL) {
+          urlsToTry.push(`${DEFAULT_CLOUD_BACKEND_URL}/api/pos/state`);
         }
-      } catch {
-        // Try fallback url
       }
-    }
 
-    return this.syncNow();
+      for (const targetUrl of urlsToTry) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+          const response = await fetch(targetUrl, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+              continue; // Not JSON (probably HTML 404 page from static host)
+            }
+
+            const result = await response.json();
+            if (result.success && result.state) {
+              storageService.hydrateFromServer(result.state);
+              this.updateState({
+                status: 'synced',
+                mode: 'server',
+                lastSyncedAt: result.serverTime || new Date().toISOString(),
+                message: 'Server synced (Express)',
+                serverVersion: result.state.version || this.syncState.serverVersion + 1,
+              });
+
+              if (this.onDataChangedCallback) {
+                this.onDataChangedCallback();
+              }
+              this.broadcastLocalChange();
+              return true;
+            }
+          }
+        } catch {
+          // Try fallback url
+        }
+      }
+
+      return this.syncNow();
+    })().finally(() => {
+      this.initialSyncPromise = null;
+    });
+
+    return this.initialSyncPromise;
   }
 
   /**
@@ -279,7 +294,10 @@ class CrossDeviceSyncService {
       postUrlsToTry.push(customUrl.endsWith('/') ? `${customUrl}api/pos/sync` : `${customUrl}/api/pos/sync`);
     } else {
       postUrlsToTry.push('/api/pos/sync');
-      postUrlsToTry.push(`${DEFAULT_CLOUD_BACKEND_URL}/api/pos/sync`);
+      const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+      if (currentOrigin !== DEFAULT_CLOUD_BACKEND_URL) {
+        postUrlsToTry.push(`${DEFAULT_CLOUD_BACKEND_URL}/api/pos/sync`);
+      }
     }
 
     const localData = storageService.getAllData();
@@ -287,7 +305,7 @@ class CrossDeviceSyncService {
     for (const targetUrl of postUrlsToTry) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
 
         const response = await fetch(targetUrl, {
           method: 'POST',

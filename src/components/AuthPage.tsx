@@ -120,11 +120,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       refreshProfiles();
     });
 
-    // Auto-sync immediately from cloud backend/Supabase so newly registered staff appear on all terminals
-    crossDeviceSyncService.initialSync().then(() => {
-      refreshProfiles();
-    }).catch(() => {});
-
     return () => {
       unsubSync();
       unsubStorage();
@@ -293,7 +288,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       setSuccessMsg(`Welcome, ${user.fullName} (${user.role.toUpperCase()})!`);
       setTimeout(() => {
         onAuthSuccess(user!);
-      }, 350);
+      }, 60);
     } catch (err: any) {
       setError(err?.message || 'Failed to authenticate. Please check your credentials.');
     } finally {

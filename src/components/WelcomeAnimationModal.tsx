@@ -55,9 +55,9 @@ export const WelcomeAnimationModal: React.FC<WelcomeAnimationModalProps> = ({
 
   // Staged revelation sequence
   useEffect(() => {
-    const t1 = setTimeout(() => setStage(1), 500);  // Greeting reveal
-    const t2 = setTimeout(() => setStage(2), 1200); // System checks reveal
-    const t3 = setTimeout(() => setStage(3), 2000); // CTA & ready reveal
+    const t1 = setTimeout(() => setStage(1), 150);  // Greeting reveal
+    const t2 = setTimeout(() => setStage(2), 450);  // System checks reveal
+    const t3 = setTimeout(() => setStage(3), 750);  // CTA & ready reveal
 
     return () => {
       clearTimeout(t1);
@@ -66,9 +66,9 @@ export const WelcomeAnimationModal: React.FC<WelcomeAnimationModalProps> = ({
     };
   }, []);
 
-  // Auto-advance progress bar (5.5 seconds)
+  // Auto-advance progress bar (2.2 seconds)
   useEffect(() => {
-    const totalDuration = 5500;
+    const totalDuration = 2200;
     const intervalTime = 40;
     const increment = (intervalTime / totalDuration) * 100;
 
