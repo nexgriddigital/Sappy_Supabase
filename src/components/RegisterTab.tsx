@@ -1728,6 +1728,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
           products={products}
           onAddToCart={handleScanAddToCart}
           config={config}
+          onVerifyInvoiceToken={onVerifyInvoiceToken}
         />
       )}
 

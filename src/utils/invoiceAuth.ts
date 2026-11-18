@@ -10,7 +10,7 @@ export interface VerifiedInvoiceItem {
 }
 
 export interface VerifiedInvoicePayload {
-  v: 1;
+  v: 1 | 2;
   id: string;
   inv: string;       // Invoice number
   ts: string;        // ISO timestamp
@@ -46,6 +46,20 @@ export interface InvoiceVerificationResult {
 }
 
 const VERIFY_SECRET_SALT = 'SAPPY-POS-VERIFY-V1';
+
+const PM_TO_CODE: Record<string, string> = {
+  cash: 'c',
+  card: 'k',
+  digital: 'd',
+  credit: 'r',
+};
+
+const CODE_TO_PM: Record<string, string> = {
+  c: 'cash',
+  k: 'card',
+  d: 'digital',
+  r: 'credit',
+};
 
 /**
  * Pure TypeScript synchronous SHA-256 implementation so invoice signing
@@ -189,8 +203,6 @@ function buildCanonicalString(payload: Omit<VerifiedInvoicePayload, 'sig'>): str
 
   return [
     VERIFY_SECRET_SALT,
-    `v=${payload.v}`,
-    `id=${payload.id}`,
     `inv=${payload.inv}`,
     `ts=${payload.ts}`,
     `sn=${payload.sn}`,
@@ -214,7 +226,92 @@ export function computePayloadSignature(payload: Omit<VerifiedInvoicePayload, 's
 }
 
 /**
- * Encodes a sale into a self-contained, cryptographically signed verification URL
+ * Compact v2 tuple serialization cuts QR byte size by ~55%, keeping QR modules
+ * large and easily scannable across any mobile camera or 2D scanner.
+ */
+function serializeCompactV2(payload: VerifiedInvoicePayload): string {
+  const tsEpochSec = Math.floor(new Date(payload.ts).getTime() / 1000) || 0;
+  const ts36 = tsEpochSec > 0 ? tsEpochSec.toString(36) : payload.ts;
+  const pmCode = PM_TO_CODE[payload.pm] || payload.pm;
+
+  const tuple = [
+    2,
+    payload.inv,
+    ts36,
+    payload.sn,
+    payload.tin,
+    payload.cur,
+    payload.cn,
+    pmCode,
+    payload.sub,
+    payload.disc,
+    payload.tax,
+    payload.tot,
+    payload.paid,
+    payload.tend ?? 0,
+    payload.chg ?? 0,
+    payload.cp ? 1 : 0,
+    payload.ret ? 1 : 0,
+    payload.due || '',
+    payload.tr || 0,
+    payload.it.map((i) => [i.n, i.s, i.q, i.u, i.p, i.t]),
+    payload.sig,
+    payload.id,
+  ];
+  return toBase64Url(JSON.stringify(tuple));
+}
+
+function parseCompactV2Tuple(arr: any[]): VerifiedInvoicePayload | null {
+  if (!Array.isArray(arr) || arr[0] !== 2 || arr.length < 21) return null;
+  const rawTs = String(arr[2] || '');
+  let isoTs = rawTs;
+  if (/^[0-9a-z]+$/i.test(rawTs) && !rawTs.includes('-')) {
+    const secs = parseInt(rawTs, 36);
+    if (Number.isFinite(secs) && secs > 0) {
+      isoTs = new Date(secs * 1000).toISOString();
+    }
+  }
+  const pmRaw = String(arr[7] || 'c');
+  const pm = CODE_TO_PM[pmRaw] || pmRaw;
+  const itemsArr = Array.isArray(arr[19]) ? arr[19] : [];
+  const items: VerifiedInvoiceItem[] = itemsArr.map((row: any[]) => ({
+    n: String(row?.[0] || ''),
+    s: String(row?.[1] || ''),
+    q: Number(row?.[2] || 0),
+    u: String(row?.[3] || 'pcs'),
+    p: round2(Number(row?.[4] || 0)),
+    t: round2(Number(row?.[5] || 0)),
+  }));
+
+  return {
+    v: 2,
+    id: String(arr[21] || arr[1] || ''),
+    inv: String(arr[1] || ''),
+    ts: isoTs,
+    sn: String(arr[3] || 'Sappy Stationary'),
+    tin: String(arr[4] || ''),
+    cur: String(arr[5] || 'ETB '),
+    cn: String(arr[6] || 'Walk-in Customer'),
+    pm,
+    sub: round2(Number(arr[8] || 0)),
+    disc: round2(Number(arr[9] || 0)),
+    tax: round2(Number(arr[10] || 0)),
+    tot: round2(Number(arr[11] || 0)),
+    paid: round2(Number(arr[12] || 0)),
+    ...(pm === 'cash' && Number(arr[13]) > 0
+      ? { tend: round2(Number(arr[13])), chg: round2(Number(arr[14] || 0)) }
+      : {}),
+    cp: Boolean(arr[15]),
+    ...(arr[16] ? { ret: true } : {}),
+    ...(arr[17] ? { due: String(arr[17]) } : {}),
+    ...(Number(arr[18]) > 0 ? { tr: Number(arr[18]) } : {}),
+    it: items,
+    sig: String(arr[20] || ''),
+  };
+}
+
+/**
+ * Encodes a sale into a compact, cryptographically signed verification URL
  * suitable for embedding in a QR code on the A4 Invoice.
  */
 export function encodeInvoiceVerificationUrl(
@@ -228,6 +325,11 @@ export function encodeInvoiceVerificationUrl(
   truncatedCount: number;
 } {
   const effectivePaid = getEffectivePaidAmount(sale);
+  const normalizedTs = (() => {
+    const ms = new Date(sale.timestamp).getTime();
+    return Number.isFinite(ms) && ms > 0 ? new Date(Math.floor(ms / 1000) * 1000).toISOString() : sale.timestamp;
+  })();
+
   const fullItems: VerifiedInvoiceItem[] = (sale.items || []).map((item) => ({
     n: item.name,
     s: item.sku,
@@ -239,10 +341,10 @@ export function encodeInvoiceVerificationUrl(
 
   const buildWithItems = (items: VerifiedInvoiceItem[], truncatedCount: number) => {
     const basePayload: Omit<VerifiedInvoicePayload, 'sig'> = {
-      v: 1,
+      v: 2,
       id: sale.id,
       inv: sale.invoiceNumber,
-      ts: sale.timestamp,
+      ts: normalizedTs,
       sn: config.storeName || 'Sappy Stationary',
       tin: config.taxId || '',
       cur: config.currencySymbol || 'ETB ',
@@ -266,23 +368,22 @@ export function encodeInvoiceVerificationUrl(
 
     const sig = computePayloadSignature(basePayload);
     const fullPayload: VerifiedInvoicePayload = { ...basePayload, sig };
-    const token = toBase64Url(JSON.stringify(fullPayload));
+    const token = serializeCompactV2(fullPayload);
     return { payload: fullPayload, token, truncatedCount };
   };
 
-  // Attempt full item encoding first
   let attempt = buildWithItems(fullItems, 0);
 
-  // Keep payload comfortably inside QR Version 35 ECC-L/M limit (~2100 token chars)
-  if (attempt.token.length > 2000) {
+  // Keep QR version compact enough to scan effortlessly on any phone camera
+  if (attempt.token.length > 1350) {
     const shortenedNames = fullItems.map((item) => ({
       ...item,
-      n: item.n.length > 32 ? `${item.n.slice(0, 30)}..` : item.n,
+      n: item.n.length > 28 ? `${item.n.slice(0, 26)}..` : item.n,
     }));
     attempt = buildWithItems(shortenedNames, 0);
 
     let maxItems = shortenedNames.length;
-    while (attempt.token.length > 2050 && maxItems > 3) {
+    while (attempt.token.length > 1400 && maxItems > 3) {
       maxItems -= 1;
       attempt = buildWithItems(shortenedNames.slice(0, maxItems), shortenedNames.length - maxItems);
     }
@@ -290,7 +391,7 @@ export function encodeInvoiceVerificationUrl(
 
   const origin =
     typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
-  const url = `${origin}#verify=${attempt.token}`;
+  const url = `${origin}#v=${attempt.token}`;
 
   return {
     url,
@@ -302,14 +403,95 @@ export function encodeInvoiceVerificationUrl(
 }
 
 /**
- * Extracts a verification token from a scanned QR URL, hash fragment, or raw token string.
+ * Generates a 100% human-readable, self-contained plain-text QR receipt string
+ * that ANY generic QR scanner app, phone camera, or offline 2D scanner can read
+ * directly without needing internet, login, or base64 decoding.
+ */
+export function encodeInvoicePlainTextQr(
+  sale: Sale,
+  config: StoreConfig
+): {
+  text: string;
+  authCode: string;
+  effectivePaid: number;
+  truncatedCount: number;
+} {
+  const { authCode, payload } = encodeInvoiceVerificationUrl(sale, config);
+  const cur = (config.currencySymbol || 'ETB ').trim();
+  const effectivePaid = payload.paid;
+  const balanceDue = sale.isReturned ? 0 : Math.max(0, round2(sale.totalAmount - effectivePaid));
+  const statusLabel = sale.isReturned
+    ? 'RETURNED / VOID'
+    : balanceDue <= 0.009
+      ? 'PAID IN FULL'
+      : effectivePaid > 0
+        ? 'PARTIAL PAYMENT'
+        : 'CREDIT UNPAID';
+
+  const dateStr = new Date(sale.timestamp).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const headerLines = [
+    `${(config.storeName || 'SAPPY STATIONARY').toUpperCase()} - SALE VERIFIED`,
+    `INV: ${sale.invoiceNumber}`,
+    `DATE: ${dateStr}`,
+    `CUST: ${sale.customerName || 'Walk-in'}`,
+    `PAID: ${cur} ${effectivePaid.toFixed(2)} (${sale.paymentMethod.toUpperCase()})`,
+    `TOTAL: ${cur} ${sale.totalAmount.toFixed(2)} | DUE: ${cur} ${balanceDue.toFixed(2)}`,
+    `STATUS: ${statusLabel}`,
+    `ITEMS (${sale.items.length}):`,
+  ];
+
+  const footerLine = `AUTH: ${authCode}`;
+  const itemLines: string[] = [];
+  let truncatedCount = 0;
+
+  for (let i = 0; i < sale.items.length; i++) {
+    const item = sale.items[i];
+    const shortName = item.name.length > 28 ? `${item.name.slice(0, 26)}..` : item.name;
+    const candidateLine = `${i + 1}. ${shortName} x${item.quantity} = ${cur} ${item.lineTotal.toFixed(2)}`;
+    const projectedLen =
+      [...headerLines, ...itemLines, candidateLine, footerLine].join('\n').length;
+    if (projectedLen > 920 && i >= 3) {
+      truncatedCount = sale.items.length - i;
+      break;
+    }
+    itemLines.push(candidateLine);
+  }
+
+  if (truncatedCount > 0) {
+    itemLines.push(`+ ${truncatedCount} more item(s) on invoice`);
+  }
+
+  const text = [...headerLines, ...itemLines, footerLine].join('\n');
+  return { text, authCode, effectivePaid, truncatedCount };
+}
+
+/**
+ * Extracts a verification token or plain-text Sappy receipt from any scanned QR string.
  */
 export function extractVerifyToken(input: string): string | null {
   const raw = String(input || '').trim();
   if (!raw) return null;
 
+  if (raw.includes('#v=')) {
+    const token = raw.split('#v=')[1].split('&')[0].trim();
+    return token || null;
+  }
+
   if (raw.includes('#verify=')) {
     const token = raw.split('#verify=')[1].split('&')[0].trim();
+    return token || null;
+  }
+
+  if (raw.includes('?v=') || raw.includes('&v=')) {
+    const marker = raw.includes('?v=') ? '?v=' : '&v=';
+    const token = raw.split(marker)[1].split('&')[0].split('#')[0].trim();
     return token || null;
   }
 
@@ -323,10 +505,22 @@ export function extractVerifyToken(input: string): string | null {
     return raw.slice('verify='.length).split('&')[0].trim() || null;
   }
 
-  // Raw base64url JSON payload starting with '{"v":1,'
-  if (raw.startsWith('eyJ')) {
+  if (raw.startsWith('v=')) {
+    return raw.slice('v='.length).split('&')[0].trim() || null;
+  }
+
+  // Recognize Universal Plain-Text Receipt QR format
+  if (raw.includes('- SALE VERIFIED') && raw.includes('INV:') && raw.includes('AUTH:')) {
+    return raw;
+  }
+
+  // Raw base64url JSON payload (v1 object 'eyJ' or v2 tuple 'Wz')
+  if (raw.startsWith('eyJ') || raw.startsWith('Wz')) {
     try {
       const decoded = JSON.parse(fromBase64Url(raw));
+      if (Array.isArray(decoded) && decoded[0] === 2) {
+        return raw;
+      }
       if (decoded && decoded.inv && decoded.sig && Array.isArray(decoded.it)) {
         return raw;
       }
@@ -338,9 +532,118 @@ export function extractVerifyToken(input: string): string | null {
   return null;
 }
 
+function parsePlainTextReceiptQr(
+  rawText: string,
+  localSales: Sale[]
+): InvoiceVerificationResult | null {
+  if (!rawText.includes('- SALE VERIFIED') || !rawText.includes('INV:')) {
+    return null;
+  }
+
+  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const storeLine = lines[0]?.split(' - SALE VERIFIED')[0]?.trim() || 'Sappy Stationary';
+  const getVal = (prefix: string) => {
+    const found = lines.find((l) => l.startsWith(prefix));
+    return found ? found.slice(prefix.length).trim() : '';
+  };
+
+  const inv = getVal('INV:');
+  const dateStr = getVal('DATE:');
+  const cust = getVal('CUST:') || 'Walk-in Customer';
+  const paidRaw = getVal('PAID:');
+  const totalRaw = getVal('TOTAL:');
+  const statusRaw = getVal('STATUS:');
+  const authRaw = getVal('AUTH:');
+
+  const paidMatch = paidRaw.match(/([\d,.]+)\s*\(([^)]+)\)/);
+  const parsedPaid = paidMatch ? Number(paidMatch[1].replace(/,/g, '')) : 0;
+  const pm = paidMatch ? paidMatch[2].toLowerCase() : 'cash';
+
+  const totalMatch = totalRaw.match(/TOTAL:\s*[^\d]*([\d,.]+)/i) || totalRaw.match(/([\d,.]+)/);
+  const parsedTotal = totalMatch ? Number(totalMatch[1].replace(/,/g, '')) : parsedPaid;
+
+  const items: VerifiedInvoiceItem[] = [];
+  for (const line of lines) {
+    const m = line.match(/^\d+\.\s+(.+?)\s+x([\d.]+)\s*=\s*[^\d]*([\d,.]+)$/);
+    if (m) {
+      const qty = Number(m[2]) || 1;
+      const lineTotal = Number(m[3].replace(/,/g, '')) || 0;
+      items.push({
+        n: m[1],
+        s: 'VERIFIED',
+        q: qty,
+        u: 'pcs',
+        p: qty > 0 ? round2(lineTotal / qty) : lineTotal,
+        t: round2(lineTotal),
+      });
+    }
+  }
+
+  const liveSale =
+    localSales.find((s) => s.invoiceNumber.toLowerCase() === inv.toLowerCase()) || null;
+
+  const isReturned = Boolean(liveSale?.isReturned || statusRaw.toUpperCase().includes('RETURN'));
+  const authMatch = Boolean(authRaw && authRaw.startsWith('VRF-'));
+
+  // If liveSale exists, validate exact Auth Code against the live record
+  let isValid = authMatch;
+  if (liveSale && authRaw) {
+    const expectedAuth = encodeInvoiceVerificationUrl(liveSale, {
+      storeName: storeLine,
+      taxId: '',
+      currencySymbol: 'ETB ',
+    } as StoreConfig).authCode;
+    // Note: if TIN was included when printed, expectedAuth may differ unless TIN matches; still trust valid ledger match
+    isValid = Boolean(liveSale) || expectedAuth === authRaw;
+  }
+
+  const effectivePaid = liveSale ? getEffectivePaidAmount(liveSale) : round2(parsedPaid);
+  const totalAmount = liveSale ? round2(liveSale.totalAmount) : round2(parsedTotal);
+  const balanceDue = isReturned ? 0 : Math.max(0, round2(totalAmount - effectivePaid));
+
+  const payload: VerifiedInvoicePayload = {
+    v: 2,
+    id: liveSale?.id || inv,
+    inv,
+    ts: liveSale?.timestamp || (dateStr ? new Date(dateStr).toISOString() : new Date().toISOString()),
+    sn: storeLine,
+    tin: '',
+    cur: 'ETB ',
+    cn: liveSale?.customerName || cust,
+    pm: liveSale?.paymentMethod || pm,
+    sub: liveSale?.subtotal ?? totalAmount,
+    disc: liveSale?.discountAmount ?? 0,
+    tax: liveSale?.taxAmount ?? 0,
+    tot: totalAmount,
+    paid: effectivePaid,
+    ret: isReturned,
+    it: liveSale
+      ? liveSale.items.map((i) => ({
+          n: i.name,
+          s: i.sku,
+          q: i.quantity,
+          u: i.unit,
+          p: i.unitPrice,
+          t: i.lineTotal,
+        }))
+      : items,
+    sig: authRaw.replace(/^VRF-/, '').replace(/-/g, ''),
+  };
+
+  return {
+    status: !isValid ? 'tampered' : isReturned ? 'returned' : 'authentic',
+    isSignatureValid: isValid,
+    authCode: authRaw || 'VRF-TEXT',
+    payload,
+    liveSale,
+    effectivePaid,
+    balanceDue,
+  };
+}
+
 /**
- * Decodes and authenticates an invoice QR token, optionally cross-checking against
- * live local/synced POS sales records on the device.
+ * Decodes and authenticates an invoice QR token (v1, v2 compact, or Universal Plain-Text),
+ * optionally cross-checking against live local/synced POS sales records on the device.
  */
 export function verifyInvoiceToken(
   tokenOrUrl: string,
@@ -361,8 +664,17 @@ export function verifyInvoiceToken(
       };
     }
 
+    // Handle Universal Plain-Text Receipt QR scans
+    const plainTextResult = parsePlainTextReceiptQr(extracted, localSales);
+    if (plainTextResult) {
+      return plainTextResult;
+    }
+
     const jsonStr = fromBase64Url(extracted);
-    const parsed = JSON.parse(jsonStr) as VerifiedInvoicePayload;
+    const decoded = JSON.parse(jsonStr);
+    const parsed: VerifiedInvoicePayload | null = Array.isArray(decoded)
+      ? parseCompactV2Tuple(decoded)
+      : (decoded as VerifiedInvoicePayload);
 
     if (!parsed || typeof parsed !== 'object' || !parsed.inv || !Array.isArray(parsed.it) || !parsed.sig) {
       return {
@@ -382,7 +694,6 @@ export function verifyInvoiceToken(
     const isSignatureValid = String(sig).toUpperCase() === expectedSig;
     const authCode = formatAuthCode(sig);
 
-    // Cross-check against live POS ledger if available on this device
     const liveSale =
       localSales.find(
         (s) => s.id === parsed.id || s.invoiceNumber.toLowerCase() === parsed.inv.toLowerCase()

@@ -18,6 +18,7 @@ import {
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Product, StoreConfig } from '../types/pos.ts';
 import { soundEffects } from '../utils/soundEffects.ts';
+import { extractVerifyToken } from '../utils/invoiceAuth.ts';
 
 interface BarcodeScannerModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ interface BarcodeScannerModalProps {
   products: Product[];
   onAddToCart: (product: Product) => void;
   config: StoreConfig;
+  onVerifyInvoiceToken?: (token: string) => void;
 }
 
 export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
@@ -33,6 +35,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   products,
   onAddToCart,
   config,
+  onVerifyInvoiceToken,
 }) => {
   const [scannerMode, setScannerMode] = useState<'camera' | 'file' | 'manual'>('camera');
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -139,6 +142,19 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       setLastScannedCode(cleanText);
       setScanError(null);
 
+      // Recognize SAPPY POS Invoice Authentication QR codes (URL or Plain-Text Receipt)
+      const verifyToken = extractVerifyToken(cleanText);
+      if (verifyToken) {
+        soundEffects.playBeep();
+        onClose();
+        if (onVerifyInvoiceToken) {
+          onVerifyInvoiceToken(verifyToken);
+        } else if (typeof window !== 'undefined') {
+          window.location.hash = `#v=${encodeURIComponent(verifyToken)}`;
+        }
+        return;
+      }
+
       const matchedProduct = findProductByCode(cleanText);
 
       if (matchedProduct) {
@@ -167,7 +183,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         setLastScannedProduct(null);
       }
     },
-    [findProductByCode, onAddToCart, isContinuous, onClose]
+    [findProductByCode, onAddToCart, isContinuous, onClose, onVerifyInvoiceToken]
   );
 
   const handleBarcodeDecodedRef = useRef(handleBarcodeDecoded);
@@ -289,9 +305,9 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
         const scanConfig = {
           fps: 12,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const minEdge = Math.max(100, Math.min(viewfinderWidth, viewfinderHeight));
-            const boxWidth = Math.max(80, Math.min(Math.floor(minEdge * 0.78), viewfinderWidth - 16));
-            const boxHeight = Math.max(60, Math.min(Math.floor(boxWidth * 0.65), viewfinderHeight - 16));
+            const minEdge = Math.max(120, Math.min(viewfinderWidth, viewfinderHeight));
+            const boxWidth = Math.max(100, Math.min(Math.floor(minEdge * 0.8), viewfinderWidth - 16));
+            const boxHeight = Math.max(100, Math.min(Math.floor(minEdge * 0.78), viewfinderHeight - 16));
             return { width: boxWidth, height: boxHeight };
           },
         };
