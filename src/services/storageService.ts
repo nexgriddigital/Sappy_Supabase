@@ -15,6 +15,7 @@ import {
   INITIAL_PRODUCTS,
   INITIAL_SALES,
   INITIAL_STORE_CONFIG,
+  STORE_PAYMENT_ACCOUNTS,
 } from '../data/seedData.ts';
 import {
   configureSupabase,
@@ -123,9 +124,28 @@ class StorageService {
       currencyCode: rawConfig.currencyCode || INITIAL_STORE_CONFIG.currencyCode,
       taxId: rawConfig.taxId || INITIAL_STORE_CONFIG.taxId,
       defaultTaxRate: rawConfig.defaultTaxRate ?? INITIAL_STORE_CONFIG.defaultTaxRate,
+      paymentAccounts:
+        rawConfig.paymentAccounts && rawConfig.paymentAccounts.length > 0
+          ? rawConfig.paymentAccounts
+          : STORE_PAYMENT_ACCOUNTS,
       masterPasscode: rawConfig.masterPasscode || DEFAULT_MASTER_PASSCODE,
     };
-    let changed = !rawConfig.currencySymbol || !rawConfig.currencyCode || !rawConfig.masterPasscode;
+    let changed =
+      !rawConfig.currencySymbol ||
+      !rawConfig.currencyCode ||
+      !rawConfig.masterPasscode ||
+      !rawConfig.paymentAccounts ||
+      rawConfig.paymentAccounts.length === 0;
+
+    // Upgrade legacy placeholder bankDetails to real store accounts
+    if (
+      !rawConfig.bankDetails ||
+      rawConfig.bankDetails.includes('1000123456789') ||
+      rawConfig.bankDetails.includes('0911234567')
+    ) {
+      config.bankDetails = INITIAL_STORE_CONFIG.bankDetails;
+      changed = true;
+    }
 
     // Auto-migrate old dollar currency symbol to Ethiopian Birr (Br)
     if (config.currencySymbol === '$' || config.currencyCode === 'USD') {

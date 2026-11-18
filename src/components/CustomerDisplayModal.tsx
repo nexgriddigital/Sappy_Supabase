@@ -13,6 +13,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { CartItem, Customer, Sale, StoreConfig, AppUser } from '../types/pos.ts';
+import { STORE_PAYMENT_ACCOUNTS } from '../data/seedData.ts';
 
 interface CustomerDisplayModalProps {
   isOpen: boolean;
@@ -267,8 +268,34 @@ export const CustomerDisplayModal: React.FC<CustomerDisplayModalProps> = ({
 
             </div>
 
+            {/* Accepted Bank & Telebirr Transfer Accounts */}
+            <div className="bg-charcoal-950 rounded-2xl border border-charcoal-800 p-4 space-y-2.5">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-forest-400 font-bold">
+                Accepted Bank &amp; Telebirr Accounts
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {(config.paymentAccounts && config.paymentAccounts.length > 0
+                  ? config.paymentAccounts
+                  : STORE_PAYMENT_ACCOUNTS
+                ).map((acct) => (
+                  <div
+                    key={acct.id}
+                    className="px-3 py-2 rounded-xl bg-charcoal-900 border border-charcoal-800 flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold uppercase font-mono text-forest-300">
+                        {acct.shortLabel}
+                      </span>
+                      <span className="text-[10px] text-charcoal-400 truncate">{acct.accountHolder}</span>
+                    </div>
+                    <p className="font-mono font-bold text-xs text-white mt-0.5">{acct.accountNumber}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Footer Tag */}
-            <div className="text-center text-xs text-charcoal-500 font-mono pt-2">
+            <div className="text-center text-xs text-charcoal-500 font-mono pt-1">
               <span>Stationery & Office Retail · All major payment methods accepted · {config.receiptFooter}</span>
             </div>
 

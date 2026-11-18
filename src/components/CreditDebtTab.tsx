@@ -20,6 +20,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { CreditPayment, Customer, Sale, StoreConfig } from '../types/pos.ts';
+import { STORE_PAYMENT_ACCOUNTS } from '../data/seedData.ts';
 
 interface CreditDebtTabProps {
   customers: Customer[];
@@ -77,8 +78,15 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
   const [custNotes, setCustNotes] = useState('');
 
   // Payment Settlement Form State
+  const paymentAccounts =
+    config.paymentAccounts && config.paymentAccounts.length > 0
+      ? config.paymentAccounts
+      : STORE_PAYMENT_ACCOUNTS;
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'digital'>('cash');
+  const [payAccountId, setPayAccountId] = useState<string>(
+    () => paymentAccounts[0]?.id || 'cbe-yohannes'
+  );
   const [payNotes, setPayNotes] = useState('');
   const [payReceiptGenerated, setPayReceiptGenerated] = useState<string | null>(null);
 
@@ -164,12 +172,22 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
     const numericAmount = parseFloat(payAmount);
     if (!numericAmount || numericAmount <= 0) return;
 
+    const chosenAcct =
+      payMethod === 'digital'
+        ? paymentAccounts.find((a) => a.id === payAccountId) || paymentAccounts[0]
+        : null;
+    const acctNote = chosenAcct
+      ? `${chosenAcct.shortLabel}: ${chosenAcct.accountNumber} (${chosenAcct.accountHolder})`
+      : '';
+    const finalNote = [acctNote, payNotes.trim()].filter(Boolean).join(' · ') || 'Debt settlement payment';
+
     onRecordPayment({
       customerId: activeCustomer.id,
       customerName: activeCustomer.name,
       amount: numericAmount,
       paymentMethod: payMethod,
-      notes: payNotes.trim() || 'Debt settlement payment',
+      externalChannel: chosenAcct ? `${chosenAcct.shortLabel} (${chosenAcct.accountHolder})` : undefined,
+      notes: finalNote,
     });
 
     setIsPaymentModalOpen(false);
@@ -188,7 +206,11 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
     } else {
       setManualAmount('');
     }
-    setManualChannel('Telebirr');
+    setManualChannel(
+      paymentAccounts[3]
+        ? `${paymentAccounts[3].shortLabel} — ${paymentAccounts[3].accountNumber} (${paymentAccounts[3].accountHolder})`
+        : 'Telebirr — 0980442353 (Yohannes Leulseged)'
+    );
     setManualReference('');
     setManualDate(new Date().toISOString().slice(0, 16));
     setManualCollector('');
@@ -619,6 +641,25 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
                   ))}
                 </div>
               </div>
+
+              {payMethod === 'digital' && (
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1.5">
+                    Receiving Bank / Telebirr Account:
+                  </label>
+                  <select
+                    value={payAccountId}
+                    onChange={(e) => setPayAccountId(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white font-mono text-xs focus:border-forest-500 cursor-pointer"
+                  >
+                    {paymentAccounts.map((acct) => (
+                      <option key={acct.id} value={acct.id} className="bg-charcoal-900 text-white">
+                        {acct.shortLabel} — {acct.accountNumber} ({acct.accountHolder})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Payment Notes */}
               <div>
@@ -1092,12 +1133,16 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
                     <select
                       value={manualChannel}
                       onChange={(e) => setManualChannel(e.target.value)}
-                      className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white focus:border-forest-500 cursor-pointer"
+                      className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-white focus:border-forest-500 cursor-pointer text-xs"
                     >
-                      <option value="Telebirr">Telebirr (Ethio Telecom)</option>
-                      <option value="Commercial Bank of Ethiopia (CBE)">Commercial Bank of Ethiopia (CBE)</option>
-                      <option value="Awash Bank">Awash Bank</option>
-                      <option value="Dashen Bank / Amole">Dashen Bank / Amole</option>
+                      {paymentAccounts.map((acct) => {
+                        const label = `${acct.shortLabel} — ${acct.accountNumber} (${acct.accountHolder})`;
+                        return (
+                          <option key={acct.id} value={label} className="bg-charcoal-900 text-white">
+                            {label}
+                          </option>
+                        );
+                      })}
                       <option value="Bank Check / Draft">Bank Check / Pay Order</option>
                       <option value="Direct Cash Handover">Direct Cash Handover (Field/Office)</option>
                       <option value="Other Bank Transfer">Other Bank Transfer</option>

@@ -10,6 +10,15 @@ export type ProductCategory =
 
 export type PaymentMethod = 'cash' | 'card' | 'digital' | 'credit';
 
+export interface PaymentAccount {
+  id: string;
+  provider: string;
+  shortLabel: string;
+  accountNumber: string;
+  accountHolder: string;
+  type: 'bank' | 'mobile';
+}
+
 export interface Product {
   id: string;
   sku: string;
@@ -159,6 +168,7 @@ export interface StoreConfig {
   defaultTaxRate: number; // e.g. 15 for 15% VAT
   receiptFooter: string;
   bankDetails: string;
+  paymentAccounts?: PaymentAccount[];
   databaseUrl?: string;
   supabaseUrl?: string;
   supabaseAnonKey?: string;

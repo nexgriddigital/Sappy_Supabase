@@ -662,11 +662,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           {/* MODE 1: LIVE VIDEO CAMERA VIEWPORT */}
           {scannerMode === 'camera' && (
             <div className="space-y-3">
-              <div className="relative w-full aspect-square max-h-[300px] sm:max-h-[340px] mx-auto bg-black rounded-2xl overflow-hidden border border-charcoal-800 shadow-inner flex items-center justify-center">
+              <div className="relative w-full h-[290px] sm:h-[330px] mx-auto bg-black rounded-2xl overflow-hidden border border-charcoal-800 shadow-inner flex items-center justify-center">
                 {/* HTML5 QR Code Mount Node */}
                 <div
                   id="pos-camera-viewport"
-                  className="w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
+                  className="w-full [&_video]:!w-full [&_video]:!h-auto [&_video]:block [&_#qr-shaded-region]:!hidden"
                 />
 
                 {/* Animated Targeting Overlay (Visual Reticle & Laser) */}
@@ -692,7 +692,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
                 {/* Camera Inactive / Permission Prompt */}
                 {!isCameraActive && !cameraError && (
-                  <div className="p-6 text-center space-y-3">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3 bg-black z-10">
                     <div className="w-12 h-12 rounded-2xl bg-charcoal-900 border border-charcoal-800 flex items-center justify-center mx-auto text-forest-400 animate-spin">
                       <RefreshCw className="w-6 h-6" />
                     </div>

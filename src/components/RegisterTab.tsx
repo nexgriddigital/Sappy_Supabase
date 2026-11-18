@@ -24,6 +24,9 @@ import {
   AlertCircle,
   Zap,
   Layers,
+  Copy,
+  Check,
+  Landmark,
 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner.ts';
 import {
@@ -35,6 +38,7 @@ import {
   Sale,
   StoreConfig,
 } from '../types/pos.ts';
+import { STORE_PAYMENT_ACCOUNTS } from '../data/seedData.ts';
 import { PaymentProcessingLoader } from './LoadingAnimation.tsx';
 import { soundEffects } from '../utils/soundEffects.ts';
 
@@ -100,6 +104,15 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
   // Checkout Tender Modal State
   const [isTenderOpen, setIsTenderOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('cash');
+  const paymentAccounts =
+    config.paymentAccounts && config.paymentAccounts.length > 0
+      ? config.paymentAccounts
+      : STORE_PAYMENT_ACCOUNTS;
+  const [selectedDigitalAccountId, setSelectedDigitalAccountId] = useState<string>(
+    () => paymentAccounts[0]?.id || 'cbe-yohannes'
+  );
+  const [digitalTxRef, setDigitalTxRef] = useState<string>('');
+  const [copiedAccountId, setCopiedAccountId] = useState<string | null>(null);
   const [cashTendered, setCashTendered] = useState<string>('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [creditDueDate, setCreditDueDate] = useState<string>(() => {
@@ -583,6 +596,17 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         lineCostTotal: item.lineCostTotal,
       }));
 
+      const selectedAcct =
+        selectedMethod === 'digital'
+          ? paymentAccounts.find((a) => a.id === selectedDigitalAccountId) || paymentAccounts[0]
+          : null;
+      const digitalNote = selectedAcct
+        ? `Paid via ${selectedAcct.shortLabel} (${selectedAcct.accountNumber} · ${selectedAcct.accountHolder})${
+            digitalTxRef.trim() ? ` · Ref: ${digitalTxRef.trim()}` : ''
+          }`
+        : '';
+      const combinedNotes = [digitalNote, orderNotes.trim()].filter(Boolean).join(' | ') || undefined;
+
       const newSale = onCompleteSale({
         customerId: selectedCustomer?.id,
         customerName: selectedCustomer ? selectedCustomer.name : 'Walk-in Retail Customer',
@@ -603,7 +627,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
         isCreditPaid: selectedMethod !== 'credit',
         creditDueDate: selectedMethod === 'credit' ? creditDueDate : undefined,
         paidAmount: depositAmount,
-        notes: orderNotes.trim() || undefined,
+        notes: combinedNotes,
       });
 
       // Play authentic cash drawer chime
@@ -614,6 +638,7 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
       setIsProcessingPayment(false);
       setIsTenderOpen(false);
       setOrderNotes('');
+      setDigitalTxRef('');
       setDiscountAmountInput('');
       setApplyTax(false);
 
@@ -1334,18 +1359,117 @@ export const RegisterTab: React.FC<RegisterTabProps> = ({
                 </div>
               )}
 
-              {/* CARD / DIGITAL PAYMENT TAB */}
-              {(selectedMethod === 'card' || selectedMethod === 'digital') && (
+              {/* CARD PAYMENT TAB */}
+              {selectedMethod === 'card' && (
                 <div className="p-4 rounded-xl bg-charcoal-950 border border-charcoal-800 text-center space-y-2">
                   <div className="w-10 h-10 rounded-full bg-forest-900/60 text-forest-400 border border-forest-700/40 flex items-center justify-center mx-auto">
-                    {selectedMethod === 'card' ? <CreditCard className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
+                    <CreditCard className="w-5 h-5" />
                   </div>
-                  <h4 className="text-sm font-bold text-white">
-                    {selectedMethod === 'card' ? 'Present Card to Terminal' : 'Scan Store QR Code'}
-                  </h4>
+                  <h4 className="text-sm font-bold text-white">Present Card to Terminal</h4>
                   <p className="text-xs text-charcoal-400 max-w-xs mx-auto">
-                    Acknowledge terminal authorization for <span className="font-mono text-forest-400 font-bold">{config.currencySymbol}{grandTotal.toFixed(2)}</span>.
+                    Acknowledge terminal authorization for{' '}
+                    <span className="font-mono text-forest-400 font-bold">
+                      {config.currencySymbol}{grandTotal.toFixed(2)}
+                    </span>.
                   </p>
+                </div>
+              )}
+
+              {/* DIGITAL / BANK & TELEBIRR ACCOUNTS TAB */}
+              {selectedMethod === 'digital' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold text-charcoal-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Landmark className="w-3.5 h-3.5 text-forest-400" />
+                      <span>Select Bank / Telebirr Account</span>
+                    </p>
+                    <span className="text-[11px] font-mono text-forest-400 font-bold">
+                      {config.currencySymbol}{grandTotal.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {paymentAccounts.map((acct) => {
+                      const isSelected = selectedDigitalAccountId === acct.id;
+                      const isCopied = copiedAccountId === acct.id;
+                      return (
+                        <div
+                          key={acct.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => {
+                            soundEffects.playClick();
+                            setSelectedDigitalAccountId(acct.id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setSelectedDigitalAccountId(acct.id);
+                            }
+                          }}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'bg-forest-950/80 border-forest-500 shadow-xs ring-1 ring-forest-500/30'
+                              : 'bg-charcoal-950 border-charcoal-800 hover:border-charcoal-700'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded font-mono ${
+                                  acct.type === 'mobile'
+                                    ? 'bg-sky-950/90 text-sky-300 border border-sky-800/70'
+                                    : 'bg-charcoal-800 text-forest-300 border border-charcoal-700'
+                                }`}
+                              >
+                                {acct.shortLabel}
+                              </span>
+                              <span className="text-[11px] text-charcoal-300 truncate font-medium">
+                                {acct.accountHolder}
+                              </span>
+                            </div>
+                            <p className="font-mono font-bold text-xs text-white mt-1 tracking-wide">
+                              {acct.accountNumber}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard?.writeText(acct.accountNumber).catch(() => {});
+                              setCopiedAccountId(acct.id);
+                              setTimeout(() => {
+                                setCopiedAccountId((prev) => (prev === acct.id ? null : prev));
+                              }, 1500);
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 border shrink-0 cursor-pointer transition-colors ${
+                              isCopied
+                                ? 'bg-emerald-950 border-emerald-700 text-emerald-300'
+                                : 'bg-charcoal-900 hover:bg-charcoal-800 border-charcoal-700 text-charcoal-300 hover:text-white'
+                            }`}
+                            title={`Copy ${acct.shortLabel} account number`}
+                          >
+                            {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                            <span>{isCopied ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-medium text-charcoal-400 mb-1">
+                      Transfer / Telebirr Transaction Ref # (Optional):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. FT26118... or Telebirr ref"
+                      value={digitalTxRef}
+                      onChange={(e) => setDigitalTxRef(e.target.value)}
+                      className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs font-mono text-white placeholder-charcoal-500 focus:ring-1 focus:ring-forest-500 focus:border-forest-500"
+                    />
+                  </div>
                 </div>
               )}
 

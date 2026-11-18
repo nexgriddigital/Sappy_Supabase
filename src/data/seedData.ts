@@ -1,5 +1,56 @@
-import { Customer, Expense, Product, Sale, StoreConfig } from '../types/pos.ts';
+import { Customer, Expense, PaymentAccount, Product, Sale, StoreConfig } from '../types/pos.ts';
 import { STARTER_STATIONERY_PRODUCTS } from './starterCatalog.ts';
+
+export const STORE_PAYMENT_ACCOUNTS: PaymentAccount[] = [
+  {
+    id: 'cbe-yohannes',
+    provider: 'Commercial Bank of Ethiopia (CBE)',
+    shortLabel: 'CBE',
+    accountNumber: '1000452354504',
+    accountHolder: 'Yohannes Leulseged',
+    type: 'bank',
+  },
+  {
+    id: 'cbe-azeb',
+    provider: 'Commercial Bank of Ethiopia (CBE)',
+    shortLabel: 'CBE',
+    accountNumber: '1000126845883',
+    accountHolder: 'Azeb Eshetu',
+    type: 'bank',
+  },
+  {
+    id: 'awash-yohannes',
+    provider: 'Awash Bank',
+    shortLabel: 'Awash',
+    accountNumber: '013201292764800',
+    accountHolder: 'Yohannes Leulseged',
+    type: 'bank',
+  },
+  {
+    id: 'telebirr-yohannes',
+    provider: 'Telebirr',
+    shortLabel: 'Telebirr',
+    accountNumber: '0980442353',
+    accountHolder: 'Yohannes Leulseged',
+    type: 'mobile',
+  },
+  {
+    id: 'abyssinia-yohannes',
+    provider: 'Bank of Abyssinia',
+    shortLabel: 'Abyssinia',
+    accountNumber: '194809058',
+    accountHolder: 'Yohannes Leulseged',
+    type: 'bank',
+  },
+  {
+    id: 'dashen-yohannes',
+    provider: 'Dashen Bank',
+    shortLabel: 'Dashen',
+    accountNumber: '5889696877011',
+    accountHolder: 'Yohannes Leulseged',
+    type: 'bank',
+  },
+];
 
 export const INITIAL_STORE_CONFIG: StoreConfig = {
   storeName: 'Sappy Stationary',
@@ -12,7 +63,9 @@ export const INITIAL_STORE_CONFIG: StoreConfig = {
   currencyCode: 'ETB',
   defaultTaxRate: 15, // 15% VAT standard
   receiptFooter: 'Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com',
-  bankDetails: 'Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567',
+  bankDetails:
+    'CBE: 1000452354504 (Yohannes Leulseged) / 1000126845883 (Azeb Eshetu) | Awash: 013201292764800 (Yohannes Leulseged) | Telebirr: 0980442353 (Yohannes Leulseged) | Abyssinia: 194809058 (Yohannes Leulseged) | Dashen: 5889696877011 (Yohannes Leulseged)',
+  paymentAccounts: STORE_PAYMENT_ACCOUNTS,
   masterPasscode: 'Sappy#1313',
   supabaseUrl: 'https://fegfrjhxxpojmalytbku.supabase.co',
   supabaseAnonKey: 'sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2',
