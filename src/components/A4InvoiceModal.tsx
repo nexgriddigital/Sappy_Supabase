@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Printer, X, CheckCircle, Clock, RotateCcw, ShieldCheck, QrCode } from 'lucide-react';
+import { Printer, X, CheckCircle, Clock, RotateCcw, ShieldCheck, QrCode, Zap } from 'lucide-react';
 import { Sale, StoreConfig } from '../types/pos.ts';
 import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
 import { generateQrSvgPath } from '../utils/barcodeGenerator.ts';
@@ -25,6 +25,7 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
   onVerifyPreview,
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const [isQuickPrinting, setIsQuickPrinting] = useState(false);
   const [qrMode, setQrMode] = useState<InvoiceQrMode>(() => {
     try {
       const saved = localStorage.getItem('sappy_invoice_qr_mode');
@@ -64,6 +65,138 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Directly prints only the A4 invoice via an isolated hidden frame, bypassing preview chrome
+  const handleQuickPrint = () => {
+    const invoiceEl = invoiceRef.current;
+    if (!invoiceEl || typeof document === 'undefined') {
+      window.print();
+      return;
+    }
+
+    setIsQuickPrinting(true);
+    let fallbackTriggered = false;
+    const triggerFallback = () => {
+      if (fallbackTriggered) return;
+      fallbackTriggered = true;
+      setIsQuickPrinting(false);
+      window.print();
+    };
+
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('aria-hidden', 'true');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      document.body.appendChild(iframe);
+
+      const frameDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      const frameWin = iframe.contentWindow;
+      if (!frameDoc || !frameWin) {
+        iframe.remove();
+        triggerFallback();
+        return;
+      }
+
+      // Clone active styles so Tailwind classes and custom fonts apply identically
+      const styleTags = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+        .map((node) => node.outerHTML)
+        .join('\n');
+
+      // Clone invoice HTML with resolved absolute image sources
+      const clone = invoiceEl.cloneNode(true) as HTMLElement;
+      clone.classList.remove('max-h-[85vh]', 'overflow-y-auto');
+      clone.style.maxHeight = 'none';
+      clone.style.overflow = 'visible';
+      clone.style.minHeight = 'auto';
+      clone.querySelectorAll('img').forEach((img) => {
+        if (img.src) img.setAttribute('src', img.src);
+      });
+
+      frameDoc.open();
+      frameDoc.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${sale.invoiceNumber} - ${config.storeName}</title>
+    ${styleTags}
+    <style>
+      @page { size: A4 portrait; margin: 12mm 15mm; }
+      html, body { background: #ffffff !important; color: #000000 !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      .printable-invoice-container { max-height: none !important; overflow: visible !important; padding: 0 !important; box-shadow: none !important; border: none !important; }
+    </style>
+  </head>
+  <body>${clone.outerHTML}</body>
+</html>`);
+      frameDoc.close();
+
+      let cleanedUp = false;
+      const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        setIsQuickPrinting(false);
+        setTimeout(() => {
+          try {
+            iframe.remove();
+          } catch {}
+        }, 300);
+      };
+
+      frameWin.onafterprint = cleanup;
+
+      const executePrint = () => {
+        try {
+          frameWin.focus();
+          frameWin.print();
+          // Ensure cleanup even on browsers where onafterprint is delayed or suppressed
+          setTimeout(cleanup, 1500);
+        } catch {
+          try {
+            iframe.remove();
+          } catch {}
+          triggerFallback();
+        }
+      };
+
+      const imgs = Array.from(frameDoc.querySelectorAll('img'));
+      if (imgs.length === 0) {
+        setTimeout(executePrint, 80);
+      } else {
+        let settled = false;
+        const proceed = () => {
+          if (settled) return;
+          settled = true;
+          setTimeout(executePrint, 60);
+        };
+        let remaining = imgs.length;
+        imgs.forEach((img) => {
+          if (img.complete) {
+            remaining -= 1;
+            if (remaining <= 0) proceed();
+          } else {
+            img.addEventListener('load', () => {
+              remaining -= 1;
+              if (remaining <= 0) proceed();
+            });
+            img.addEventListener('error', () => {
+              remaining -= 1;
+              if (remaining <= 0) proceed();
+            });
+          }
+        });
+        setTimeout(proceed, 450);
+      }
+    } catch {
+      triggerFallback();
+    }
   };
 
   const handleOpenVerification = () => {
@@ -113,6 +246,16 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
             >
               <QrCode className="w-4 h-4" />
               <span className="hidden sm:inline">Verify QR</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleQuickPrint}
+              disabled={isQuickPrinting}
+              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-charcoal-950 text-xs font-extrabold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95 border border-amber-400"
+              title="Directly print invoice to system printer"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>{isQuickPrinting ? 'Printing...' : 'Quick Print'}</span>
             </button>
             <button
               onClick={handlePrint}

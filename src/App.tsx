@@ -548,7 +548,7 @@ export default function App() {
       />
 
       {/* Main Tab Content */}
-      <main className="flex-1 flex flex-col pb-20 md:pb-6">
+      <main className={`flex-1 flex flex-col pb-20 md:pb-6 ${activeInvoice ? 'print:hidden' : ''}`}>
         {activeTab === 'dashboard' && (
           <DashboardTab
             sales={sales}
