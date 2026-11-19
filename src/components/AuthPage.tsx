@@ -30,7 +30,7 @@ import { storageService } from '../services/storageService.ts';
 import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
 import { applyPairingToken } from '../services/pairingService.ts';
 import { getSupabase } from '../lib/supabase.ts';
-import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
+import { SappyLogo } from './SappyLogo.tsx';
 
 interface AuthPageProps {
   onAuthSuccess: (user: AppUser) => void;
@@ -386,13 +386,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         <div className="bg-charcoal-950 p-5 sm:p-6 border-b border-charcoal-800 text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 bg-forest-600/10 rounded-full blur-2xl pointer-events-none" />
           
-          <div className="flex flex-col items-center justify-center mb-2">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border border-amber-500/40 shadow-xl shadow-amber-950/60 p-0.5 bg-gradient-to-b from-amber-500/20 to-transparent">
-              <img src={sappySquareIcon} alt="Sappy" className="w-full h-full object-cover rounded-xl" />
-            </div>
-            <h2 className="font-serif tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 font-extrabold text-2xl mt-1.5 drop-shadow-sm">
-              SAPPY
-            </h2>
+          <div className="flex flex-col items-center justify-center mb-2.5">
+            <SappyLogo variant="stacked" size="md" />
           </div>
 
           {mode === 'setup' ? (

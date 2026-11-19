@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Smartphone,
   KeyRound,
+  Activity,
 } from 'lucide-react';
 import { AppUser } from '../types/pos.ts';
 import { SappyLogo } from './SappyLogo.tsx';
@@ -37,6 +38,7 @@ export type TabType =
   | 'dashboard'
   | 'register'
   | 'sales'
+  | 'activity'
   | 'credit'
   | 'inventory'
   | 'expenses'
@@ -95,6 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'register', label: 'POS Register', icon: Store },
     { id: 'sales', label: 'Sales Ledger', icon: FileText },
+    { id: 'activity', label: 'Activity', icon: Activity },
     { id: 'credit', label: 'Credit & Debt', icon: Users },
     { id: 'inventory', label: 'Inventory', icon: Boxes },
     { id: 'expenses', label: 'Expenses', icon: Wallet },
@@ -111,6 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventory', icon: Boxes },
     { id: 'sales', label: 'Sales', icon: FileText },
+    { id: 'activity', label: 'Activity', icon: Activity },
   ];
 
   const handleSelectTab = (tab: TabType) => {
@@ -118,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     setIsMobileMenuOpen(false);
   };
 
-  const isSecondaryTabActive = !['register', 'dashboard', 'inventory', 'sales'].includes(activeTab);
+  const isSecondaryTabActive = !['register', 'dashboard', 'inventory', 'sales', 'activity'].includes(activeTab);
 
   return (
     <>
@@ -355,7 +359,10 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* ========================================================================= */}
       {/* MOBILE BOTTOM NAVIGATION BAR (Fixed at bottom for easy thumb access) */}
       {/* ========================================================================= */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-charcoal-950/95 backdrop-blur-md border-t border-charcoal-800/90 px-2 py-1.5 flex items-center justify-around shadow-2xl safe-area-bottom">
+      <nav
+        aria-label="Mobile bottom navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-charcoal-950/95 backdrop-blur-md border-t border-charcoal-800/90 px-1.5 py-1.5 grid grid-cols-6 gap-0.5 items-center shadow-2xl safe-area-bottom"
+      >
         {mobilePrimaryTabs.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -365,7 +372,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               key={item.id}
               onClick={() => handleSelectTab(item.id)}
-              className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all cursor-pointer relative min-h-[46px] ${
+              className={`min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all cursor-pointer relative min-h-[46px] ${
                 isActive
                   ? 'text-forest-400 font-bold bg-charcoal-900/80 shadow-xs'
                   : 'text-charcoal-400 hover:text-charcoal-200'
@@ -379,15 +386,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] mt-0.5 tracking-tight">{item.label}</span>
+              <span className="text-[10px] mt-0.5 tracking-tight truncate max-w-full">{item.label}</span>
             </button>
           );
         })}
 
-        {/* 5th Button: More (Opens the Drawer) */}
+        {/* 6th Button: More (Opens the Drawer) */}
         <button
           onClick={() => setIsMobileMenuOpen(true)}
-          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all cursor-pointer relative min-h-[46px] ${
+          className={`min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all cursor-pointer relative min-h-[46px] ${
             isSecondaryTabActive || isMobileMenuOpen
               ? 'text-amber-400 font-bold bg-charcoal-900/80 shadow-xs'
               : 'text-charcoal-400 hover:text-charcoal-200'
@@ -399,7 +406,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-charcoal-950" />
             )}
           </div>
-          <span className="text-[10px] mt-0.5 tracking-tight">More</span>
+          <span className="text-[10px] mt-0.5 tracking-tight truncate max-w-full">More</span>
         </button>
       </nav>
 

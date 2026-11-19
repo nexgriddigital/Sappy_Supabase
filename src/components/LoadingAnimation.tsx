@@ -1,5 +1,5 @@
 import React from 'react';
-import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
+import { SappyEmblem, SappyLogo } from './SappyLogo.tsx';
 
 interface LoadingScreenProps {
   message?: string;
@@ -16,24 +16,11 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
         {/* Glow ambient background */}
         <div className="absolute -inset-10 bg-amber-500/10 rounded-full blur-3xl animate-pulse pointer-events-none" />
 
-        {/* Brand Logo with Pulsing Ring */}
-        <div className="relative mb-6">
-          <div className="w-20 h-20 rounded-2xl bg-charcoal-900 border border-amber-500/40 p-1 flex items-center justify-center shadow-2xl shadow-amber-950/40 relative">
-            <img
-              src={sappySquareIcon}
-              alt="Sappy"
-              className="w-full h-full object-cover rounded-xl"
-            />
-            {/* Spinning decorative ring */}
-            <div className="absolute -inset-1.5 rounded-2xl border border-amber-400/40 border-t-amber-400 animate-spin" />
+        {/* Brand Logo with Spinning Ring */}
+        <div className="relative mb-5">
+          <div className="relative p-1.5 rounded-3xl">
+            <SappyLogo variant="stacked" size="md" />
           </div>
-        </div>
-
-        {/* Wordmark */}
-        <div className="mb-4">
-          <span className="font-serif tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 font-extrabold text-2xl drop-shadow-sm">
-            SAPPY
-          </span>
         </div>
 
         {/* Dynamic Progress Indicator */}
@@ -59,12 +46,8 @@ export const ModuleLoader: React.FC<{ label?: string }> = ({
           <div className="absolute inset-0 rounded-full border-2 border-charcoal-800" />
           <div className="absolute inset-0 rounded-full border-2 border-forest-500 border-t-transparent animate-spin" />
           <div className="absolute inset-1.5 rounded-full border-2 border-amber-400/70 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.85s' }} />
-          <div className="absolute inset-2.5 rounded-lg overflow-hidden bg-charcoal-900 flex items-center justify-center">
-            <img
-              src={sappySquareIcon}
-              alt="Sappy"
-              className="w-full h-full object-cover"
-            />
+          <div className="absolute inset-2.5 rounded-lg overflow-hidden bg-[#f3efe4] border border-[#ded6c1] p-0.5 flex items-center justify-center">
+            <SappyEmblem className="w-full h-full text-[#324729]" />
           </div>
         </div>
         <div className="w-32 h-1 bg-charcoal-900 rounded-full overflow-hidden border border-charcoal-800">
@@ -86,12 +69,8 @@ export const PaymentProcessingLoader: React.FC<{ message?: string }> = ({
       <div className="relative w-16 h-16">
         <div className="absolute inset-0 rounded-full border-4 border-charcoal-800" />
         <div className="absolute inset-0 rounded-full border-4 border-forest-500 border-t-transparent animate-spin" />
-        <div className="absolute inset-2 rounded-full bg-charcoal-900 flex items-center justify-center">
-          <img
-            src={sappySquareIcon}
-            alt="Sappy"
-            className="w-8 h-8 rounded-lg object-cover"
-          />
+        <div className="absolute inset-2 rounded-full bg-[#f3efe4] border border-[#ded6c1] p-1.5 flex items-center justify-center">
+          <SappyEmblem className="w-full h-full text-[#324729]" />
         </div>
       </div>
       <div>

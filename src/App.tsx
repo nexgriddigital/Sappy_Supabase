@@ -12,6 +12,7 @@ import { checkAndApplyUrlPairing } from './services/pairingService.ts';
 import { DashboardTab } from './components/DashboardTab.tsx';
 import { RegisterTab } from './components/RegisterTab.tsx';
 import { SalesLedgerTab } from './components/SalesLedgerTab.tsx';
+import { ActivityTab } from './components/ActivityTab.tsx';
 import { CreditDebtTab } from './components/CreditDebtTab.tsx';
 import { InventoryTab } from './components/InventoryTab.tsx';
 import { ExpensesTab } from './components/ExpensesTab.tsx';
@@ -584,6 +585,20 @@ export default function App() {
             config={config}
             onOpenInvoice={(sale) => setActiveInvoice(sale)}
             onReturnSale={handleReturnSale}
+          />
+        )}
+
+        {activeTab === 'activity' && (
+          <ActivityTab
+            sales={sales}
+            creditPayments={creditPayments}
+            expenses={expenses}
+            products={products}
+            customers={customers}
+            users={users}
+            config={config}
+            onOpenInvoice={(sale) => setActiveInvoice(sale)}
+            onNavigate={(tab) => setActiveTab(tab)}
           />
         )}
 

@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Printer, X, CheckCircle, Clock, RotateCcw, ShieldCheck, QrCode, Zap } from 'lucide-react';
 import { Sale, StoreConfig } from '../types/pos.ts';
-import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
+import { SappyLogo } from './SappyLogo.tsx';
 import { generateQrSvgPath } from '../utils/barcodeGenerator.ts';
 import {
   encodeInvoicePlainTextQr,
@@ -60,6 +60,64 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
       totalUnits,
     };
   }, [sale, config, qrMode]);
+
+  const settlementSummary = useMemo(() => {
+    if (!sale) return { methodLabel: '', extraNotes: '' };
+
+    const rawNotes = (sale.notes || '').trim();
+    const noteSegments = rawNotes
+      .split('|')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const paidViaSegment = noteSegments.find((seg) => /^Paid via\s+/i.test(seg));
+    const remainingNotes = noteSegments
+      .filter((seg) => seg !== paidViaSegment)
+      .join(' · ');
+
+    if (sale.paymentMethod === 'cash') {
+      return {
+        methodLabel: 'Cash',
+        extraNotes: remainingNotes,
+      };
+    }
+
+    if (sale.paymentMethod === 'card') {
+      return {
+        methodLabel: 'Card / POS Terminal',
+        extraNotes: remainingNotes,
+      };
+    }
+
+    if (sale.paymentMethod === 'credit') {
+      const creditStatus = sale.isCreditPaid
+        ? 'Credit Account (Settled)'
+        : verificationData && verificationData.effectivePaid > 0
+          ? 'Credit Account (Partial Payment)'
+          : 'Credit Account';
+      return {
+        methodLabel: creditStatus,
+        extraNotes: remainingNotes,
+      };
+    }
+
+    // Digital / Bank / Telebirr payment: extract only the method/channel name (and optional Ref)
+    if (paidViaSegment) {
+      const channelMatch = paidViaSegment.match(/^Paid via\s+([^(·]+)/i);
+      const refMatch = paidViaSegment.match(/·\s*Ref:\s*(.+)$/i);
+      const channel = channelMatch ? channelMatch[1].trim() : 'Digital / Bank Transfer';
+      const refSuffix = refMatch ? ` (Ref: ${refMatch[1].trim()})` : '';
+      return {
+        methodLabel: `${channel}${refSuffix}`,
+        extraNotes: remainingNotes,
+      };
+    }
+
+    return {
+      methodLabel: 'Digital / Bank Transfer',
+      extraNotes: remainingNotes,
+    };
+  }, [sale, verificationData]);
 
   if (!sale || !verificationData) return null;
 
@@ -284,16 +342,12 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
           <div className="flex flex-col sm:flex-row justify-between items-start pb-8 border-b-2 border-charcoal-900 gap-6">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <img
-                  src={sappySquareIcon}
-                  alt="Sappy"
-                  className="w-12 h-12 rounded-xl object-cover border border-amber-600/50 shadow-sm"
-                />
+                <SappyLogo variant="icon" size="lg" />
                 <div>
                   <h1 className="text-2xl font-extrabold tracking-tight text-charcoal-900 uppercase">
                     {config.storeName}
                   </h1>
-                  <p className="text-xs text-charcoal-500 font-medium">{config.tagline}</p>
+                  <p className="text-xs text-charcoal-500 font-serif">{config.tagline}</p>
                 </div>
               </div>
               <div className="text-xs text-charcoal-600 space-y-0.5 mt-2">
@@ -364,7 +418,7 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
                 )}
               </div>
               <p className="text-slate-500 text-[11px] mt-1.5">
-                Payment Method: <span className="font-semibold text-slate-800 capitalize">{sale.paymentMethod}</span>
+                Payment Method: <span className="font-semibold text-slate-800">{settlementSummary.methodLabel}</span>
               </p>
               {sale.isReturned && (
                 <div className="mt-2 text-right">
@@ -423,13 +477,15 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
 
           {/* Totals & Financial Breakdown */}
           <div className="border-t-2 border-slate-900 pt-4 flex flex-col sm:flex-row justify-between gap-6">
-            {/* Payment & Bank Terms */}
+            {/* Settlement Payment Method & Terms */}
             <div className="text-xs text-slate-600 max-w-sm space-y-2">
               <div>
                 <p className="font-bold text-slate-800 uppercase text-[10px] tracking-wider">
-                  Remittance / Bank Instructions:
+                  Settled Via:
                 </p>
-                <p className="text-slate-600 text-[11px] font-mono mt-0.5">{config.bankDetails}</p>
+                <p className="text-slate-800 text-xs font-semibold mt-0.5">
+                  {settlementSummary.methodLabel}
+                </p>
               </div>
               <div>
                 <p className="font-bold text-slate-800 uppercase text-[10px] tracking-wider">
@@ -437,7 +493,9 @@ export const A4InvoiceModal: React.FC<A4InvoiceModalProps> = ({
                 </p>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
                   Goods received in good condition. Returns accepted within 7 days with original invoice.
-                  {sale.notes && <span className="block italic text-slate-700 mt-1">Note: {sale.notes}</span>}
+                  {settlementSummary.extraNotes && (
+                    <span className="block italic text-slate-700 mt-1">Note: {settlementSummary.extraNotes}</span>
+                  )}
                 </p>
               </div>
             </div>

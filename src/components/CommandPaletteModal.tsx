@@ -22,6 +22,7 @@ import {
   X,
   Command,
   CornerDownLeft,
+  Activity,
 } from 'lucide-react';
 import { Product, Customer, StoreConfig, AppUser } from '../types/pos.ts';
 import { TabType } from './Navbar.tsx';
@@ -69,6 +70,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
     { id: 'dashboard' as TabType, title: 'Go to Dashboard', category: 'Navigation', icon: LayoutDashboard },
     { id: 'register' as TabType, title: 'Open POS Cash Register', category: 'Navigation', icon: Store },
     { id: 'sales' as TabType, title: 'View Sales Ledger & Invoices', category: 'Navigation', icon: FileText },
+    { id: 'activity' as TabType, title: 'Live Store Activity Feed', category: 'Navigation', icon: Activity },
     { id: 'credit' as TabType, title: 'Customer Credit & Debt Ledger', category: 'Navigation', icon: Users },
     { id: 'inventory' as TabType, title: 'Product Inventory & Stock', category: 'Navigation', icon: Boxes },
     { id: 'expenses' as TabType, title: 'Store Expenses & Log', category: 'Navigation', icon: Wallet },

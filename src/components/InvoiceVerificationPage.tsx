@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { Sale } from '../types/pos.ts';
 import { verifyInvoiceToken } from '../utils/invoiceAuth.ts';
-import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
+import { SappyLogo } from './SappyLogo.tsx';
 
 interface InvoiceVerificationPageProps {
   tokenOrUrl: string;
@@ -118,11 +118,7 @@ export const InvoiceVerificationPage: React.FC<InvoiceVerificationPageProps> = (
         {/* Top Store Brand & Action Strip */}
         <div className="flex items-center justify-between gap-3 bg-charcoal-900/90 border border-charcoal-800 rounded-2xl px-4 py-3 shadow-lg">
           <div className="flex items-center gap-3 min-w-0">
-            <img
-              src={sappySquareIcon}
-              alt="Sappy Stationary"
-              className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shrink-0"
-            />
+            <SappyLogo variant="icon" size="md" />
             <div className="min-w-0">
               <p className="text-sm font-extrabold text-white tracking-tight truncate uppercase">
                 {payload?.sn || 'Sappy Stationary POS'}

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { AppUser, StoreConfig } from '../types/pos.ts';
 import { soundEffects } from '../utils/soundEffects.ts';
-import sappySquareIcon from '../assets/images/sappy_icon_square_1793958931489.jpg';
+import { SappyLogo } from './SappyLogo.tsx';
 
 interface WelcomeAnimationModalProps {
   user: AppUser;
@@ -214,29 +214,12 @@ export const WelcomeAnimationModal: React.FC<WelcomeAnimationModalProps> = ({
           </button>
         </div>
 
-        {/* Phase 0: Golden Sappy Crest */}
+        {/* Phase 0: Sappy Forest & Cream Crest */}
         <div className="flex flex-col items-center justify-center mb-5">
-          <div className="relative group">
-            {/* Glowing Aura Ring */}
-            <div className="absolute -inset-2 bg-gradient-to-r from-amber-500/30 via-forest-500/40 to-amber-500/30 rounded-2xl blur-md opacity-80 animate-pulse pointer-events-none" />
-            
-            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-amber-500/70 shadow-xl bg-charcoal-950 flex items-center justify-center transition-transform duration-500 scale-100 hover:scale-105">
-              <img
-                src={sappySquareIcon}
-                alt="Sappy Stationery"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-
-          <div className="mt-3.5 space-y-0.5">
-            <span className="font-serif tracking-widest text-xs uppercase font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-200 to-amber-400">
-              {config.storeName || 'SAPPY STATIONARY'}
-            </span>
-            <p className="text-[11px] text-charcoal-400 font-mono tracking-tight">
-              Retail Point of Sale & Inventory Operating System
-            </p>
-          </div>
+          <SappyLogo variant="stacked" size="md" />
+          <p className="text-[11px] text-charcoal-400 font-mono tracking-tight mt-2.5">
+            Retail Point of Sale & Inventory Operating System
+          </p>
         </div>
 
         {/* Phase 1: Personal Welcome Greeting */}

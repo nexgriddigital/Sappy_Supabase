@@ -645,7 +645,35 @@ app.get('/api/health', async (_req: Request, res: Response) => {
   }
 
   try {
-    const client = await pool.connect();
+    let timedOut = false;
+    const connectPromise = pool.connect();
+    connectPromise
+      .then((c) => {
+        if (timedOut) c.release();
+      })
+      .catch(() => {});
+
+    const client = await Promise.race([
+      connectPromise,
+      new Promise<null>((resolve) =>
+        setTimeout(() => {
+          timedOut = true;
+          resolve(null);
+        }, 1500)
+      ),
+    ]);
+
+    if (!client) {
+      return res.json({
+        status: 'degraded',
+        mode: 'local_storage',
+        database: {
+          connected: false,
+          error: 'Database connection probe timed out; running in local mode.',
+        },
+      });
+    }
+
     const result = await client.query('SELECT NOW() as current_time, version()');
     client.release();
     return res.json({
@@ -990,11 +1018,39 @@ app.post('/api/sync', async (req: Request, res: Response) => {
 // Vite Middleware or Static Assets
 async function startServer() {
   if (!isProd) {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
+    let viteMiddleware: any = null;
+    const viteReady = createViteServer({
+      server: {
+        middlewareMode: true,
+        ws: process.env.DISABLE_HMR === 'true' ? false : undefined,
+      },
       appType: 'spa',
+    })
+      .then((vite) => {
+        viteMiddleware = vite.middlewares;
+        return vite;
+      })
+      .catch((err) => {
+        console.error('❌ Failed to initialize Vite dev middleware:', err);
+        throw err;
+      });
+
+    app.use(async (req, res, next) => {
+      if (req.path.startsWith('/api/')) {
+        return next();
+      }
+      try {
+        if (!viteMiddleware) {
+          await viteReady;
+        }
+        if (viteMiddleware) {
+          return viteMiddleware(req, res, next);
+        }
+        return next();
+      } catch (err) {
+        return next(err);
+      }
     });
-    app.use(vite.middlewares);
   } else {
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (_req: Request, res: Response) => {
@@ -1002,9 +1058,17 @@ async function startServer() {
     });
   }
 
-  app.listen(port, '0.0.0.0', () => {
+  const httpServer = app.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Sappy Stationary POS Server running at http://0.0.0.0:${port}`);
+  });
+
+  httpServer.on('error', (err) => {
+    console.error(`❌ Server failed to listen on port ${port}:`, err);
+    process.exit(1);
   });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('❌ Fatal server startup error:', err);
+  process.exit(1);
+});
