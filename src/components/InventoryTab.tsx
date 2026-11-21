@@ -4,21 +4,13 @@ import {
   Plus,
   Search,
   AlertTriangle,
-  ArrowUpDown,
   Edit2,
   Trash2,
-  DollarSign,
-  TrendingUp,
   X,
-  Layers,
   Upload,
   Sliders,
-  Check,
   ClipboardList,
   Copy,
-  Printer,
-  ChevronDown,
-  RotateCcw,
   AlertOctagon,
   Boxes,
   Sparkles,
@@ -138,7 +130,6 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
   }, [products, selectedCategory, filterBelowReorderOnly, searchQuery, thresholdMode, globalThreshold]);
 
   // Aggregate Metrics
-  const totalItems = products.length;
   const totalUnits = products.reduce((acc, p) => acc + p.stockLevel, 0);
   const totalCostValue = products.reduce((acc, p) => acc + p.stockLevel * p.costPrice, 0);
   const totalRetailValue = products.reduce((acc, p) => acc + p.stockLevel * p.sellingPrice, 0);

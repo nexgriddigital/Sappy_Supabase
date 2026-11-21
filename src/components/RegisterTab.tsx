@@ -10,7 +10,6 @@ import {
   BookOpen,
   Barcode,
   Camera,
-  QrCode,
   ShoppingBag,
   AlertTriangle,
   Receipt,

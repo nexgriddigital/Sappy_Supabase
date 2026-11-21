@@ -3,10 +3,7 @@ import {
   Sparkles,
   CheckCircle2,
   ArrowRight,
-  ShieldCheck,
-  Store,
   Barcode,
-  CloudCheck,
   Volume2,
   VolumeX,
   Boxes,
@@ -36,7 +33,6 @@ interface Particle {
 
 export const WelcomeAnimationModal: React.FC<WelcomeAnimationModalProps> = ({
   user,
-  config,
   onComplete,
   isFirstLogin = true,
 }) => {

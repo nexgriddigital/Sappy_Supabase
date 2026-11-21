@@ -1,14 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
-  CreditCard,
   Plus,
   Search,
   DollarSign,
-  TrendingDown,
   Trash2,
-  Calendar,
   X,
-  PieChart,
 } from 'lucide-react';
 import { Expense, ExpenseCategory, StoreConfig } from '../types/pos.ts';
 

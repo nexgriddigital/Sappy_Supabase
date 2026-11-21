@@ -3,13 +3,8 @@ import {
   Monitor,
   Printer,
   X,
-  Store,
   Receipt,
   QrCode,
-  CheckCircle2,
-  Calendar,
-  Clock,
-  User,
   ShoppingBag,
 } from 'lucide-react';
 import { CartItem, Customer, Sale, StoreConfig, AppUser } from '../types/pos.ts';

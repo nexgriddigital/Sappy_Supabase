@@ -12,7 +12,7 @@ import {
   Check,
 } from 'lucide-react';
 import { AppUser } from '../types/pos.ts';
-import { storageService, DEFAULT_MASTER_PASSCODE } from '../services/storageService.ts';
+import { storageService } from '../services/storageService.ts';
 
 // ============================================================================
 // 1. MASTER PASSCODE CHALLENGE MODAL (FOR CRITICAL ACTIONS)

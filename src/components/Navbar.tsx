@@ -12,11 +12,9 @@ import {
   ShoppingCart,
   LogOut,
   LogIn,
-  User,
   Database,
   UserCog,
   Search,
-  Command,
   Monitor,
   Volume2,
   VolumeX,
@@ -25,7 +23,6 @@ import {
   Menu,
   X,
   ChevronRight,
-  ShieldCheck,
   Smartphone,
   KeyRound,
   Activity,
@@ -52,13 +49,10 @@ interface NavbarProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   cartItemCount: number;
-  onOpenCart?: () => void;
-  dbConnected?: boolean;
   currentUser: AppUser | null;
   onSignOut: () => void;
   onOpenAuth: () => void;
   syncStatus?: 'synced' | 'syncing' | 'offline' | 'error';
-  isSyncing?: boolean;
   onManualSync?: () => void;
   onOpenCloudSync?: () => void;
   onOpenCommandPalette?: () => void;
@@ -74,13 +68,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
   cartItemCount,
-  onOpenCart,
-  dbConnected,
   currentUser,
   onSignOut,
   onOpenAuth,
   syncStatus = 'synced',
-  isSyncing = false,
   onManualSync,
   onOpenCloudSync,
   onOpenCommandPalette,
@@ -226,7 +217,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="shrink-0">
                 <PulseSyncIndicator
                   status={syncStatus}
-                  isSyncing={isSyncing}
                   onClick={onOpenCloudSync || onManualSync}
                 />
               </div>

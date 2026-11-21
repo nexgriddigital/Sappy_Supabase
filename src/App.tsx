@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Navbar, TabType } from './components/Navbar.tsx';
 import { AuthPage } from './components/AuthPage.tsx';
 import { ToastNotification, ToastMessage } from './components/ToastNotification.tsx';
@@ -7,7 +7,6 @@ import { STARTER_STATIONERY_PRODUCTS } from './data/starterCatalog.ts';
 import { storageService } from './services/storageService.ts';
 import { crossDeviceSyncService, SyncState } from './services/crossDeviceSyncService.ts';
 import { LoadingScreen } from './components/LoadingAnimation.tsx';
-import { isSupabaseConfigured } from './lib/supabase.ts';
 import { checkAndApplyUrlPairing } from './services/pairingService.ts';
 import { DashboardTab } from './components/DashboardTab.tsx';
 import { RegisterTab } from './components/RegisterTab.tsx';
@@ -96,9 +95,6 @@ export default function App() {
     customer: null,
   });
 
-  // Supabase connection flag
-  const [dbConnected, setDbConnected] = useState<boolean>(isSupabaseConfigured());
-
   // Toast Notification helper
   const showToast = useCallback((title: string, description?: string, type: 'success' | 'error' | 'info' = 'success', durationMs = 3500) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
@@ -186,7 +182,6 @@ export default function App() {
     setCreditPayments(pays);
     setUsers(usrs);
     setConfig(storageService.getStoreConfig());
-    setDbConnected(isSupabaseConfigured());
 
     // If all users have been wiped (e.g. Reset Everything), sign out immediately to prompt First-Time Setup
     if (usrs.length === 0) {
@@ -229,7 +224,6 @@ export default function App() {
     const didPairFromUrl = checkAndApplyUrlPairing();
     if (didPairFromUrl) {
       reloadData();
-      setDbConnected(true);
       showToast(
         'Database Paired Successfully',
         'Cloud database connected! Please enter your PIN or password to sign in.',
@@ -531,12 +525,10 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         cartItemCount={activeCartData.cart.reduce((sum, item) => sum + item.quantity, 0)}
-        dbConnected={dbConnected}
         currentUser={currentUser}
         onSignOut={handleSignOut}
         onOpenAuth={handleOpenAuth}
         syncStatus={syncState.status}
-        isSyncing={syncState.status === 'syncing'}
         onManualSync={() => crossDeviceSyncService.syncNow()}
         onOpenCloudSync={() => setIsCloudSyncModalOpen(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}

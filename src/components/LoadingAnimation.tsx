@@ -36,31 +36,6 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   );
 };
 
-export const ModuleLoader: React.FC<{ label?: string }> = ({
-  label = 'Loading module...',
-}) => {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center p-10 min-h-[320px] select-none animate-in fade-in duration-150">
-      <div className="relative flex flex-col items-center gap-3.5">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-2 border-charcoal-800" />
-          <div className="absolute inset-0 rounded-full border-2 border-forest-500 border-t-transparent animate-spin" />
-          <div className="absolute inset-1.5 rounded-full border-2 border-amber-400/70 border-b-transparent animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.85s' }} />
-          <div className="absolute inset-2.5 rounded-lg overflow-hidden bg-[#f3efe4] border border-[#ded6c1] p-0.5 flex items-center justify-center">
-            <SappyEmblem className="w-full h-full text-[#324729]" />
-          </div>
-        </div>
-        <div className="w-32 h-1 bg-charcoal-900 rounded-full overflow-hidden border border-charcoal-800">
-          <div className="h-full bg-gradient-to-r from-amber-500 via-forest-400 to-forest-500 rounded-full animate-indeterminate" />
-        </div>
-        <span className="text-xs font-mono text-charcoal-300 tracking-wide animate-pulse">
-          {label}
-        </span>
-      </div>
-    </div>
-  );
-};
-
 export const PaymentProcessingLoader: React.FC<{ message?: string }> = ({
   message = 'Processing payment and generating commercial tax invoice...',
 }) => {
@@ -82,11 +57,9 @@ export const PaymentProcessingLoader: React.FC<{ message?: string }> = ({
 };
 
 export const PulseSyncIndicator: React.FC<{
-  isSyncing: boolean;
   status: 'synced' | 'syncing' | 'offline' | 'error';
   onClick?: () => void;
-  lastSyncedText?: string;
-}> = ({ isSyncing, status, onClick, lastSyncedText }) => {
+}> = ({ status, onClick }) => {
   const getStatusColor = () => {
     switch (status) {
       case 'syncing':

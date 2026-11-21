@@ -1,24 +1,15 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Barcode,
-  QrCode,
   Printer,
   Download,
   Search,
-  Plus,
-  Minus,
   Trash2,
   Check,
   X,
   Layers,
-  FileSpreadsheet,
-  AlertTriangle,
-  RotateCcw,
-  Sparkles,
-  ExternalLink,
   ChevronLeft,
   ChevronRight,
-  Maximize2,
   Scan,
   Loader2,
 } from 'lucide-react';

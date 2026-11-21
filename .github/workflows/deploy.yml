@@ -37,9 +37,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://fegfrjhxxpojmalytbku.supabase.co' }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Ym9JdgLbipg5KGouA2UGEg_smmRkqd2' }}
-        run: |
-          npm run build
-          rm -rf ./dist/assets/aistudio
+        run: npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

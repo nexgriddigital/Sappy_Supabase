@@ -3,7 +3,6 @@ import {
   X,
   Camera,
   Barcode,
-  QrCode,
   FlipHorizontal,
   Zap,
   ZapOff,
@@ -13,7 +12,6 @@ import {
   Plus,
   ShoppingBag,
   RefreshCw,
-  Search,
 } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Product, StoreConfig } from '../types/pos.ts';

@@ -1,4 +1,4 @@
-import { getSupabaseCredentials, configureSupabase, isSupabaseConfigured } from '../lib/supabase.ts';
+import { getSupabaseCredentials, configureSupabase } from '../lib/supabase.ts';
 import { storageService } from './storageService.ts';
 import { crossDeviceSyncService } from './crossDeviceSyncService.ts';
 import { StoreConfig } from '../types/pos.ts';

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Store,
   Mail,
   Lock,
   User,
@@ -9,21 +8,16 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  ArrowRight,
   LogIn,
   UserPlus,
   Building2,
   Phone,
   Sparkles,
-  KeyRound,
   X,
   BadgeCheck,
-  DollarSign,
-  Percent,
   RefreshCw,
   Users,
   Smartphone,
-  Link2,
 } from 'lucide-react';
 import { AppUser, UserRole } from '../types/pos.ts';
 import { storageService } from '../services/storageService.ts';
@@ -67,7 +61,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [storeName, setStoreName] = useState('Sappy Stationary');
   const [phone, setPhone] = useState('');
   const [currencySymbol, setCurrencySymbol] = useState('Br ');
-  const [currencyCode, setCurrencyCode] = useState('ETB');
+  const currencyCode = 'ETB';
   const [taxRate, setTaxRate] = useState('15');
   const [role, setRole] = useState<UserRole>('owner');
   const [confirmPassword, setConfirmPassword] = useState('');

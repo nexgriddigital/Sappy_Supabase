@@ -65,7 +65,6 @@ export const DEFAULT_INITIAL_USERS: AppUser[] = [
   },
 ];
 
-const INITIAL_USERS: AppUser[] = DEFAULT_INITIAL_USERS;
 export const DEFAULT_MASTER_PASSCODE = 'Sappy#1313';
 
 class StorageService {
@@ -711,7 +710,6 @@ class StorageService {
   } {
     const allSales = this.getSales();
     const allExpenses = this.getExpenses();
-    const allPayments = this.getCreditPayments();
 
     const filteredSales = allSales.filter((s) => {
       const d = s.timestamp.slice(0, 10);
@@ -1317,10 +1315,6 @@ class StorageService {
     const cleanPin = pin.trim();
     const users = this.getUsers();
     return users.find((u) => u.pinCode === cleanPin && u.status !== 'suspended') || null;
-  }
-
-  seedDemoStaff(): AppUser[] {
-    return this.getUsers();
   }
 
   findUserByEmail(email: string): AppUser | null {

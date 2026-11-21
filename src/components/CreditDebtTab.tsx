@@ -10,12 +10,9 @@ import {
   Clock,
   Receipt,
   X,
-  CreditCard,
   Smartphone,
   ArrowDownRight,
   ArrowUpRight,
-  Building2,
-  Calendar,
   BadgeCheck,
   Trash2,
 } from 'lucide-react';
@@ -88,7 +85,6 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
     () => paymentAccounts[0]?.id || 'cbe-yohannes'
   );
   const [payNotes, setPayNotes] = useState('');
-  const [payReceiptGenerated, setPayReceiptGenerated] = useState<string | null>(null);
 
   // Filter customers
   const filteredCustomers = useMemo(() => {
@@ -121,7 +117,6 @@ export const CreditDebtTab: React.FC<CreditDebtTabProps> = ({
   const handleOpenPayment = (customer: Customer) => {
     setActiveCustomer(customer);
     setPayAmount(customer.creditBalance.toFixed(2));
-    setPayReceiptGenerated(null);
     setPayNotes('');
     setIsPaymentModalOpen(true);
   };

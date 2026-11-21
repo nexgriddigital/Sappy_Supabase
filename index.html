@@ -17,42 +17,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <style>
-      @keyframes indeterminate {
-        0% { transform: translateX(-100%); }
-        50% { transform: translateX(50%); }
-        100% { transform: translateX(200%); }
-      }
-      .animate-indeterminate {
-        animation: indeterminate 1.5s infinite linear;
-      }
-      @page {
-        size: A4 portrait;
-        margin: 12mm 15mm;
-      }
-      @media print {
-        body {
-          background: #ffffff !important;
-          color: #000000 !important;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        .no-print {
-          display: none !important;
-        }
-        .print-only {
-          display: block !important;
-        }
-        .printable-invoice-container {
-          box-shadow: none !important;
-          border: none !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          width: 100% !important;
-          max-width: 100% !important;
-        }
-      }
-    </style>
   </head>
   <body class="bg-charcoal-950 text-charcoal-100 antialiased selection:bg-forest-700 selection:text-white font-sans min-h-screen">
     <div id="root"></div>

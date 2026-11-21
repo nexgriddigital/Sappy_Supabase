@@ -3,32 +3,20 @@ import {
   UserCog,
   UserPlus,
   Users,
-  Shield,
   ShieldCheck,
   KeyRound,
-  Lock,
   Search,
-  Filter,
   CheckCircle2,
   AlertCircle,
-  MoreVertical,
   Edit2,
   Trash2,
   LogIn,
   Power,
-  Store,
   Phone,
-  Mail,
-  Calendar,
   Sparkles,
-  Info,
   X,
   Check,
   ChevronRight,
-  Eye,
-  EyeOff,
-  Clock,
-  Layers,
   ArrowUpDown,
   UserCheck,
   HelpCircle,
@@ -439,28 +427,6 @@ export const UsersTab: React.FC<UsersTabProps> = ({
     onUserChanged(user);
     setIsSwitchModalOpen(false);
     showSuccess(`Terminal switched to ${user.fullName} (${user.role.toUpperCase()}).`);
-  };
-
-  // Seed Demo Staff (One-click helpful shortcut)
-  const handleSeedDemoStaff = () => {
-    storageService.seedDemoStaff();
-    reloadUserList();
-    showSuccess('Sample Manager (Dawit) and Cashier (Selamawit) added to directory!');
-  };
-
-  // Format Dates
-  const formatDate = (isoString?: string) => {
-    if (!isoString) return 'Never';
-    try {
-      const d = new Date(isoString);
-      return d.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-    } catch {
-      return 'Unknown';
-    }
   };
 
   const formatDateTime = (isoString?: string) => {

@@ -3,18 +3,12 @@ import {
   Search,
   FileText,
   FileSpreadsheet,
-  Calendar,
   CheckCircle,
   Clock,
-  Filter,
   RotateCcw,
   AlertTriangle,
   X,
-  ShieldAlert,
   Boxes,
-  ArrowRight,
-  Receipt,
-  Info,
 } from 'lucide-react';
 import { PaymentMethod, Sale, StoreConfig } from '../types/pos.ts';
 import { exportReportToPdf, exportSheetsToExcel } from '../utils/exportHelpers.ts';

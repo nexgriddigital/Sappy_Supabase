@@ -1,6 +1,6 @@
 import { storageService } from './storageService.ts';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase.ts';
-import { Product, Customer, Sale, CreditPayment, Expense } from '../types/pos.ts';
+import { Sale, CreditPayment, Expense } from '../types/pos.ts';
 
 export type SyncStatusType = 'synced' | 'syncing' | 'offline' | 'error';
 export type SyncModeType = 'server' | 'supabase' | 'local';

@@ -204,7 +204,8 @@ const DEFAULT_SERVER_CONFIG = {
   currencyCode: 'ETB',
   defaultTaxRate: 15,
   receiptFooter: 'Thank you for shopping at Sappy Stationary! Inquiries: accounts@sappystationary.com',
-  bankDetails: 'Commercial Bank of Ethiopia (CBE) | Acc: 1000123456789 | Telebirr: 0911234567',
+  bankDetails:
+    'CBE: 1000452354504 (Yohannes Leulseged) / 1000126845883 (Azeb Eshetu) | Awash: 013201292764800 (Yohannes Leulseged) | Telebirr: 0980442353 (Yohannes Leulseged) | Abyssinia: 194809058 (Yohannes Leulseged) | Dashen: 5889696877011 (Yohannes Leulseged)',
   masterPasscode: 'Sappy#1313',
   supabaseUrl: (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://fegfrjhxxpojmalytbku.supabase.co').trim(),
   supabaseAnonKey: (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim(),
@@ -237,6 +238,40 @@ const DEFAULT_SERVER_USERS = [
     notes: 'Store Owner & Commercial Administrator',
   },
 ];
+
+const PURGED_DEMO_EMAILS = new Set([
+  'owner@sappystationery.et',
+  'cashier@sappystationery.et',
+  'manager@sappystationery.et',
+]);
+
+function normalizeAndDedupeUsers(users: any[]): any[] {
+  const byKey = new Map<string, any>();
+  for (const u of users || []) {
+    if (!u) continue;
+    const email = (u.email || '').toLowerCase().trim();
+    if (email && PURGED_DEMO_EMAILS.has(email)) continue;
+    const key = email || u.id;
+    if (!key) continue;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, u);
+    } else {
+      const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      const incomingTime = u.updatedAt ? new Date(u.updatedAt).getTime() : 0;
+      const preferred = incomingTime >= existingTime ? u : existing;
+      const fallback = incomingTime >= existingTime ? existing : u;
+      byKey.set(key, {
+        ...fallback,
+        ...preferred,
+        id: existing.id || preferred.id,
+        pinCode: preferred.pinCode !== undefined ? preferred.pinCode : fallback.pinCode,
+        password: preferred.password !== undefined ? preferred.password : fallback.password,
+      });
+    }
+  }
+  return Array.from(byKey.values());
+}
 
 function loadServerState(): PosState {
   try {
@@ -275,15 +310,9 @@ function loadServerState(): PosState {
         }
       }
 
-      // Filter out the three unknown mock users: Abebe, Bethelhem, and Dawit
-      const purgedUsers = (parsed.users || []).filter((u: any) => {
-        const email = (u?.email || '').toLowerCase().trim();
-        return email !== 'owner@sappystationery.et' &&
-               email !== 'cashier@sappystationery.et' &&
-               email !== 'manager@sappystationery.et';
-      });
-      if (purgedUsers.length !== (parsed.users || []).length) {
-        parsed.users = purgedUsers;
+      const cleanedUsers = normalizeAndDedupeUsers(parsed.users || []);
+      if (cleanedUsers.length !== (parsed.users || []).length) {
+        parsed.users = cleanedUsers;
         changed = true;
       }
 
@@ -291,11 +320,11 @@ function loadServerState(): PosState {
         parsed.users = DEFAULT_SERVER_USERS;
         changed = true;
       } else {
-        if (!parsed.users.some((u: any) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com')) {
+        if (!parsed.users.some((u: any) => (u.email || '').toLowerCase().trim() === 'amanuealhailu007@gmail.com')) {
           parsed.users.unshift(DEFAULT_SERVER_USERS[0]);
           changed = true;
         }
-        if (!parsed.users.some((u: any) => u.email.toLowerCase() === 'yohannesleulseged802@gmail.com')) {
+        if (!parsed.users.some((u: any) => (u.email || '').toLowerCase().trim() === 'yohannesleulseged802@gmail.com')) {
           parsed.users.push(DEFAULT_SERVER_USERS[1]);
           changed = true;
         }
@@ -337,23 +366,10 @@ function saveServerState(state: PosState): void {
 }
 
 let serverState: PosState = loadServerState();
-// Ensure unknown demo users are purged immediately
-serverState.users = (serverState.users || []).filter((u: any) => {
-  const email = (u?.email || '').toLowerCase().trim();
-  return email !== 'owner@sappystationery.et' &&
-         email !== 'cashier@sappystationery.et' &&
-         email !== 'manager@sappystationery.et';
-});
-saveServerState(serverState);
 
 // Multi-Device Sync: Fetch Canonical Server State
 app.get('/api/pos/state', (_req: Request, res: Response) => {
-  serverState.users = (serverState.users || []).filter((u: any) => {
-    const email = (u?.email || '').toLowerCase().trim();
-    return email !== 'owner@sappystationery.et' &&
-           email !== 'cashier@sappystationery.et' &&
-           email !== 'manager@sappystationery.et';
-  });
+  serverState.users = normalizeAndDedupeUsers(serverState.users || []);
   return res.json({
     success: true,
     state: serverState,
@@ -516,38 +532,16 @@ app.post('/api/pos/sync', (req: Request, res: Response) => {
       serverState.users = serverState.users.filter((u: any) => !delSet.has(u.id));
     }
 
-    // 8. Merge Users (retaining newest updates and PINs)
+    // 8. Merge Users (deduplicated by normalized email, retaining newest updates and PINs)
     if (payload.users && Array.isArray(payload.users) && payload.users.length > 0) {
-      const userMap = new Map(serverState.users.map((u: any) => [u.id || u.email.toLowerCase(), u]));
-      for (const u of payload.users) {
-        const key = u.id || (u.email ? u.email.toLowerCase() : '');
-        if (!key) continue;
-        const existing = userMap.get(key);
-        if (!existing) {
-          userMap.set(key, u);
-        } else {
-          const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-          const incomingTime = u.updatedAt ? new Date(u.updatedAt).getTime() : 0;
-          if (incomingTime >= existingTime) {
-            userMap.set(key, {
-              ...existing,
-              ...u,
-              pinCode: u.pinCode !== undefined ? u.pinCode : existing.pinCode,
-            });
-          }
-        }
-      }
-      if (payload.deletedUserIds && Array.isArray(payload.deletedUserIds)) {
-        for (const delId of payload.deletedUserIds) {
-          userMap.delete(delId);
-        }
-      }
-      serverState.users = Array.from(userMap.values()).filter((u: any) => {
-        const email = (u?.email || '').toLowerCase().trim();
-        return email !== 'owner@sappystationery.et' &&
-               email !== 'cashier@sappystationery.et' &&
-               email !== 'manager@sappystationery.et';
-      });
+      const deletedSet = new Set<string>(
+        Array.isArray(payload.deletedUserIds) ? payload.deletedUserIds : []
+      );
+      const mergedUsers = normalizeAndDedupeUsers([
+        ...(serverState.users || []),
+        ...payload.users,
+      ]).filter((u: any) => !deletedSet.has(u.id));
+      serverState.users = mergedUsers;
     }
 
     if (

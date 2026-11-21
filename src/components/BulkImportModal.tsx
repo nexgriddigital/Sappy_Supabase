@@ -9,9 +9,6 @@ import {
   X,
   RefreshCw,
   Package,
-  Layers,
-  ArrowRight,
-  Info,
 } from 'lucide-react';
 import { Product, StoreConfig } from '../types/pos.ts';
 import {
