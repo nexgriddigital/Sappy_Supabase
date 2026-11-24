@@ -1,0 +1,1094 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Mail,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  LogIn,
+  UserPlus,
+  Building2,
+  Phone,
+  Sparkles,
+  X,
+  BadgeCheck,
+  RefreshCw,
+  Users,
+  Smartphone,
+} from 'lucide-react';
+import { AppUser, UserRole } from '../types/pos.ts';
+import { storageService } from '../services/storageService.ts';
+import { crossDeviceSyncService } from '../services/crossDeviceSyncService.ts';
+import { applyPairingToken } from '../services/pairingService.ts';
+import { getSupabase } from '../lib/supabase.ts';
+import { SappyLogo } from './SappyLogo.tsx';
+
+interface AuthPageProps {
+  onAuthSuccess: (user: AppUser) => void;
+  onClose?: () => void; // Optional if shown as modal
+  initialMode?: 'login' | 'signup' | 'setup';
+  isModal?: boolean;
+}
+
+export const AuthPage: React.FC<AuthPageProps> = ({
+  onAuthSuccess,
+  onClose,
+  initialMode,
+  isModal = false,
+}) => {
+  const defaultMode = initialMode || (storageService.hasUsers() ? 'login' : 'setup');
+
+  const [mode, setMode] = useState<'login' | 'signup' | 'setup'>(defaultMode);
+  const [showPairModal, setShowPairModal] = useState(false);
+  const [pairInput, setPairInput] = useState('');
+  const [pairError, setPairError] = useState<string | null>(null);
+  const [staffUsers, setStaffUsers] = useState<AppUser[]>(() => storageService.getUsers());
+  const [selectedStaffUser, setSelectedStaffUser] = useState<AppUser | null>(() => {
+    const initialList = storageService.getUsers();
+    return initialList.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || initialList[0] || null;
+  });
+  const [email, setEmail] = useState(() => {
+    const initialList = storageService.getUsers();
+    const owner = initialList.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || initialList[0];
+    return owner ? owner.email : '';
+  });
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [storeName, setStoreName] = useState('Sappy Stationary');
+  const [phone, setPhone] = useState('');
+  const [currencySymbol, setCurrencySymbol] = useState('Br ');
+  const currencyCode = 'ETB';
+  const [taxRate, setTaxRate] = useState('15');
+  const [role, setRole] = useState<UserRole>('owner');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pinCode, setPinCode] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Sync mode whenever initialMode changes or when users become available
+  useEffect(() => {
+    const hasAnyUsers = storageService.hasUsers();
+    setMode(initialMode || (hasAnyUsers ? 'login' : 'setup'));
+    const currentUsers = storageService.getUsers();
+    setStaffUsers(currentUsers);
+    if (currentUsers.length > 0) {
+      const ownerUser = currentUsers.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || currentUsers[0];
+      setSelectedStaffUser((prev) => prev || ownerUser);
+      setEmail((prev) => prev || ownerUser.email);
+    } else {
+      setSelectedStaffUser(null);
+      setEmail('');
+    }
+  }, [initialMode]);
+
+  // Listen to cross-device sync and local storage changes, and perform auto-pull on mount
+  useEffect(() => {
+    const refreshProfiles = () => {
+      const users = storageService.getUsers();
+      setStaffUsers(users);
+      if (users.length === 0) {
+        setSelectedStaffUser(null);
+        setEmail('');
+        setMode('setup');
+      } else {
+        setSelectedStaffUser((prev) => {
+          if (!prev) {
+            return users.find((u) => u.email.toLowerCase() === 'amanuealhailu007@gmail.com') || users[0];
+          }
+          const match = users.find((u) => u.id === prev.id || u.email.toLowerCase() === prev.email.toLowerCase());
+          return match || prev;
+        });
+      }
+    };
+
+    const unsubSync = crossDeviceSyncService.subscribe(() => {
+      refreshProfiles();
+    });
+
+    const unsubStorage = storageService.subscribeToChanges(() => {
+      refreshProfiles();
+    });
+
+    return () => {
+      unsubSync();
+      unsubStorage();
+    };
+  }, []);
+
+  // Handle First-Time Store Owner Setup
+  const handleFirstTimeSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+    setLoading(true);
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = fullName.trim();
+
+    if (!cleanName || !cleanEmail || !password) {
+      setError('Please provide your full name, email address, and master password.');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Master password must be at least 6 characters long.');
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please verify your password entry.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Save configured store settings
+      const currentConfig = storageService.getStoreConfig();
+      storageService.saveStoreConfig({
+        ...currentConfig,
+        storeName: storeName.trim() || 'Sappy Stationary',
+        phone: phone.trim() || currentConfig.phone,
+        email: cleanEmail,
+        currencySymbol: currencySymbol,
+        currencyCode: currencyCode,
+        defaultTaxRate: parseFloat(taxRate) || 15,
+      });
+
+      if (pinCode.trim() && !/^\d{4}$/.test(pinCode.trim())) {
+        setError('Quick Terminal PIN must be exactly 4 numeric digits.');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Register master Store Owner user
+      const ownerUser = storageService.registerUser({
+        email: cleanEmail,
+        fullName: cleanName,
+        role: 'owner',
+        storeName: storeName.trim() || 'Sappy Stationary',
+        phone: phone.trim() || undefined,
+        password: password,
+        pinCode: pinCode.trim() || undefined,
+      });
+
+      // 3. Set active session
+      storageService.setCurrentUser(ownerUser);
+      setSuccessMsg(`Welcome, ${ownerUser.fullName}! Sappy POS is configured and ready.`);
+
+      // Push newly configured store & owner to cloud server immediately (with isNewSetup so reset flag clears cleanly)
+      await Promise.race([
+        crossDeviceSyncService.syncNow({ isNewSetup: true }).catch(() => false),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+      crossDeviceSyncService.broadcastLocalChange();
+
+      onAuthSuccess(ownerUser);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to complete setup. Please check your entries.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Login (Supports Email+Password, 4-Digit Terminal PIN, or 1-Tap Staff Selection)
+  const handleLogin = async (e?: React.FormEvent, targetStaff?: AppUser) => {
+    if (e) e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+    setLoading(true);
+
+    const userToAuth = targetStaff || selectedStaffUser;
+    const cleanEmail = userToAuth ? userToAuth.email.toLowerCase() : email.trim().toLowerCase();
+    const enteredPass = password.trim();
+
+    if (!cleanEmail) {
+      setError('Please select a staff member or enter your email address.');
+      setLoading(false);
+      return;
+    }
+
+    if (!enteredPass) {
+      setError('Password or 4-digit PIN is strictly required. No exceptions.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Direct user match if staff was selected
+      let user = userToAuth || (cleanEmail ? storageService.findUserByEmail(cleanEmail) : null);
+
+      // 2. PIN-based direct lookup if 4-digit PIN entered without email
+      if (!user && enteredPass) {
+        user = storageService.verifyUserPin(enteredPass);
+      }
+
+      // 3. Check Supabase Auth if configured
+      if (!user && cleanEmail && enteredPass) {
+        const supabase = await getSupabase();
+        if (supabase) {
+          try {
+            const { data, error: supaErr } = await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password: enteredPass,
+            });
+
+            if (!supaErr && data.user) {
+              const metadata = data.user.user_metadata || {};
+              user = {
+                id: data.user.id,
+                email: data.user.email || cleanEmail,
+                fullName: metadata.full_name || cleanEmail.split('@')[0],
+                role: (metadata.role as UserRole) || 'owner',
+                storeName: metadata.store_name || storeName,
+                createdAt: data.user.created_at,
+                lastLoginAt: new Date().toISOString(),
+              };
+            }
+          } catch {}
+        }
+      }
+
+      if (!user) {
+        if (!storageService.hasUsers()) {
+          setMode('setup');
+          setError('No user accounts exist yet. Please complete setup or click "Check Cloud Sync Now".');
+          setLoading(false);
+          return;
+        }
+
+        setError('Invalid staff credentials. Please check your email or enter your 4-digit PIN.');
+        setLoading(false);
+        return;
+      }
+
+      // Suspended check
+      if (user.status === 'suspended') {
+        setError('This staff account has been suspended by the Store Owner.');
+        setLoading(false);
+        return;
+      }
+
+      // Verify personal Password, 4-digit PIN, or (if no personal PW is set) Master Passcode
+      const isCredentialValid = storageService.verifyUserLoginCredential(user, enteredPass);
+
+      if (!isCredentialValid) {
+        setError(`Incorrect PIN or password for ${user.fullName}. Please verify your 4-digit PIN or account password.`);
+        setLoading(false);
+        return;
+      }
+
+      // Set active session
+      storageService.setCurrentUser(user);
+      setSuccessMsg(`Welcome, ${user.fullName} (${user.role.toUpperCase()})!`);
+      setTimeout(() => {
+        onAuthSuccess(user!);
+      }, 60);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to authenticate. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Signup (Staff Member Registration)
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+    setLoading(true);
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !fullName.trim()) {
+      setError('Please fill in your full name and email address.');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please re-enter.');
+      setLoading(false);
+      return;
+    }
+
+    if (pinCode.trim() && !/^\d{4}$/.test(pinCode.trim())) {
+      setError('Quick Terminal PIN must be exactly 4 numeric digits.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Register user locally in storageService
+      const newUser = storageService.registerUser({
+        email: cleanEmail,
+        fullName: fullName.trim(),
+        role: role,
+        storeName: storeName.trim() || 'Sappy Stationary',
+        phone: phone.trim() || undefined,
+        password: password,
+        pinCode: pinCode.trim() || undefined,
+      });
+
+      storageService.setCurrentUser(newUser);
+      setSuccessMsg(`Account created successfully! Welcome, ${newUser.fullName}.`);
+
+      // Push new staff profile to cloud server immediately
+      crossDeviceSyncService.broadcastLocalChange();
+      crossDeviceSyncService.syncNow().catch(() => {});
+
+      setTimeout(() => {
+        onAuthSuccess(newUser);
+      }, 500);
+    } catch (err: any) {
+      setError(err?.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const containerClasses = isModal
+    ? 'fixed inset-0 z-50 bg-charcoal-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto'
+    : 'min-h-[85vh] flex items-center justify-center p-3 sm:p-6 overflow-y-auto';
+
+  return (
+    <div className={containerClasses}>
+      <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[94vh] overflow-y-auto text-charcoal-100 relative my-auto">
+        
+        {/* Close Button if Modal */}
+        {isModal && onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 z-20 text-charcoal-400 hover:text-white p-1 rounded-lg cursor-pointer transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Top Header Card */}
+        <div className="bg-charcoal-950 p-5 sm:p-6 border-b border-charcoal-800 text-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-forest-600/10 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="flex flex-col items-center justify-center mb-2.5">
+            <SappyLogo variant="stacked" size="md" />
+          </div>
+
+          {mode === 'setup' ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold font-mono px-3 py-1 rounded-full bg-forest-950 text-forest-300 border border-forest-700/60 shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-forest-400" />
+                  <span>First-Time Store Owner Setup</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoading(true);
+                    setError(null);
+                    await crossDeviceSyncService.initialSync(true);
+                    const users = storageService.getUsers();
+                    setStaffUsers(users);
+                    setMode('login');
+                    setSuccessMsg(`Store accounts ready. Select your profile to enter.`);
+                    setLoading(false);
+                  }}
+                  disabled={loading}
+                  className="px-2.5 py-1 bg-charcoal-900 hover:bg-charcoal-800 text-amber-400 border border-charcoal-700 rounded-lg text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Sync Cloud</span>
+                </button>
+              </div>
+              <p className="text-xs text-charcoal-400 mt-1 max-w-sm mx-auto">
+                Register the master store owner administrator account and set your store preferences.
+              </p>
+
+              {/* Instant switch for other devices / terminals */}
+              <div className="mt-3 flex flex-col sm:flex-row gap-2 items-center justify-between bg-charcoal-900/90 border border-charcoal-800 rounded-xl px-3 py-2 text-xs">
+                <span className="text-charcoal-300 text-[11px]">Already set up on another device?</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPairModal(true);
+                      setPairError(null);
+                    }}
+                    className="text-emerald-400 hover:text-emerald-300 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Pair Device</span>
+                  </button>
+                  <span className="text-charcoal-600">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                    }}
+                    className="text-amber-400 hover:text-amber-300 font-bold text-xs underline cursor-pointer"
+                  >
+                    Staff Login →
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-charcoal-400 mt-1">
+                Commercial Point of Sale & Retail Management Hub
+              </p>
+
+              {/* Mode Switch Tabs */}
+              <div className="grid grid-cols-2 gap-1 bg-charcoal-900 p-1 rounded-xl border border-charcoal-800 mt-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('login');
+                    setError(null);
+                    setSuccessMsg(null);
+                  }}
+                  className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    mode === 'login'
+                      ? 'bg-forest-700 text-white shadow-xs border border-forest-600/60'
+                      : 'text-charcoal-400 hover:text-white'
+                  }`}
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signup');
+                    setError(null);
+                    setSuccessMsg(null);
+                  }}
+                  className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                    mode === 'signup'
+                      ? 'bg-forest-700 text-white shadow-xs border border-forest-600/60'
+                      : 'text-charcoal-400 hover:text-white'
+                  }`}
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Register Staff</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Error / Success Feedback */}
+        {error && (
+          <div className="mx-6 mt-4 p-3 bg-rose-950/80 border border-rose-800 rounded-xl text-rose-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="mx-6 mt-4 p-3 bg-forest-950/80 border border-forest-700 rounded-xl text-forest-300 text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-forest-400" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        {/* Form Body */}
+        <div className="p-6">
+          {mode === 'setup' ? (
+            /* ======================================================== */
+            /* 1. FIRST-TIME STORE OWNER SETUP FORM */
+            /* ======================================================== */
+            <form onSubmit={handleFirstTimeSetup} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Store Owner Full Name *
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Store Owner Name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Store / Stationery Name *
+                  </label>
+                  <div className="relative">
+                    <Building2 className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Sappy Stationary"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Store Contact Phone
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                    <input
+                      type="tel"
+                      placeholder="+251 91 123 4567"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 font-mono focus:border-forest-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Master Owner Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="owner@sappystationery.et"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Master Password *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      placeholder="Min 6 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-3 pr-8 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-2.5 text-charcoal-400 hover:text-white cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Confirm Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Re-enter password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Quick 4-Digit Terminal PIN (Optional)
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="e.g. 2468"
+                  value={pinCode}
+                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono tracking-widest focus:border-forest-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Currency Symbol
+                  </label>
+                  <input
+                    type="text"
+                    value={currencySymbol}
+                    onChange={(e) => setCurrencySymbol(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                    placeholder="Br "
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Standard Tax Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                    placeholder="15"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-3 bg-forest-700 hover:bg-forest-600 text-white font-bold text-sm rounded-xl cursor-pointer shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-forest-600/50 shadow-forest-950/60"
+              >
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <BadgeCheck className="w-4 h-4 text-forest-200" />
+                    <span>Complete Setup & Enter POS</span>
+                  </>
+                )}
+              </button>
+            </form>
+          ) : mode === 'login' ? (
+            /* ======================================================== */
+            /* 2. REGULAR / TOUCH TERMINAL LOGIN FORM */
+            /* ======================================================== */
+            <form onSubmit={(e) => handleLogin(e)} className="space-y-4">
+              
+              {/* Quick Staff Profile Cards */}
+              {staffUsers.length > 0 && (
+                <div className="bg-charcoal-950 p-3 rounded-xl border border-charcoal-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-charcoal-400 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-forest-400" />
+                      <span>Select Staff Profile ({staffUsers.length} Found)</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setLoading(true);
+                        setError(null);
+                        await crossDeviceSyncService.syncNow();
+                        const users = storageService.getUsers();
+                        setStaffUsers(users);
+                        setSuccessMsg(`Terminals synchronized! (${users.length} staff profile${users.length === 1 ? '' : 's'} available)`);
+                        setLoading(false);
+                      }}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer font-mono"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                      <span>Sync</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {staffUsers.map((u) => {
+                      const isSelected = selectedStaffUser?.id === u.id || email.toLowerCase() === u.email.toLowerCase();
+                      return (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedStaffUser(u);
+                            setEmail(u.email);
+                            setError(null);
+                          }}
+                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-forest-900/70 border-forest-500 text-white shadow-xs ring-1 ring-forest-500/50'
+                              : 'bg-charcoal-900 border-charcoal-800 text-charcoal-300 hover:border-charcoal-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold truncate">{u.fullName.split(' ')[0]}</span>
+                            <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-bold ${
+                              u.role === 'owner' ? 'bg-amber-950 text-amber-300 border border-amber-800' :
+                              u.role === 'manager' ? 'bg-sky-950 text-sky-300 border border-sky-800' :
+                              'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                            }`}>
+                              {u.role}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-charcoal-400 font-mono truncate">{u.email}</p>
+                          {u.pinCode && (
+                            <p className="text-[9px] text-charcoal-500 font-mono mt-1">PIN: ••••</p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1.5">
+                  Staff Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. owner@sappystationery.et"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setSelectedStaffUser(null);
+                    }}
+                    className="w-full pl-10 pr-4 py-2.5 bg-charcoal-950 border border-charcoal-700 rounded-xl text-sm text-white placeholder-charcoal-500 focus:outline-hidden focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider">
+                    Password or 4-Digit PIN
+                  </label>
+                  {selectedStaffUser?.pinCode && (
+                    <span className="text-[10px] text-forest-400 font-mono">
+                      PIN Code Enabled
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter password or 4-digit PIN..."
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 bg-charcoal-950 border border-charcoal-700 rounded-xl text-sm text-white placeholder-charcoal-500 focus:outline-hidden focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-charcoal-400 hover:text-white cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-charcoal-400 mt-1 font-mono">
+                  {selectedStaffUser
+                    ? `Signing in as ${selectedStaffUser.fullName} · Enter your 4-digit PIN or Account Password`
+                    : 'Enter your 4-digit Quick Terminal PIN or Account Password'}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-charcoal-400">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="rounded border-charcoal-700 bg-charcoal-950 text-forest-600 focus:ring-forest-500 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <span>Keep me signed in</span>
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 bg-forest-700 hover:bg-forest-600 text-white font-bold text-sm rounded-xl cursor-pointer shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-forest-600/50 shadow-forest-950/60"
+              >
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4 text-forest-200" />
+                    <span>
+                      {selectedStaffUser
+                        ? `Sign In as ${selectedStaffUser.fullName}`
+                        : 'Sign In to Terminal'}
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {/* Auxiliary Navigation */}
+              <div className="pt-3 border-t border-charcoal-800/80 flex items-center justify-between text-xs text-charcoal-400">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('setup');
+                    setError(null);
+                  }}
+                  className="hover:text-amber-300 transition-colors cursor-pointer text-[11px]"
+                >
+                  First-Time Store Setup
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLoading(true);
+                    setError(null);
+                    await crossDeviceSyncService.syncNow();
+                    const users = storageService.getUsers();
+                    setStaffUsers(users);
+                    setSuccessMsg(`Cloud terminals synchronized! (${users.length} staff profile${users.length === 1 ? '' : 's'} available)`);
+                    setLoading(false);
+                  }}
+                  className="hover:text-white flex items-center gap-1 text-[11px] cursor-pointer font-mono"
+                >
+                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Refresh Cloud</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* ======================================================== */
+            /* 3. STAFF REGISTRATION FORM */
+            /* ======================================================== */
+            <form onSubmit={handleSignup} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Full Name *
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Staff Member Name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-charcoal-500 absolute left-3.5 top-3" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="staff@sappystationery.et"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 focus:border-forest-500"
+                  />
+                </div>
+              </div>
+
+              {/* Role Selection */}
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Staff Role *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'owner' as UserRole, label: 'Owner', desc: 'Full control' },
+                    { id: 'manager' as UserRole, label: 'Manager', desc: 'Inventory & P&L' },
+                    { id: 'cashier' as UserRole, label: 'Cashier', desc: 'POS checkout' },
+                  ].map((r) => {
+                    const isSelected = role === r.id;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setRole(r.id)}
+                        className={`p-2 rounded-xl text-left border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-forest-900/80 border-forest-500 text-white'
+                            : 'bg-charcoal-950 border-charcoal-800 text-charcoal-400 hover:text-white'
+                        }`}
+                      >
+                        <p className="text-xs font-bold">{r.label}</p>
+                        <p className="text-[10px] text-charcoal-400">{r.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Min 6 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                    Confirm Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Re-enter password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono focus:border-forest-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-charcoal-300 uppercase tracking-wider mb-1">
+                  Quick 4-Digit Terminal PIN (Optional)
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="4-digit numeric PIN for fast register sign-in"
+                  value={pinCode}
+                  onChange={(e) => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white font-mono tracking-widest focus:border-forest-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-3 bg-forest-700 hover:bg-forest-600 text-white font-bold text-sm rounded-xl cursor-pointer shadow-lg active:scale-[0.99] transition-all flex items-center justify-center gap-2 border border-forest-600/50 shadow-forest-950/60"
+              >
+                {loading ? (
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 text-forest-200" />
+                    <span>Register Staff Account</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+        </div>
+
+        {/* Security Footer */}
+        <div className="px-6 py-3 bg-charcoal-950 border-t border-charcoal-800 flex items-center justify-between text-[11px] text-charcoal-500 font-mono">
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-forest-400" />
+            <span>256-bit Encrypted POS</span>
+          </span>
+          <span>Role-Based Access</span>
+        </div>
+
+      </div>
+
+      {/* Pair from Another Device Modal */}
+      {showPairModal && (
+        <div className="fixed inset-0 z-50 bg-charcoal-950/85 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+          <div className="bg-charcoal-900 border border-charcoal-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-charcoal-100">
+            <div className="flex items-center justify-between pb-3 border-b border-charcoal-800">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-forest-950 border border-forest-700/60 flex items-center justify-center text-forest-300">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Pair This Device</h3>
+                  <p className="text-[11px] text-charcoal-400">Connect to your primary POS database instantly</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPairModal(false)}
+                className="text-charcoal-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-charcoal-300 leading-relaxed">
+                On your PC or primary device, open <strong>Cloud Sync</strong> and click <strong>&quot;Copy 1-Click Link&quot;</strong> or <strong>&quot;Copy Code&quot;</strong>. Paste it below:
+              </p>
+
+              <textarea
+                value={pairInput}
+                onChange={(e) => setPairInput(e.target.value)}
+                placeholder="Paste pairing link or code here..."
+                rows={3}
+                className="w-full px-3 py-2 bg-charcoal-950 border border-charcoal-700 rounded-xl text-xs text-white placeholder-charcoal-500 font-mono focus:border-forest-500 focus:outline-hidden"
+              />
+
+              {pairError && (
+                <p className="text-xs text-rose-400 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{pairError}</span>
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPairModal(false)}
+                  className="px-3 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-charcoal-300 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPairError(null);
+                    if (!pairInput.trim()) {
+                      setPairError('Please paste a pairing code or URL.');
+                      return;
+                    }
+                    const res = applyPairingToken(pairInput);
+                    if (res.success) {
+                      setShowPairModal(false);
+                      setPairInput('');
+                      crossDeviceSyncService.broadcastLocalChange();
+                      crossDeviceSyncService.syncNow();
+                      setSuccessMsg('Database paired! Enter your 4-digit PIN or password to sign in.');
+                    } else {
+                      setPairError(res.message);
+                    }
+                  }}
+                  className="px-4 py-2 bg-forest-700 hover:bg-forest-600 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+                >
+                  Connect Database
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
